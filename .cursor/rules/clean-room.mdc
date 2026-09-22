@@ -1,0 +1,15 @@
+---
+description: Implement Hearth Speed Dial from docs/SPEC.md only; do not copy the old speed dial
+alwaysApply: true
+---
+
+# Clean room
+
+Hearth Speed Dial is a new extension. Build it from [docs/SPEC.md](docs/SPEC.md) and the conversation in this repo.
+
+## Hard rules
+
+- Do not copy or adapt source, CSS, locales, icons, screenshots, store text, or file layout from `conceptualspace/yet-another-speed-dial` or `antgraf/yet-another-speed-dial-2`.
+- Do not open those trees as an implementation reference.
+- v1 is Chrome only, Manifest V3, local images only, bookmarks as the dial store. Firefox, image URLs, captured thumbnails, and refresh wait until the spec says they are in scope.
+- Do not add host permissions, a backend, analytics, or an account.

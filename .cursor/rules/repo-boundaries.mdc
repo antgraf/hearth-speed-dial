@@ -1,0 +1,31 @@
+---
+description: PRs and pushes stay on antgraf/hearth-speed-dial; never touch the old speed-dial repos
+alwaysApply: true
+---
+
+# This repo only
+
+`origin` is **antgraf/hearth-speed-dial**. This project has no upstream.
+
+The older speed-dial repos are out of bounds:
+
+- `conceptualspace/yet-another-speed-dial`
+- `antgraf/yet-another-speed-dial-2`
+
+## Hard rules
+
+- Do not create, update, comment on, or close PRs on those repos.
+- Do not push to them, and do not add either as a git remote.
+- Create PRs only here:
+
+```powershell
+gh pr create --repo antgraf/hearth-speed-dial --base main --head <branch> ...
+```
+
+- After `gh pr create`, verify the URL is `github.com/antgraf/hearth-speed-dial/pull/...`.
+- Do not rely on bare `gh pr create` or `gh repo view`. Pass `--repo antgraf/hearth-speed-dial`.
+- Push with `git push -u origin HEAD`.
+
+## Why
+
+On a previous clone, `gh` treated an unrelated parent repo as the default PR base and opened pull requests there. This repo must not inherit that default.
