@@ -18,6 +18,7 @@ export type BookmarksApi = {
   createFolder(parentId: string, title: string): Promise<BookmarkNode>;
   createBookmark(parentId: string, title: string, url: string): Promise<BookmarkNode>;
   update(id: string, changes: BookmarkUpdate): Promise<BookmarkNode>;
+  remove(id: string): Promise<void>;
   subscribe(listener: () => void): () => void;
 };
 
@@ -46,6 +47,13 @@ export function chromeBookmarks(): BookmarksApi {
     async update(id, changes) {
       const updated = await chrome.bookmarks.update(id, changes);
       return fromChrome(updated);
+    },
+    async remove(id) {
+      const nodes = await chrome.bookmarks.get(id);
+      const node = nodes[0];
+      if (!node) throw new Error("That bookmark is no longer available.");
+      if (node.url !== undefined) await chrome.bookmarks.remove(id);
+      else await chrome.bookmarks.removeTree(id);
     },
     subscribe(listener) {
       const onCreated = () => listener();

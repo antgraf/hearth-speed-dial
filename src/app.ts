@@ -8,7 +8,7 @@ import {
   parentIds,
   type BookmarkNode,
 } from "./model.ts";
-import { canRenameNode, present, type AppState, type CreateKind } from "./present.ts";
+import { canDeleteNode, canRenameNode, deleteConfirmMessage, present, type AppState, type CreateKind } from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
 import {
   clampColumns,
@@ -67,6 +67,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         };
         draw();
       },
+      requestDelete: (id) => {
+        void deleteNode(id);
+      },
       cancelForm: () => {
         if (state.saving) return;
         state.form = null;
@@ -91,6 +94,27 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     try {
       await ports.settings.setOpenFolderId(id);
     } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const deleteNode = async (id: string) => {
+    if (state.saving) return;
+    const node = nodeIndex(state.tree).get(id);
+    if (!canDeleteNode(node) || !node) return;
+    const confirmed = window.confirm(deleteConfirmMessage(node));
+    if (!confirmed) return;
+    state.form = null;
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      await ports.bookmarks.remove(id);
+      state.saving = false;
+      await reload();
+    } catch (error) {
+      state.saving = false;
       state.error = errorText(error);
       draw();
     }
