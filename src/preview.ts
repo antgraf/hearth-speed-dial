@@ -52,6 +52,17 @@ export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi
     async createBookmark(parentId, title, url) {
       return addChild(parentId, { title, url });
     },
+    async update(id, changes) {
+      const node = findNode(tree, id);
+      if (!node) throw new Error("That bookmark is no longer available.");
+      if (changes.title !== undefined) node.title = changes.title;
+      if (changes.url !== undefined) {
+        if (node.children) throw new Error("Folders do not have an address.");
+        node.url = changes.url;
+      }
+      savePreviewTree(tree);
+      return structuredClone(node);
+    },
     subscribe() {
       return () => undefined;
     },
@@ -98,13 +109,19 @@ function nextPreviewId(nodes: readonly BookmarkNode[]): number {
   return max;
 }
 
-function findFolder(nodes: readonly BookmarkNode[], id: string): BookmarkNode | null {
+function findNode(nodes: readonly BookmarkNode[], id: string): BookmarkNode | null {
   for (const node of nodes) {
     if (node.id === id) return node;
     if (node.children) {
-      const found = findFolder(node.children, id);
+      const found = findNode(node.children, id);
       if (found) return found;
     }
   }
   return null;
+}
+
+function findFolder(nodes: readonly BookmarkNode[], id: string): BookmarkNode | null {
+  const node = findNode(nodes, id);
+  if (!node || typeof node.url === "string") return null;
+  return node;
 }
