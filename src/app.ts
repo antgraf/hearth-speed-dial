@@ -1,0 +1,169 @@
+import {
+  acceptsChildren,
+  bookmarkRoot,
+  bookmarkUrl,
+  classify,
+  folderName,
+  nodeIndex,
+  parentIds,
+  type BookmarkNode,
+} from "./model.ts";
+import { present, type AppState, type CreateKind } from "./present.ts";
+import type { BookmarksApi } from "./browser.ts";
+import type { SettingsApi } from "./settings.ts";
+import { render } from "./view.ts";
+
+export type AppPorts = {
+  bookmarks: BookmarksApi;
+  settings: SettingsApi;
+  banner?: string | null;
+};
+
+export function start(host: HTMLElement, ports: AppPorts): () => void {
+  const state: AppState = {
+    banner: ports.banner ?? null,
+    status: "loading",
+    error: null,
+    tree: [],
+    currentId: null,
+    form: null,
+    saving: false,
+  };
+  let request = 0;
+
+  const draw = () => render(host, present(state), {
+    openFolder: (id) => {
+      void showFolder(id);
+    },
+    goToFolder: (id) => {
+      void showFolder(id);
+    },
+    beginCreate: (kind) => {
+      if (state.saving) return;
+      state.error = null;
+      state.form = { kind, title: "", url: "" };
+      draw();
+    },
+    cancelCreate: () => {
+      if (state.saving) return;
+      state.form = null;
+      state.error = null;
+      draw();
+    },
+    submitCreate: (input) => {
+      void saveCreate(input);
+    },
+  });
+
+  const showFolder = async (id: string) => {
+    const folder = nodeIndex(state.tree).get(id);
+    if (!folder || classify(folder) !== "folder") return;
+    state.currentId = id;
+    state.form = null;
+    state.error = null;
+    draw();
+    try {
+      await ports.settings.setOpenFolderId(id);
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const saveCreate = async (input: { title: string; url: string }) => {
+    if (state.saving || !state.form) return;
+    const parent = nodeIndex(state.tree).get(state.currentId ?? "");
+    if (!parent || !acceptsChildren(parent)) return;
+    const kind: CreateKind = state.form.kind;
+    const title = folderName(input.title);
+    const url = kind === "bookmark" ? bookmarkUrl(input.url) : null;
+    if (!title || (kind === "bookmark" && !url)) {
+      state.form = { kind, title: input.title, url: input.url };
+      state.error = kind === "folder" ? "Name the folder." : "Name the bookmark and enter its address.";
+      draw();
+      return;
+    }
+    state.form = { kind, title, url: input.url };
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      if (kind === "folder") await ports.bookmarks.createFolder(parent.id, title);
+      else await ports.bookmarks.createBookmark(parent.id, title, url ?? "");
+      state.form = null;
+      state.saving = false;
+      await reload();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const reload = async () => {
+    const ticket = ++request;
+    const previousId = state.currentId;
+    try {
+      const tree = await ports.bookmarks.getTree();
+      if (ticket !== request) return;
+      state.tree = tree;
+      state.status = "ready";
+      state.error = null;
+      state.saving = false;
+      const opened = resolveFolder(state);
+      state.currentId = opened;
+      if (opened && opened !== previousId) void ports.settings.setOpenFolderId(opened);
+    } catch (error) {
+      if (ticket !== request) return;
+      state.status = state.tree.length > 0 ? "ready" : "failed";
+      state.error = errorText(error);
+      state.saving = false;
+    }
+    if (ticket === request) draw();
+  };
+
+  let unsubscribe = (): void => undefined;
+  try {
+    unsubscribe = ports.bookmarks.subscribe(() => {
+      void reload();
+    });
+  } catch (error) {
+    state.error = errorText(error);
+  }
+
+  void (async () => {
+    try {
+      state.currentId = await ports.settings.getOpenFolderId();
+    } catch (error) {
+      state.error = errorText(error);
+    }
+    await reload();
+  })();
+
+  return unsubscribe;
+}
+
+function resolveFolder(state: AppState): string | null {
+  const root = bookmarkRoot(state.tree);
+  if (!root) return null;
+  const current = state.currentId ? nodeIndex(state.tree).get(state.currentId) : undefined;
+  if (current && classify(current) === "folder" && isInside(state.tree, root.id, current.id)) return current.id;
+  return root.id;
+}
+
+function isInside(tree: readonly BookmarkNode[], rootId: string, id: string): boolean {
+  const parents = parentIds(tree);
+  const seen = new Set<string>();
+  let current: string | undefined = id;
+  while (current && !seen.has(current)) {
+    if (current === rootId) return true;
+    seen.add(current);
+    current = parents.get(current);
+  }
+  return false;
+}
+
+function errorText(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return "Something went wrong while reading bookmarks.";
+}

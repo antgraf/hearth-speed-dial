@@ -1,0 +1,67 @@
+import type { BookmarkNode } from "./model.ts";
+import { readOpenFolderId, type SettingsApi } from "./settings.ts";
+
+export type BookmarksApi = {
+  getTree(): Promise<BookmarkNode[]>;
+  createFolder(parentId: string, title: string): Promise<BookmarkNode>;
+  createBookmark(parentId: string, title: string, url: string): Promise<BookmarkNode>;
+  subscribe(listener: () => void): () => void;
+};
+
+function fromChrome(node: chrome.bookmarks.BookmarkTreeNode): BookmarkNode {
+  const mapped: BookmarkNode = { id: node.id, title: node.title };
+  if (node.parentId !== undefined) mapped.parentId = node.parentId;
+  if (node.url !== undefined) mapped.url = node.url;
+  if (node.children) mapped.children = node.children.map(fromChrome);
+  return mapped;
+}
+
+export function chromeBookmarks(): BookmarksApi {
+  return {
+    async getTree() {
+      const tree = await chrome.bookmarks.getTree();
+      return tree.map(fromChrome);
+    },
+    async createFolder(parentId, title) {
+      const created = await chrome.bookmarks.create({ parentId, title });
+      return fromChrome(created);
+    },
+    async createBookmark(parentId, title, url) {
+      const created = await chrome.bookmarks.create({ parentId, title, url });
+      return fromChrome(created);
+    },
+    subscribe(listener) {
+      const onCreated = () => listener();
+      const onRemoved = () => listener();
+      const onChanged = () => listener();
+      const onMoved = () => listener();
+      const onReordered = () => listener();
+      chrome.bookmarks.onCreated.addListener(onCreated);
+      chrome.bookmarks.onRemoved.addListener(onRemoved);
+      chrome.bookmarks.onChanged.addListener(onChanged);
+      chrome.bookmarks.onMoved.addListener(onMoved);
+      chrome.bookmarks.onChildrenReordered.addListener(onReordered);
+      return () => {
+        chrome.bookmarks.onCreated.removeListener(onCreated);
+        chrome.bookmarks.onRemoved.removeListener(onRemoved);
+        chrome.bookmarks.onChanged.removeListener(onChanged);
+        chrome.bookmarks.onMoved.removeListener(onMoved);
+        chrome.bookmarks.onChildrenReordered.removeListener(onReordered);
+      };
+    },
+  };
+}
+
+export function chromeSettings(): SettingsApi {
+  return {
+    async getOpenFolderId() {
+      const stored = await chrome.storage.local.get("settings");
+      return readOpenFolderId(stored.settings);
+    },
+    async setOpenFolderId(id) {
+      const stored = await chrome.storage.local.get("settings");
+      const previous = stored.settings && typeof stored.settings === "object" ? stored.settings : {};
+      await chrome.storage.local.set({ settings: { ...previous, openFolderId: id } });
+    },
+  };
+}

@@ -1,0 +1,26 @@
+{
+  "name": "hearth-speed-dial",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "node --experimental-strip-types --test src/model.test.ts src/present.test.ts",
+    "icons": "node scripts/draw-icons.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/chrome": "^0.3.0",
+    "@types/node": "^26.6.2",
+    "eslint": "^10.11.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.3.0"
+  }
+}
