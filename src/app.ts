@@ -1,16 +1,22 @@
 import {
   acceptsChildren,
   bookmarkRoot,
-  bookmarkUrl,
   classify,
   folderName,
+  bookmarkUrl,
   nodeIndex,
   parentIds,
   type BookmarkNode,
 } from "./model.ts";
 import { present, type AppState, type CreateKind } from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
-import type { SettingsApi } from "./settings.ts";
+import {
+  clampColumns,
+  clampTileSize,
+  DEFAULT_LAYOUT,
+  type LayoutSettings,
+  type SettingsApi,
+} from "./settings.ts";
 import { render } from "./view.ts";
 
 export type AppPorts = {
@@ -28,32 +34,37 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     currentId: null,
     form: null,
     saving: false,
+    layout: { ...DEFAULT_LAYOUT },
   };
   let request = 0;
 
-  const draw = () => render(host, present(state), {
-    openFolder: (id) => {
-      void showFolder(id);
-    },
-    goToFolder: (id) => {
-      void showFolder(id);
-    },
-    beginCreate: (kind) => {
-      if (state.saving) return;
-      state.error = null;
-      state.form = { kind, title: "", url: "" };
-      draw();
-    },
-    cancelCreate: () => {
-      if (state.saving) return;
-      state.form = null;
-      state.error = null;
-      draw();
-    },
-    submitCreate: (input) => {
-      void saveCreate(input);
-    },
-  });
+  const draw = () =>
+    render(host, present(state), {
+      openFolder: (id) => {
+        void showFolder(id);
+      },
+      goToFolder: (id) => {
+        void showFolder(id);
+      },
+      beginCreate: (kind) => {
+        if (state.saving) return;
+        state.error = null;
+        state.form = { kind, title: "", url: "" };
+        draw();
+      },
+      cancelCreate: () => {
+        if (state.saving) return;
+        state.form = null;
+        state.error = null;
+        draw();
+      },
+      submitCreate: (input) => {
+        void saveCreate(input);
+      },
+      setLayout: (layout) => {
+        void saveLayout(layout);
+      },
+    });
 
   const showFolder = async (id: string) => {
     const folder = nodeIndex(state.tree).get(id);
@@ -64,6 +75,21 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     draw();
     try {
       await ports.settings.setOpenFolderId(id);
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const saveLayout = async (layout: LayoutSettings) => {
+    const next = {
+      columns: clampColumns(layout.columns),
+      tileSize: clampTileSize(layout.tileSize),
+    };
+    state.layout = next;
+    draw();
+    try {
+      await ports.settings.setLayout(next);
     } catch (error) {
       state.error = errorText(error);
       draw();
@@ -134,6 +160,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   void (async () => {
     try {
       state.currentId = await ports.settings.getOpenFolderId();
+      state.layout = await ports.settings.getLayout();
     } catch (error) {
       state.error = errorText(error);
     }

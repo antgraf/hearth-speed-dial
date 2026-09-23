@@ -1,5 +1,12 @@
 import type { BookmarkNode } from "./model.ts";
-import { readOpenFolderId, type SettingsApi } from "./settings.ts";
+import {
+  clampColumns,
+  clampTileSize,
+  readLayout,
+  readOpenFolderId,
+  type LayoutSettings,
+  type SettingsApi,
+} from "./settings.ts";
 
 export type BookmarksApi = {
   getTree(): Promise<BookmarkNode[]>;
@@ -59,9 +66,26 @@ export function chromeSettings(): SettingsApi {
       return readOpenFolderId(stored.settings);
     },
     async setOpenFolderId(id) {
+      await patchSettings({ openFolderId: id });
+    },
+    async getLayout() {
       const stored = await chrome.storage.local.get("settings");
-      const previous = stored.settings && typeof stored.settings === "object" ? stored.settings : {};
-      await chrome.storage.local.set({ settings: { ...previous, openFolderId: id } });
+      return readLayout(stored.settings);
+    },
+    async setLayout(layout: LayoutSettings) {
+      await patchSettings({
+        columns: clampColumns(layout.columns),
+        tileSize: clampTileSize(layout.tileSize),
+      });
     },
   };
+}
+
+async function patchSettings(patch: Record<string, unknown>): Promise<void> {
+  const stored = await chrome.storage.local.get("settings");
+  const previous =
+    stored.settings && typeof stored.settings === "object"
+      ? (stored.settings as Record<string, unknown>)
+      : {};
+  await chrome.storage.local.set({ settings: { ...previous, ...patch } });
 }
