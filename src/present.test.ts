@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { BookmarkNode } from "./model.ts";
-import { present, type AppState } from "./present.ts";
+import { canRenameNode, present, type AppState } from "./present.ts";
 
 const tree: BookmarkNode[] = [
   {
@@ -50,6 +50,7 @@ test("the top level is a grid of the root folders", () => {
     ["Bookmarks"],
   );
   assert.equal(screen.canCreate, false);
+  assert.equal(screen.canRenameCurrent, false);
 });
 
 test("an open folder uses the same grid and can add tiles", () => {
@@ -64,6 +65,7 @@ test("an open folder uses the same grid and can add tiles", () => {
     ["Bookmarks", "Bookmarks bar"],
   );
   assert.equal(screen.canCreate, true);
+  assert.equal(screen.canRenameCurrent, true);
   assert.equal(screen.empty, null);
 });
 
@@ -82,4 +84,27 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
   const screen = present(state({ tree: [], status: "failed", error: "Bookmarks are unavailable." }));
   if (screen.name !== "unavailable") throw new Error("expected an unavailable screen");
   assert.equal(screen.message, "Bookmarks are unavailable.");
+});
+
+test("edit form state is passed through to the grid", () => {
+  const screen = present(
+    state({
+      currentId: "1",
+      form: { mode: "edit", id: "11", kind: "bookmark", title: "Example", url: "https://example.com/" },
+    }),
+  );
+  if (screen.name !== "grid") throw new Error("expected the grid");
+  assert.deepEqual(screen.form, {
+    mode: "edit",
+    id: "11",
+    kind: "bookmark",
+    title: "Example",
+    url: "https://example.com/",
+  });
+});
+
+test("the Chrome root cannot be renamed", () => {
+  assert.equal(canRenameNode(tree[0]), false);
+  assert.equal(canRenameNode(tree[0]?.children?.[0]), true);
+  assert.equal(canRenameNode({ id: "11", title: "Example", url: "https://example.com/" }), true);
 });

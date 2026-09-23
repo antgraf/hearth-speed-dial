@@ -8,7 +8,7 @@ import {
   parentIds,
   type BookmarkNode,
 } from "./model.ts";
-import { present, type AppState, type CreateKind } from "./present.ts";
+import { canRenameNode, present, type AppState, type CreateKind } from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
 import type { SettingsApi } from "./settings.ts";
 import { render } from "./view.ts";
@@ -41,17 +41,32 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     beginCreate: (kind) => {
       if (state.saving) return;
       state.error = null;
-      state.form = { kind, title: "", url: "" };
+      state.form = { mode: "create", kind, title: "", url: "" };
       draw();
     },
-    cancelCreate: () => {
+    beginEdit: (id) => {
+      if (state.saving) return;
+      const node = nodeIndex(state.tree).get(id);
+      if (!canRenameNode(node) || !node) return;
+      const kind = classify(node) === "folder" ? "folder" : "bookmark";
+      state.error = null;
+      state.form = {
+        mode: "edit",
+        id: node.id,
+        kind,
+        title: node.title,
+        url: kind === "bookmark" ? (node.url ?? "") : "",
+      };
+      draw();
+    },
+    cancelForm: () => {
       if (state.saving) return;
       state.form = null;
       state.error = null;
       draw();
     },
-    submitCreate: (input) => {
-      void saveCreate(input);
+    submitForm: (input) => {
+      void saveForm(input);
     },
   });
 
@@ -70,26 +85,62 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     }
   };
 
-  const saveCreate = async (input: { title: string; url: string }) => {
+  const saveForm = async (input: { title: string; url: string }) => {
     if (state.saving || !state.form) return;
+    if (state.form.mode === "create") await saveCreate(input);
+    else await saveEdit(input);
+  };
+
+  const saveCreate = async (input: { title: string; url: string }) => {
+    if (!state.form || state.form.mode !== "create") return;
     const parent = nodeIndex(state.tree).get(state.currentId ?? "");
     if (!parent || !acceptsChildren(parent)) return;
     const kind: CreateKind = state.form.kind;
     const title = folderName(input.title);
     const url = kind === "bookmark" ? bookmarkUrl(input.url) : null;
     if (!title || (kind === "bookmark" && !url)) {
-      state.form = { kind, title: input.title, url: input.url };
+      state.form = { mode: "create", kind, title: input.title, url: input.url };
       state.error = kind === "folder" ? "Name the folder." : "Name the bookmark and enter its address.";
       draw();
       return;
     }
-    state.form = { kind, title, url: input.url };
+    state.form = { mode: "create", kind, title, url: input.url };
     state.saving = true;
     state.error = null;
     draw();
     try {
       if (kind === "folder") await ports.bookmarks.createFolder(parent.id, title);
       else await ports.bookmarks.createBookmark(parent.id, title, url ?? "");
+      state.form = null;
+      state.saving = false;
+      await reload();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const saveEdit = async (input: { title: string; url: string }) => {
+    if (!state.form || state.form.mode !== "edit") return;
+    const node = nodeIndex(state.tree).get(state.form.id);
+    if (!canRenameNode(node) || !node) return;
+    const kind = state.form.kind;
+    const title = folderName(input.title);
+    const url = kind === "bookmark" ? bookmarkUrl(input.url) : null;
+    if (!title || (kind === "bookmark" && !url)) {
+      state.form = { mode: "edit", id: state.form.id, kind, title: input.title, url: input.url };
+      state.error = kind === "folder" ? "Name the folder." : "Name the bookmark and enter its address.";
+      draw();
+      return;
+    }
+    state.form = { mode: "edit", id: state.form.id, kind, title, url: input.url };
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      if (kind === "folder") await ports.bookmarks.update(state.form.id, { title });
+      else await ports.bookmarks.update(state.form.id, { title, url: url ?? undefined });
       state.form = null;
       state.saving = false;
       await reload();
