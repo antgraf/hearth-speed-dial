@@ -4,6 +4,8 @@ import {
   breadcrumb,
   classify,
   dialItems,
+  displayTitle,
+  folderLabel,
   nodeIndex,
   type BookmarkNode,
   type Crumb,
@@ -51,6 +53,7 @@ export type ViewModel =
       error: string | null;
       canCreate: boolean;
       canRenameCurrent: boolean;
+      canDeleteCurrent: boolean;
       form: DialForm | null;
       saving: boolean;
     };
@@ -68,6 +71,27 @@ export function canRenameNode(node: BookmarkNode | undefined | null): boolean {
   if (kind === "skip") return false;
   if (kind === "folder" && node.id === "0") return false;
   return true;
+}
+
+export function canDeleteNode(node: BookmarkNode | undefined | null): boolean {
+  return canRenameNode(node);
+}
+
+export function folderHasContents(node: BookmarkNode): boolean {
+  return (node.children?.length ?? 0) > 0;
+}
+
+export function deleteConfirmMessage(node: BookmarkNode): string {
+  const kind = classify(node);
+  if (kind === "link") {
+    const title = displayTitle(node.title, "link");
+    return `Delete “${title}”? This removes the bookmark from Chrome.`;
+  }
+  const title = folderLabel(node);
+  if (folderHasContents(node)) {
+    return `Delete folder “${title}” and everything inside it? This cannot be undone from Hearth.`;
+  }
+  return `Delete empty folder “${title}”?`;
 }
 
 export function present(state: AppState): ViewModel {
@@ -93,6 +117,7 @@ export function present(state: AppState): ViewModel {
     error: state.error,
     canCreate: acceptsChildren(current),
     canRenameCurrent: canRenameNode(current),
+    canDeleteCurrent: canDeleteNode(current),
     form: state.form,
     saving: state.saving,
   };

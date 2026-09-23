@@ -63,6 +63,12 @@ export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi
       savePreviewTree(tree);
       return structuredClone(node);
     },
+    async remove(id) {
+      if (id === "0") throw new Error("The bookmarks root cannot be deleted.");
+      const removed = removeNode(tree, id);
+      if (!removed) throw new Error("That bookmark is no longer available.");
+      savePreviewTree(tree);
+    },
     subscribe() {
       return () => undefined;
     },
@@ -124,4 +130,17 @@ function findFolder(nodes: readonly BookmarkNode[], id: string): BookmarkNode | 
   const node = findNode(nodes, id);
   if (!node || typeof node.url === "string") return null;
   return node;
+}
+
+function removeNode(nodes: BookmarkNode[], id: string): boolean {
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+    if (!node) continue;
+    if (node.id === id) {
+      nodes.splice(index, 1);
+      return true;
+    }
+    if (node.children && removeNode(node.children, id)) return true;
+  }
+  return false;
 }

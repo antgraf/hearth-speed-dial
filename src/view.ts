@@ -5,6 +5,7 @@ export type ViewActions = {
   goToFolder(id: string): void;
   beginCreate(kind: CreateKind): void;
   beginEdit(id: string): void;
+  requestDelete(id: string): void;
   cancelForm(): void;
   submitForm(input: { title: string; url: string }): void;
 };
@@ -57,6 +58,9 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       if (view.canRenameCurrent) {
         current.append(renameButton(() => actions.beginEdit(crumb.id), view.saving));
       }
+      if (view.canDeleteCurrent) {
+        current.append(deleteButton(() => actions.requestDelete(crumb.id), view.saving));
+      }
       nav.append(current);
       return;
     }
@@ -94,7 +98,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     tile.className = "tile";
     tile.append(mark(item.monogram, item.kind === "folder"), labeled(item.title, item.meta));
     entry.append(tile);
-    entry.append(renameButton(() => actions.beginEdit(item.id), view.saving));
+    entry.append(tileActions(item.id, actions, view.saving));
     list.append(entry);
   }
   if (view.canCreate) {
@@ -155,11 +159,35 @@ function field(labelText: string, name: string, value: string, disabled: boolean
   return label;
 }
 
+function tileActions(id: string, actions: ViewActions, disabled: boolean): HTMLDivElement {
+  const row = document.createElement("div");
+  row.className = "tile-actions";
+  row.append(
+    renameButton(() => actions.beginEdit(id), disabled),
+    deleteButton(() => actions.requestDelete(id), disabled),
+  );
+  return row;
+}
+
 function renameButton(onClick: () => void, disabled: boolean): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "rename";
   button.textContent = "Rename";
+  button.disabled = disabled;
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
+}
+
+function deleteButton(onClick: () => void, disabled: boolean): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "delete";
+  button.textContent = "Delete";
   button.disabled = disabled;
   button.addEventListener("click", (event) => {
     event.preventDefault();
