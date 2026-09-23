@@ -13,10 +13,21 @@ import {
 export type CreateKind = "folder" | "bookmark";
 
 export type CreateForm = {
+  mode: "create";
   kind: CreateKind;
   title: string;
   url: string;
 };
+
+export type EditForm = {
+  mode: "edit";
+  id: string;
+  kind: "folder" | "bookmark";
+  title: string;
+  url: string;
+};
+
+export type DialForm = CreateForm | EditForm;
 
 export type AppState = {
   banner: string | null;
@@ -24,7 +35,7 @@ export type AppState = {
   error: string | null;
   tree: BookmarkNode[];
   currentId: string | null;
-  form: CreateForm | null;
+  form: DialForm | null;
   saving: boolean;
 };
 
@@ -39,7 +50,8 @@ export type ViewModel =
       empty: string | null;
       error: string | null;
       canCreate: boolean;
-      form: CreateForm | null;
+      canRenameCurrent: boolean;
+      form: DialForm | null;
       saving: boolean;
     };
 
@@ -48,6 +60,14 @@ function folderNode(tree: readonly BookmarkNode[], id: string | null): BookmarkN
   const node = nodeIndex(tree).get(id);
   if (!node || classify(node) !== "folder") return null;
   return node;
+}
+
+export function canRenameNode(node: BookmarkNode | undefined | null): boolean {
+  if (!node) return false;
+  const kind = classify(node);
+  if (kind === "skip") return false;
+  if (kind === "folder" && node.id === "0") return false;
+  return true;
 }
 
 export function present(state: AppState): ViewModel {
@@ -72,6 +92,7 @@ export function present(state: AppState): ViewModel {
     empty: items.length === 0 ? "This folder has no bookmarks yet." : null,
     error: state.error,
     canCreate: acceptsChildren(current),
+    canRenameCurrent: canRenameNode(current),
     form: state.form,
     saving: state.saving,
   };

@@ -1,10 +1,16 @@
 import type { BookmarkNode } from "./model.ts";
 import { readOpenFolderId, type SettingsApi } from "./settings.ts";
 
+export type BookmarkUpdate = {
+  title?: string;
+  url?: string;
+};
+
 export type BookmarksApi = {
   getTree(): Promise<BookmarkNode[]>;
   createFolder(parentId: string, title: string): Promise<BookmarkNode>;
   createBookmark(parentId: string, title: string, url: string): Promise<BookmarkNode>;
+  update(id: string, changes: BookmarkUpdate): Promise<BookmarkNode>;
   subscribe(listener: () => void): () => void;
 };
 
@@ -29,6 +35,10 @@ export function chromeBookmarks(): BookmarksApi {
     async createBookmark(parentId, title, url) {
       const created = await chrome.bookmarks.create({ parentId, title, url });
       return fromChrome(created);
+    },
+    async update(id, changes) {
+      const updated = await chrome.bookmarks.update(id, changes);
+      return fromChrome(updated);
     },
     subscribe(listener) {
       const onCreated = () => listener();

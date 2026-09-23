@@ -4,8 +4,9 @@ export type ViewActions = {
   openFolder(id: string): void;
   goToFolder(id: string): void;
   beginCreate(kind: CreateKind): void;
-  cancelCreate(): void;
-  submitCreate(input: { title: string; url: string }): void;
+  beginEdit(id: string): void;
+  cancelForm(): void;
+  submitForm(input: { title: string; url: string }): void;
 };
 
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
@@ -48,9 +49,15 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     }
     const last = index === view.crumbs.length - 1;
     if (last) {
+      const current = document.createElement("div");
+      current.className = "current";
       const title = document.createElement("h1");
       title.textContent = crumb.title;
-      nav.append(title);
+      current.append(title);
+      if (view.canRenameCurrent) {
+        current.append(renameButton(() => actions.beginEdit(crumb.id), view.saving));
+      }
+      nav.append(current);
       return;
     }
     const button = document.createElement("button");
@@ -87,6 +94,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     tile.className = "tile";
     tile.append(mark(item.monogram, item.kind === "folder"), labeled(item.title, item.meta));
     entry.append(tile);
+    entry.append(renameButton(() => actions.beginEdit(item.id), view.saving));
     list.append(entry);
   }
   if (view.canCreate) {
@@ -99,7 +107,8 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
 
 function composer(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions): HTMLFormElement {
   const form = view.form;
-  if (!form) throw new Error("Missing create form");
+  if (!form) throw new Error("Missing form");
+  const editing = form.mode === "edit";
   const composerForm = document.createElement("form");
   composerForm.className = "composer";
   composerForm.append(field(form.kind === "folder" ? "Folder name" : "Name", "title", form.title, view.saving));
@@ -109,19 +118,20 @@ function composer(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActio
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "primary";
-  submit.textContent = form.kind === "folder" ? "Add folder" : "Add bookmark";
+  if (editing) submit.textContent = form.kind === "folder" ? "Rename folder" : "Save bookmark";
+  else submit.textContent = form.kind === "folder" ? "Add folder" : "Add bookmark";
   submit.disabled = view.saving;
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "quiet";
   cancel.textContent = "Cancel";
   cancel.disabled = view.saving;
-  cancel.addEventListener("click", () => actions.cancelCreate());
+  cancel.addEventListener("click", () => actions.cancelForm());
   composerForm.append(submit, cancel);
   composerForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(composerForm);
-    actions.submitCreate({
+    actions.submitForm({
       title: String(data.get("title") ?? ""),
       url: String(data.get("url") ?? ""),
     });
@@ -143,6 +153,20 @@ function field(labelText: string, name: string, value: string, disabled: boolean
   input.autocomplete = "off";
   label.append(input);
   return label;
+}
+
+function renameButton(onClick: () => void, disabled: boolean): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "rename";
+  button.textContent = "Rename";
+  button.disabled = disabled;
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
 }
 
 function actionTile(kind: "folder" | "bookmark", title: string, onClick: () => void): HTMLLIElement {
