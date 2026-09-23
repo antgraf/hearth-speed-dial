@@ -9,6 +9,7 @@ import {
   type Crumb,
   type DialItem,
 } from "./model.ts";
+import type { LayoutSettings } from "./settings.ts";
 
 export type CreateKind = "folder" | "bookmark";
 
@@ -37,6 +38,7 @@ export type AppState = {
   currentId: string | null;
   form: DialForm | null;
   saving: boolean;
+  layout: LayoutSettings;
 };
 
 export type ViewModel =
@@ -53,6 +55,7 @@ export type ViewModel =
       canRenameCurrent: boolean;
       form: DialForm | null;
       saving: boolean;
+      layout: LayoutSettings;
     };
 
 function folderNode(tree: readonly BookmarkNode[], id: string | null): BookmarkNode | null {
@@ -95,5 +98,6 @@ export function present(state: AppState): ViewModel {
     canRenameCurrent: canRenameNode(current),
     form: state.form,
     saving: state.saving,
+    layout: state.layout,
   };
 }

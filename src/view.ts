@@ -1,4 +1,5 @@
 import type { CreateKind, ViewModel } from "./present.ts";
+import { LAYOUT_LIMITS, type LayoutSettings } from "./settings.ts";
 
 export type ViewActions = {
   openFolder(id: string): void;
@@ -7,6 +8,7 @@ export type ViewActions = {
   beginEdit(id: string): void;
   cancelForm(): void;
   submitForm(input: { title: string; url: string }): void;
+  setLayout(layout: LayoutSettings): void;
 };
 
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
@@ -32,6 +34,9 @@ export function render(host: HTMLElement, view: ViewModel, actions: ViewActions)
 function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions): HTMLElement {
   const section = document.createElement("section");
   section.className = "dial";
+  section.style.setProperty("--columns", String(view.layout.columns));
+  section.style.setProperty("--tile-size", `${view.layout.tileSize}px`);
+
   const header = document.createElement("header");
   header.className = "top";
   header.append(brand());
@@ -69,6 +74,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   });
   header.append(nav);
   section.append(header);
+  section.append(layoutControls(view.layout, actions));
 
   if (view.error) section.append(paragraph(view.error, "error"));
   if (view.form) section.append(composer(view, actions));
@@ -103,6 +109,55 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   }
   if (view.items.length > 0 || view.canCreate) section.append(list);
   return section;
+}
+
+function layoutControls(layout: LayoutSettings, actions: ViewActions): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "layout";
+
+  const columns = document.createElement("input");
+  columns.type = "number";
+  columns.name = "columns";
+  columns.min = String(LAYOUT_LIMITS.columns.min);
+  columns.max = String(LAYOUT_LIMITS.columns.max);
+  columns.step = "1";
+  columns.value = String(layout.columns);
+  columns.setAttribute("aria-label", "Columns");
+  columns.addEventListener("change", () => {
+    actions.setLayout({
+      columns: Number(columns.value),
+      tileSize: layout.tileSize,
+    });
+  });
+
+  const tileSize = document.createElement("input");
+  tileSize.type = "range";
+  tileSize.name = "tileSize";
+  tileSize.min = String(LAYOUT_LIMITS.tileSize.min);
+  tileSize.max = String(LAYOUT_LIMITS.tileSize.max);
+  tileSize.step = "1";
+  tileSize.value = String(layout.tileSize);
+  tileSize.setAttribute("aria-label", "Tile size");
+  tileSize.addEventListener("change", () => {
+    actions.setLayout({
+      columns: layout.columns,
+      tileSize: Number(tileSize.value),
+    });
+  });
+
+  row.append(
+    labeledControl("Columns", columns),
+    labeledControl("Tile size", tileSize),
+  );
+  return row;
+}
+
+function labeledControl(labelText: string, control: HTMLInputElement): HTMLLabelElement {
+  const label = document.createElement("label");
+  const caption = document.createElement("span");
+  caption.textContent = labelText;
+  label.append(caption, control);
+  return label;
 }
 
 function composer(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions): HTMLFormElement {
