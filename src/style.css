@@ -13,6 +13,8 @@
   --folder-bg: #3a3324;
   --focus: #e7a07a;
   --note: #d7c3a4;
+  --columns: 5;
+  --tile-size: 64px;
 }
 
 * {
@@ -227,10 +229,41 @@ h1 {
   user-select: none;
 }
 
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px 24px;
+  margin-top: 18px;
+}
+
+.layout label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.layout input[type="number"] {
+  width: 4.5rem;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  font: inherit;
+}
+
+.layout input[type="range"] {
+  width: min(220px, 40vw);
+  accent-color: var(--ember);
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  gap: calc(var(--tile-size) * 0.25);
   margin: 28px 0 0;
   padding: 0;
   list-style: none;
@@ -253,12 +286,12 @@ h1 {
 .mark {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
+  width: var(--tile-size);
+  height: var(--tile-size);
+  border-radius: calc(var(--tile-size) * 0.28);
   background: var(--mark-bg);
   color: var(--mark);
-  font-size: 28px;
+  font-size: calc(var(--tile-size) * 0.44);
   line-height: 1;
 }
 
@@ -283,10 +316,6 @@ h1 {
 }
 
 @media (max-width: 800px) {
-  .grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .top {
     flex-wrap: wrap;
   }
@@ -295,9 +324,5 @@ h1 {
 @media (max-width: 520px) {
   .frame {
     width: min(960px, calc(100% - 28px));
-  }
-
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

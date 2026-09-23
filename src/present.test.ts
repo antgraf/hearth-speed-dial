@@ -9,6 +9,7 @@ import {
   present,
   type AppState,
 } from "./present.ts";
+import { DEFAULT_LAYOUT } from "./settings.ts";
 
 const tree: BookmarkNode[] = [
   {
@@ -37,6 +38,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     currentId: null,
     form: null,
     saving: false,
+    layout: { ...DEFAULT_LAYOUT },
     ...overrides,
   };
 }
@@ -93,6 +95,13 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
   const screen = present(state({ tree: [], status: "failed", error: "Bookmarks are unavailable." }));
   if (screen.name !== "unavailable") throw new Error("expected an unavailable screen");
   assert.equal(screen.message, "Bookmarks are unavailable.");
+});
+
+test("the grid carries layout settings for the dial", () => {
+  const layout = { columns: 3, tileSize: 80 };
+  const screen = present(state({ layout }));
+  if (screen.name !== "grid") throw new Error("expected the grid");
+  assert.deepEqual(screen.layout, layout);
 });
 
 test("edit form state is passed through to the grid", () => {
