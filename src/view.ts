@@ -66,10 +66,10 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       title.textContent = crumb.title;
       current.append(title);
       if (view.canRenameCurrent) {
-        current.append(renameButton(() => actions.beginEdit(crumb.id), view.saving));
+        current.append(renameButton(crumb.title, () => actions.beginEdit(crumb.id), view.saving));
       }
       if (view.canDeleteCurrent) {
-        current.append(deleteButton(() => actions.requestDelete(crumb.id), view.saving));
+        current.append(deleteButton(crumb.title, () => actions.requestDelete(crumb.id), view.saving));
       }
       nav.append(current);
       return;
@@ -86,12 +86,13 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   section.append(header);
   section.append(layoutControls(view.layout, actions));
 
-  if (view.error) section.append(paragraph(view.error, "error"));
+  if (view.error) section.append(alertLine(view.error));
   if (view.form) section.append(composer(view, actions));
   if (view.empty) section.append(paragraph(view.empty, "empty"));
 
   const list = document.createElement("ul");
   list.className = "grid";
+  list.setAttribute("aria-label", "Speed dial");
   const canDrag = !view.saving && view.items.length > 0;
   for (const item of view.items) {
     const entry = document.createElement("li");
@@ -346,6 +347,11 @@ function composer(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActio
       url: String(data.get("url") ?? ""),
     });
   });
+  composerForm.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || view.saving) return;
+    event.preventDefault();
+    actions.cancelForm();
+  });
   if (!view.saving) {
     const input = composerForm.querySelector("input");
     if (input instanceof HTMLInputElement) queueMicrotask(() => input.focus());
@@ -369,9 +375,9 @@ function tileActions(item: DialItem, actions: ViewActions, disabled: boolean): H
   const row = document.createElement("div");
   row.className = "tile-actions";
   row.append(
-    renameButton(() => actions.beginEdit(item.id), disabled),
+    renameButton(item.title, () => actions.beginEdit(item.id), disabled),
     pictureButton(item, actions, disabled),
-    deleteButton(() => actions.requestDelete(item.id), disabled),
+    deleteButton(item.title, () => actions.requestDelete(item.id), disabled),
   );
   return row;
 }
@@ -385,6 +391,7 @@ function pictureButton(item: DialItem, actions: ViewActions, disabled: boolean):
     clear.type = "button";
     clear.className = "picture";
     clear.textContent = "Clear picture";
+    clear.setAttribute("aria-label", `Clear picture for ${item.title}`);
     clear.disabled = disabled;
     clear.addEventListener("click", (event) => {
       event.preventDefault();
@@ -417,11 +424,12 @@ function pictureButton(item: DialItem, actions: ViewActions, disabled: boolean):
   return wrap;
 }
 
-function renameButton(onClick: () => void, disabled: boolean): HTMLButtonElement {
+function renameButton(title: string, onClick: () => void, disabled: boolean): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "rename";
   button.textContent = "Rename";
+  button.setAttribute("aria-label", `Rename ${title}`);
   button.disabled = disabled;
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -431,11 +439,12 @@ function renameButton(onClick: () => void, disabled: boolean): HTMLButtonElement
   return button;
 }
 
-function deleteButton(onClick: () => void, disabled: boolean): HTMLButtonElement {
+function deleteButton(title: string, onClick: () => void, disabled: boolean): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "delete";
   button.textContent = "Delete";
+  button.setAttribute("aria-label", `Delete ${title}`);
   button.disabled = disabled;
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -512,5 +521,11 @@ function note(text: string, className?: string): HTMLParagraphElement {
   const copy = document.createElement("p");
   if (className) copy.className = className;
   copy.textContent = text;
+  return copy;
+}
+
+function alertLine(message: string): HTMLParagraphElement {
+  const copy = note(message, "error");
+  copy.setAttribute("role", "alert");
   return copy;
 }
