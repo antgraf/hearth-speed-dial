@@ -4,11 +4,15 @@ import {
   acceptsChildren,
   bookmarkUrl,
   breadcrumb,
+  childIndex,
+  chromeIndexAtEnd,
+  chromeIndexBefore,
   classify,
   dialItems,
   folderName,
   monogram,
   openableUrl,
+  reorderMoveIndex,
   siteLabel,
   type BookmarkNode,
 } from "./model.ts";
@@ -95,4 +99,37 @@ test("breadcrumb starts at the bookmark root", () => {
     { id: "10", title: "News" },
   ]);
   assert.deepEqual(breadcrumb(tree, "0", "0"), [{ id: "0", title: "Bookmarks" }]);
+});
+
+test("chromeIndexBefore matches Chromium same-parent insert-before", () => {
+  assert.equal(chromeIndexBefore(0, 2), 2);
+  assert.equal(chromeIndexBefore(3, 1), 1);
+  assert.equal(chromeIndexBefore(0, 1), null);
+  assert.equal(chromeIndexBefore(2, 2), null);
+  assert.equal(chromeIndexBefore(1, 3), 3);
+  assert.equal(chromeIndexBefore(-1, 1), null);
+});
+
+test("chromeIndexAtEnd moves a non-last sibling to the end", () => {
+  assert.equal(chromeIndexAtEnd(0, 4), 4);
+  assert.equal(chromeIndexAtEnd(2, 4), 4);
+  assert.equal(chromeIndexAtEnd(3, 4), null);
+  assert.equal(chromeIndexAtEnd(0, 1), null);
+});
+
+test("reorderMoveIndex uses full sibling indices including separators", () => {
+  const children: BookmarkNode[] = [
+    { id: "a", title: "A", url: "https://a.example/" },
+    { id: "sep", title: "" },
+    { id: "b", title: "B", url: "https://b.example/" },
+    { id: "c", title: "C", url: "https://c.example/" },
+  ];
+  assert.equal(childIndex(children, "b"), 2);
+  assert.equal(reorderMoveIndex(children, "a", "b"), 2);
+  assert.equal(reorderMoveIndex(children, "c", "a"), 0);
+  assert.equal(reorderMoveIndex(children, "a", "a"), null);
+  assert.equal(reorderMoveIndex(children, "b", "c"), null);
+  assert.equal(reorderMoveIndex(children, "a", null), 4);
+  assert.equal(reorderMoveIndex(children, "c", null), null);
+  assert.equal(reorderMoveIndex(children, "missing", "b"), null);
 });

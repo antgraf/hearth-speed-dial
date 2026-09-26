@@ -41,6 +41,11 @@ const PREVIEW_TREE_VERSION = 1;
 export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi } {
   const tree = loadPreviewTree();
   let nextId = nextPreviewId(tree);
+  const listeners = new Set<() => void>();
+
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
 
   const bookmarks: BookmarksApi = {
     async getTree() {
@@ -63,14 +68,57 @@ export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi
       savePreviewTree(tree);
       return structuredClone(node);
     },
+    async move(id, destination) {
+      if (id === "0") throw new Error("The bookmarks root cannot be moved.");
+      const located = locateNode(tree, id);
+      if (!located) throw new Error("That bookmark is no longer available.");
+      const { node, siblings: fromSiblings, index: fromIndex } = located;
+      const parentId = destination.parentId ?? node.parentId;
+      if (parentId === undefined) throw new Error("That bookmark is no longer available.");
+      const sameParent = parentId === node.parentId;
+      const toParent = sameParent ? null : findFolder(tree, parentId);
+      if (!sameParent && !toParent) throw new Error("That folder is no longer available.");
+      const toSiblings = sameParent ? fromSiblings : (toParent!.children ??= []);
+      const toIndex = destination.index;
+
+      if (sameParent && toIndex === undefined) {
+        if (fromIndex === fromSiblings.length - 1) return structuredClone(node);
+        fromSiblings.splice(fromIndex, 1);
+        fromSiblings.push(node);
+      } else if (sameParent) {
+        if (toIndex === undefined || !Number.isInteger(toIndex) || toIndex < 0) {
+          throw new Error("That bookmark position is not valid.");
+        }
+        // Mirror Chromium BookmarkModel::Move for same-parent moves.
+        if (toIndex === fromIndex || toIndex === fromIndex + 1) return structuredClone(node);
+        let insertAt = toIndex;
+        if (insertAt > fromIndex) insertAt -= 1;
+        fromSiblings.splice(fromIndex, 1);
+        fromSiblings.splice(Math.min(insertAt, fromSiblings.length), 0, node);
+      } else {
+        fromSiblings.splice(fromIndex, 1);
+        node.parentId = parentId;
+        const insertAt =
+          toIndex === undefined || !Number.isInteger(toIndex) || toIndex < 0
+            ? toSiblings.length
+            : Math.min(toIndex, toSiblings.length);
+        toSiblings.splice(insertAt, 0, node);
+      }
+      savePreviewTree(tree);
+      notify();
+      return structuredClone(node);
+    },
     async remove(id) {
       if (id === "0") throw new Error("The bookmarks root cannot be deleted.");
       const removed = removeNode(tree, id);
       if (!removed) throw new Error("That bookmark is no longer available.");
       savePreviewTree(tree);
     },
-    subscribe() {
-      return () => undefined;
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
   };
 
@@ -130,6 +178,22 @@ function findFolder(nodes: readonly BookmarkNode[], id: string): BookmarkNode | 
   const node = findNode(nodes, id);
   if (!node || typeof node.url === "string") return null;
   return node;
+}
+
+function locateNode(
+  nodes: BookmarkNode[],
+  id: string,
+): { node: BookmarkNode; siblings: BookmarkNode[]; index: number } | null {
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+    if (!node) continue;
+    if (node.id === id) return { node, siblings: nodes, index };
+    if (node.children) {
+      const found = locateNode(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function removeNode(nodes: BookmarkNode[], id: string): boolean {
