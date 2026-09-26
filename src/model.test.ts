@@ -5,13 +5,17 @@ import {
   bookmarkUrl,
   breadcrumb,
   childIndex,
+  alreadyInFolder,
   chromeIndexAtEnd,
   chromeIndexBefore,
   classify,
   dialItems,
   folderName,
+  isUnderAncestor,
   monogram,
+  moveIntoFolderError,
   openableUrl,
+  parentIds,
   reorderMoveIndex,
   siteLabel,
   type BookmarkNode,
@@ -132,4 +136,29 @@ test("reorderMoveIndex uses full sibling indices including separators", () => {
   assert.equal(reorderMoveIndex(children, "a", null), 4);
   assert.equal(reorderMoveIndex(children, "c", null), null);
   assert.equal(reorderMoveIndex(children, "missing", "b"), null);
+});
+
+test("isUnderAncestor walks parents including self", () => {
+  const parents = parentIds(tree);
+  assert.equal(isUnderAncestor(parents, "11", "10"), true);
+  assert.equal(isUnderAncestor(parents, "10", "10"), true);
+  assert.equal(isUnderAncestor(parents, "10", "11"), false);
+  assert.equal(isUnderAncestor(parents, "20", "1"), false);
+});
+
+test("moveIntoFolderError rejects self, descendants, non-folders, and root", () => {
+  assert.equal(moveIntoFolderError(tree, "11", "2"), null);
+  assert.equal(moveIntoFolderError(tree, "11", "10"), null);
+  assert.equal(alreadyInFolder(tree, "11", "10"), true);
+  assert.equal(alreadyInFolder(tree, "11", "2"), false);
+  assert.equal(moveIntoFolderError(tree, "10", "10"), "A folder cannot be moved into itself.");
+  assert.equal(moveIntoFolderError(tree, "11", "12"), "Drop onto a folder.");
+  assert.equal(
+    moveIntoFolderError(tree, "1", "10"),
+    "A folder cannot be moved into one of its subfolders.",
+  );
+  assert.equal(moveIntoFolderError(tree, "11", "0"), "Choose a folder inside Bookmarks.");
+  assert.equal(moveIntoFolderError(tree, "11", "20"), null);
+  assert.equal(moveIntoFolderError(tree, "11", "missing"), "Drop onto a folder.");
+  assert.equal(moveIntoFolderError(tree, "0", "1"), "The bookmarks root cannot be moved.");
 });

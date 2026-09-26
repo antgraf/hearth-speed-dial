@@ -12,6 +12,7 @@ export type ViewActions = {
   submitForm(input: { title: string; url: string }): void;
   setLayout(layout: LayoutSettings): void;
   reorderDial(draggedId: string, beforeId: string | null): void;
+  moveDialInto(draggedId: string, parentId: string): void;
 };
 
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
@@ -76,6 +77,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     button.className = "crumb";
     button.textContent = crumb.title;
     button.addEventListener("click", () => actions.goToFolder(crumb.id));
+    if (!view.saving) bindMoveIntoTarget(button, crumb.id, actions);
     nav.append(button);
   });
   header.append(nav);
@@ -88,7 +90,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
 
   const list = document.createElement("ul");
   list.className = "grid";
-  const canDrag = !view.saving && view.items.length > 1;
+  const canDrag = !view.saving && view.items.length > 0;
   for (const item of view.items) {
     const entry = document.createElement("li");
     let tile: HTMLElement;
@@ -126,7 +128,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     entry.append(tile);
     entry.append(tileActions(item.id, actions, view.saving));
     if (canDrag) {
-      bindReorder(entry, item.id, view.items, actions, () => {
+      bindDialDrag(entry, item, view.items, actions, () => {
         suppressClick = true;
       });
     }
@@ -140,9 +142,55 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   return section;
 }
 
-function bindReorder(
+function isDialDrag(event: DragEvent): boolean {
+  return Boolean(
+    event.dataTransfer?.types.includes("text/hearth-dial-id") ||
+      event.dataTransfer?.types.includes("text/plain"),
+  );
+}
+
+function dialDragId(event: DragEvent): string {
+  return event.dataTransfer?.getData("text/hearth-dial-id") || event.dataTransfer?.getData("text/plain") || "";
+}
+
+function clearDragMarks(root: ParentNode | null | undefined): void {
+  for (const marked of root?.querySelectorAll(".drag-before, .drag-after, .drag-into") ?? []) {
+    marked.classList.remove("drag-before", "drag-after", "drag-into");
+  }
+}
+
+function folderDropZone(clientX: number, rect: DOMRect): "before" | "into" | "after" {
+  const offset = clientX - rect.left;
+  const edge = Math.min(28, rect.width / 3);
+  if (offset < edge) return "before";
+  if (offset > rect.width - edge) return "after";
+  return "into";
+}
+
+function bindMoveIntoTarget(target: HTMLElement, parentId: string, actions: ViewActions): void {
+  target.addEventListener("dragover", (event) => {
+    if (!isDialDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    target.classList.add("drag-into");
+  });
+  target.addEventListener("dragleave", () => {
+    target.classList.remove("drag-into");
+  });
+  target.addEventListener("drop", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    target.classList.remove("drag-into");
+    const draggedId = dialDragId(event);
+    if (!draggedId) return;
+    actions.moveDialInto(draggedId, parentId);
+  });
+}
+
+function bindDialDrag(
   entry: HTMLLIElement,
-  id: string,
+  item: DialItem,
   items: readonly DialItem[],
   actions: ViewActions,
   onDragged: () => void,
@@ -155,40 +203,55 @@ function bindReorder(
       event.preventDefault();
       return;
     }
-    event.dataTransfer?.setData("text/hearth-dial-id", id);
-    event.dataTransfer?.setData("text/plain", id);
+    event.dataTransfer?.setData("text/hearth-dial-id", item.id);
+    event.dataTransfer?.setData("text/plain", item.id);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
     entry.classList.add("dragging");
   });
   entry.addEventListener("dragend", () => {
     entry.classList.remove("dragging");
-    entry.classList.remove("drag-before", "drag-after");
-    for (const sibling of entry.parentElement?.querySelectorAll(".drag-before, .drag-after") ?? []) {
-      sibling.classList.remove("drag-before", "drag-after");
-    }
+    clearDragMarks(entry.parentElement);
+    clearDragMarks(entry.ownerDocument);
   });
   entry.addEventListener("dragover", (event) => {
-    if (!event.dataTransfer?.types.includes("text/hearth-dial-id") && !event.dataTransfer?.types.includes("text/plain")) {
-      return;
-    }
+    if (!isDialDrag(event)) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
     const rect = entry.getBoundingClientRect();
+    entry.classList.remove("drag-before", "drag-after", "drag-into");
+    if (item.kind === "folder") {
+      const zone = folderDropZone(event.clientX, rect);
+      if (zone === "into") entry.classList.add("drag-into");
+      else entry.classList.add(zone === "before" ? "drag-before" : "drag-after");
+      return;
+    }
     const after = event.clientX > rect.left + rect.width / 2;
     entry.classList.toggle("drag-before", !after);
     entry.classList.toggle("drag-after", after);
   });
   entry.addEventListener("dragleave", () => {
-    entry.classList.remove("drag-before", "drag-after");
+    entry.classList.remove("drag-before", "drag-after", "drag-into");
   });
   entry.addEventListener("drop", (event) => {
     event.preventDefault();
-    entry.classList.remove("drag-before", "drag-after");
-    const draggedId = event.dataTransfer?.getData("text/hearth-dial-id") || event.dataTransfer?.getData("text/plain");
-    if (!draggedId || draggedId === id) return;
+    entry.classList.remove("drag-before", "drag-after", "drag-into");
+    const draggedId = dialDragId(event);
+    if (!draggedId || draggedId === item.id) return;
     const rect = entry.getBoundingClientRect();
+    if (item.kind === "folder") {
+      const zone = folderDropZone(event.clientX, rect);
+      if (zone === "into") {
+        onDragged();
+        actions.moveDialInto(draggedId, item.id);
+        return;
+      }
+      const beforeId = dropBeforeId(item.id, zone === "after", items);
+      onDragged();
+      actions.reorderDial(draggedId, beforeId);
+      return;
+    }
     const after = event.clientX > rect.left + rect.width / 2;
-    const beforeId = dropBeforeId(id, after, items);
+    const beforeId = dropBeforeId(item.id, after, items);
     onDragged();
     actions.reorderDial(draggedId, beforeId);
   });
@@ -196,7 +259,7 @@ function bindReorder(
 
 function dropBeforeId(targetId: string, after: boolean, items: readonly { id: string }[]): string | null {
   if (!after) return targetId;
-  const index = items.findIndex((item) => item.id === targetId);
+  const index = items.findIndex((entry) => entry.id === targetId);
   if (index < 0 || index >= items.length - 1) return null;
   return items[index + 1]?.id ?? null;
 }

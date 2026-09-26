@@ -1,4 +1,5 @@
 import type { BookmarkNode } from "./model.ts";
+import { moveIntoFolderError } from "./model.ts";
 import type { BookmarksApi } from "./browser.ts";
 import { previewSettings, type SettingsApi } from "./settings.ts";
 
@@ -76,6 +77,10 @@ export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi
       const parentId = destination.parentId ?? node.parentId;
       if (parentId === undefined) throw new Error("That bookmark is no longer available.");
       const sameParent = parentId === node.parentId;
+      if (!sameParent) {
+        const illegal = moveIntoFolderError(tree, id, parentId);
+        if (illegal) throw new Error(illegal);
+      }
       const toParent = sameParent ? null : findFolder(tree, parentId);
       if (!sameParent && !toParent) throw new Error("That folder is no longer available.");
       const toSiblings = sameParent ? fromSiblings : (toParent!.children ??= []);

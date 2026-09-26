@@ -1,9 +1,11 @@
 import {
   acceptsChildren,
+  alreadyInFolder,
   bookmarkRoot,
   bookmarkUrl,
   classify,
   folderName,
+  moveIntoFolderError,
   nodeIndex,
   parentIds,
   reorderMoveIndex,
@@ -86,6 +88,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       reorderDial: (draggedId, beforeId) => {
         void reorderDial(draggedId, beforeId);
       },
+      moveDialInto: (draggedId, parentId) => {
+        void moveDialInto(draggedId, parentId);
+      },
     });
 
   const showFolder = async (id: string) => {
@@ -137,6 +142,31 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     try {
       // Same parentId keeps the move in-folder; subscribe/reload apply the new order.
       await ports.bookmarks.move(draggedId, { parentId: folder.id, index });
+      state.saving = false;
+      await reload();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const moveDialInto = async (draggedId: string, parentId: string) => {
+    if (state.saving) return;
+    const illegal = moveIntoFolderError(state.tree, draggedId, parentId);
+    if (illegal) {
+      state.error = illegal;
+      draw();
+      return;
+    }
+    if (alreadyInFolder(state.tree, draggedId, parentId)) return;
+    state.form = null;
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      // Omit index so Chrome appends at the end of the destination folder.
+      await ports.bookmarks.move(draggedId, { parentId });
       state.saving = false;
       await reload();
     } catch (error) {
