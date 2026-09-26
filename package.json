@@ -8,7 +8,7 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/model.test.ts src/present.test.ts src/settings.test.ts",
+    "test": "node --experimental-strip-types --test src/model.test.ts src/present.test.ts src/settings.test.ts src/images.test.ts",
     "icons": "node scripts/draw-icons.mjs"
   },
   "engines": {

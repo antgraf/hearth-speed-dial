@@ -41,6 +41,8 @@ export type AppState = {
   form: DialForm | null;
   saving: boolean;
   layout: LayoutSettings;
+  /** Local dial pictures keyed by bookmark id (data URLs). */
+  images: Record<string, string>;
 };
 
 export type ViewModel =
@@ -110,7 +112,10 @@ export function present(state: AppState): ViewModel {
   }
 
   const current = folderNode(state.tree, state.currentId) ?? root;
-  const items = dialItems(current);
+  const items = dialItems(current).map((item) => ({
+    ...item,
+    imageDataUrl: state.images[item.id] ?? null,
+  }));
   return {
     name: "grid",
     banner: state.banner,

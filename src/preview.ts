@@ -1,6 +1,7 @@
 import type { BookmarkNode } from "./model.ts";
 import { moveIntoFolderError } from "./model.ts";
 import type { BookmarksApi } from "./browser.ts";
+import { previewImages, type ImagesApi } from "./images.ts";
 import { previewSettings, type SettingsApi } from "./settings.ts";
 
 const sampleTree = (): BookmarkNode[] => [
@@ -39,10 +40,11 @@ export const previewBanner =
 const PREVIEW_TREE_KEY = "hearth.previewTree";
 const PREVIEW_TREE_VERSION = 1;
 
-export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi } {
+export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi; images: ImagesApi } {
   const tree = loadPreviewTree();
   let nextId = nextPreviewId(tree);
   const listeners = new Set<() => void>();
+  const images = previewImages();
 
   const notify = () => {
     for (const listener of listeners) listener();
@@ -137,7 +139,7 @@ export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi
     return structuredClone(node);
   }
 
-  return { bookmarks, settings: previewSettings() };
+  return { bookmarks, settings: previewSettings(), images };
 }
 
 function loadPreviewTree(): BookmarkNode[] {

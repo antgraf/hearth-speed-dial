@@ -13,6 +13,8 @@ export type ViewActions = {
   setLayout(layout: LayoutSettings): void;
   reorderDial(draggedId: string, beforeId: string | null): void;
   moveDialInto(draggedId: string, parentId: string): void;
+  attachImage(id: string, file: File): void;
+  clearImage(id: string): void;
 };
 
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
@@ -124,9 +126,9 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
         suppressClick = false;
       });
     }
-    tile.append(mark(item.monogram, item.kind === "folder"), labeled(item.title, item.meta));
+    tile.append(tileMark(item), labeled(item.title, item.meta));
     entry.append(tile);
-    entry.append(tileActions(item.id, actions, view.saving));
+    entry.append(tileActions(item, actions, view.saving));
     if (canDrag) {
       bindDialDrag(entry, item, view.items, actions, () => {
         suppressClick = true;
@@ -363,14 +365,56 @@ function field(labelText: string, name: string, value: string, disabled: boolean
   return label;
 }
 
-function tileActions(id: string, actions: ViewActions, disabled: boolean): HTMLDivElement {
+function tileActions(item: DialItem, actions: ViewActions, disabled: boolean): HTMLDivElement {
   const row = document.createElement("div");
   row.className = "tile-actions";
   row.append(
-    renameButton(() => actions.beginEdit(id), disabled),
-    deleteButton(() => actions.requestDelete(id), disabled),
+    renameButton(() => actions.beginEdit(item.id), disabled),
+    pictureButton(item, actions, disabled),
+    deleteButton(() => actions.requestDelete(item.id), disabled),
   );
   return row;
+}
+
+function pictureButton(item: DialItem, actions: ViewActions, disabled: boolean): HTMLSpanElement {
+  const wrap = document.createElement("span");
+  wrap.className = "picture-actions";
+
+  if (item.imageDataUrl) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "picture";
+    clear.textContent = "Clear picture";
+    clear.disabled = disabled;
+    clear.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      actions.clearImage(item.id);
+    });
+    wrap.append(clear);
+    return wrap;
+  }
+
+  const label = document.createElement("label");
+  label.className = "picture";
+  const caption = document.createElement("span");
+  caption.textContent = "Picture";
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/jpeg,image/png,image/gif,image/webp";
+  input.disabled = disabled;
+  input.setAttribute("aria-label", `Attach picture for ${item.title}`);
+  input.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    input.value = "";
+    if (file) actions.attachImage(item.id, file);
+  });
+  label.append(caption, input);
+  wrap.append(label);
+  return wrap;
 }
 
 function renameButton(onClick: () => void, disabled: boolean): HTMLButtonElement {
@@ -410,6 +454,21 @@ function actionTile(kind: "folder" | "bookmark", title: string, onClick: () => v
   button.append(mark("+", kind === "folder"), labeled(title, kind === "folder" ? "Folder" : "Link"));
   entry.append(button);
   return entry;
+}
+
+function tileMark(item: DialItem): HTMLElement {
+  if (item.imageDataUrl) {
+    const figure = document.createElement("span");
+    figure.className = item.kind === "folder" ? "mark photo folder" : "mark photo";
+    figure.setAttribute("aria-hidden", "true");
+    const image = document.createElement("img");
+    image.src = item.imageDataUrl;
+    image.alt = "";
+    image.draggable = false;
+    figure.append(image);
+    return figure;
+  }
+  return mark(item.monogram, item.kind === "folder");
 }
 
 function mark(text: string, folder: boolean): HTMLSpanElement {

@@ -1,5 +1,12 @@
 import type { BookmarkNode } from "./model.ts";
 import {
+  collectImages,
+  imageStorageKey,
+  orphanImageKeys,
+  readImageDataUrl,
+  type ImagesApi,
+} from "./images.ts";
+import {
   clampColumns,
   clampTileSize,
   readLayout,
@@ -119,4 +126,26 @@ async function patchSettings(patch: Record<string, unknown>): Promise<void> {
       ? (stored.settings as Record<string, unknown>)
       : {};
   await chrome.storage.local.set({ settings: { ...previous, ...patch } });
+}
+
+export function chromeImages(): ImagesApi {
+  return {
+    async getAll() {
+      const stored = await chrome.storage.local.get(null);
+      return collectImages(stored as Record<string, unknown>);
+    },
+    async setImage(bookmarkId, dataUrl) {
+      const valid = readImageDataUrl(dataUrl);
+      if (!valid) throw new Error("That file could not be stored as an image.");
+      await chrome.storage.local.set({ [imageStorageKey(bookmarkId)]: valid });
+    },
+    async clearImage(bookmarkId) {
+      await chrome.storage.local.remove(imageStorageKey(bookmarkId));
+    },
+    async clearMissing(existingIds) {
+      const stored = await chrome.storage.local.get(null);
+      const orphans = orphanImageKeys(Object.keys(stored), existingIds);
+      if (orphans.length > 0) await chrome.storage.local.remove(orphans);
+    },
+  };
 }

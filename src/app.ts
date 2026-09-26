@@ -13,6 +13,7 @@ import {
 } from "./model.ts";
 import { canDeleteNode, canRenameNode, deleteConfirmMessage, present, type AppState, type CreateKind } from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
+import { fileToDataUrl, type ImagesApi } from "./images.ts";
 import {
   clampColumns,
   clampTileSize,
@@ -25,6 +26,7 @@ import { render } from "./view.ts";
 export type AppPorts = {
   bookmarks: BookmarksApi;
   settings: SettingsApi;
+  images: ImagesApi;
   banner?: string | null;
 };
 
@@ -38,6 +40,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     form: null,
     saving: false,
     layout: { ...DEFAULT_LAYOUT },
+    images: {},
   };
   let request = 0;
 
@@ -91,6 +94,12 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       moveDialInto: (draggedId, parentId) => {
         void moveDialInto(draggedId, parentId);
       },
+      attachImage: (id, file) => {
+        void attachImage(id, file);
+      },
+      clearImage: (id) => {
+        void clearImage(id);
+      },
     });
 
   const showFolder = async (id: string) => {
@@ -114,14 +123,56 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (!canDeleteNode(node) || !node) return;
     const confirmed = window.confirm(deleteConfirmMessage(node));
     if (!confirmed) return;
+    const removedIds = collectDescendantIds(node);
     state.form = null;
     state.saving = true;
     state.error = null;
     draw();
     try {
       await ports.bookmarks.remove(id);
+      // Best-effort: clear pictures for the deleted node (and folder contents).
+      await Promise.allSettled(removedIds.map((removedId) => ports.images.clearImage(removedId)));
       state.saving = false;
       await reload();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const attachImage = async (id: string, file: File) => {
+    if (state.saving) return;
+    const node = nodeIndex(state.tree).get(id);
+    if (!node || classify(node) === "skip") return;
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      await ports.images.setImage(id, dataUrl);
+      state.images = { ...state.images, [id]: dataUrl };
+      state.saving = false;
+      draw();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const clearImage = async (id: string) => {
+    if (state.saving) return;
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      await ports.images.clearImage(id);
+      const next = { ...state.images };
+      delete next[id];
+      state.images = next;
+      state.saving = false;
+      draw();
     } catch (error) {
       state.saving = false;
       state.error = errorText(error);
@@ -270,6 +321,16 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       const opened = resolveFolder(state);
       state.currentId = opened;
       if (opened && opened !== previousId) void ports.settings.setOpenFolderId(opened);
+      try {
+        const images = await ports.images.getAll();
+        if (ticket !== request) return;
+        state.images = images;
+        // Best-effort orphan sweep when bookmarks were removed outside Hearth.
+        void ports.images.clearMissing(new Set(nodeIndex(tree).keys()));
+      } catch (imageError) {
+        if (ticket !== request) return;
+        state.error = errorText(imageError);
+      }
     } catch (error) {
       if (ticket !== request) return;
       state.status = state.tree.length > 0 ? "ready" : "failed";
@@ -299,6 +360,19 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   })();
 
   return unsubscribe;
+}
+
+function collectDescendantIds(node: BookmarkNode): string[] {
+  const ids: string[] = [node.id];
+  const walk = (children: readonly BookmarkNode[] | undefined) => {
+    if (!children) return;
+    for (const child of children) {
+      ids.push(child.id);
+      walk(child.children);
+    }
+  };
+  walk(node.children);
+  return ids;
 }
 
 function resolveFolder(state: AppState): string | null {
