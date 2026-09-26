@@ -1,6 +1,6 @@
 # Hearth Speed Dial — product spec
 
-Status: phase 0 locked. The new tab shows the bookmark tree as a grid and can add a folder or bookmark in the open folder. Rename, delete, drag, right-click add, and local images are still ahead. v1 is Chrome only, with local images only.
+Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size; context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback. Still Chrome only; no image URLs, thumbnails, or refresh.
 
 ## Vision
 
