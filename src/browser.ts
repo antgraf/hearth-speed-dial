@@ -13,11 +13,17 @@ export type BookmarkUpdate = {
   url?: string;
 };
 
+export type BookmarkMoveDestination = {
+  parentId?: string;
+  index?: number;
+};
+
 export type BookmarksApi = {
   getTree(): Promise<BookmarkNode[]>;
   createFolder(parentId: string, title: string): Promise<BookmarkNode>;
   createBookmark(parentId: string, title: string, url: string): Promise<BookmarkNode>;
   update(id: string, changes: BookmarkUpdate): Promise<BookmarkNode>;
+  move(id: string, destination: BookmarkMoveDestination): Promise<BookmarkNode>;
   remove(id: string): Promise<void>;
   subscribe(listener: () => void): () => void;
 };
@@ -47,6 +53,13 @@ export function chromeBookmarks(): BookmarksApi {
     async update(id, changes) {
       const updated = await chrome.bookmarks.update(id, changes);
       return fromChrome(updated);
+    },
+    async move(id, destination) {
+      const destinationArg: chrome.bookmarks.MoveDestination = {};
+      if (destination.parentId !== undefined) destinationArg.parentId = destination.parentId;
+      if (destination.index !== undefined) destinationArg.index = destination.index;
+      const moved = await chrome.bookmarks.move(id, destinationArg);
+      return fromChrome(moved);
     },
     async remove(id) {
       const nodes = await chrome.bookmarks.get(id);

@@ -140,6 +140,22 @@ h1 {
   min-width: 0;
 }
 
+.grid > li.reorderable {
+  cursor: grab;
+}
+
+.grid > li.dragging {
+  opacity: 0.45;
+}
+
+.grid > li.drag-before .tile {
+  box-shadow: inset 3px 0 0 var(--focus);
+}
+
+.grid > li.drag-after .tile {
+  box-shadow: inset -3px 0 0 var(--focus);
+}
+
 .primary {
   margin-top: 8px;
   padding: 10px 16px;

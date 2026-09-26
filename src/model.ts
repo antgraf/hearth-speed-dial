@@ -108,6 +108,56 @@ export function bookmarkUrl(input: string): string | null {
   return openableUrl(withScheme);
 }
 
+/**
+ * Chrome `bookmarks.move` index when inserting before the sibling currently at
+ * `beforeIndex` in the same parent. Returns null when the move is a no-op.
+ *
+ * Chromium removes the node first, then inserts. Passing the live `beforeIndex`
+ * matches that API for both forward and backward moves (including the
+ * `index === oldIndex + 1` no-op).
+ */
+export function chromeIndexBefore(fromIndex: number, beforeIndex: number): number | null {
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(beforeIndex)) return null;
+  if (fromIndex < 0 || beforeIndex < 0) return null;
+  if (beforeIndex === fromIndex || beforeIndex === fromIndex + 1) return null;
+  return beforeIndex;
+}
+
+/**
+ * Chrome `bookmarks.move` index when moving to the end of the same parent.
+ * Returns null when the node is already last (or the list is too small).
+ */
+export function chromeIndexAtEnd(fromIndex: number, siblingCount: number): number | null {
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(siblingCount)) return null;
+  if (fromIndex < 0 || siblingCount < 2 || fromIndex >= siblingCount) return null;
+  if (fromIndex === siblingCount - 1) return null;
+  return siblingCount;
+}
+
+/** Index of `id` among `children`, or -1 when missing. */
+export function childIndex(children: readonly BookmarkNode[], id: string): number {
+  return children.findIndex((child) => child.id === id);
+}
+
+/**
+ * Same-parent Chrome move index to place `draggedId` before `beforeId`
+ * (or at the end when `beforeId` is null). Uses the full children list so
+ * separator/skip nodes keep their Chrome indices.
+ */
+export function reorderMoveIndex(
+  children: readonly BookmarkNode[],
+  draggedId: string,
+  beforeId: string | null,
+): number | null {
+  const fromIndex = childIndex(children, draggedId);
+  if (fromIndex < 0) return null;
+  if (beforeId === null) return chromeIndexAtEnd(fromIndex, children.length);
+  if (beforeId === draggedId) return null;
+  const beforeIndex = childIndex(children, beforeId);
+  if (beforeIndex < 0) return null;
+  return chromeIndexBefore(fromIndex, beforeIndex);
+}
+
 export function dialItems(folder: BookmarkNode | undefined): DialItem[] {
   if (!folder?.children) return [];
   const items: DialItem[] = [];

@@ -6,6 +6,7 @@ import {
   folderName,
   nodeIndex,
   parentIds,
+  reorderMoveIndex,
   type BookmarkNode,
 } from "./model.ts";
 import { canDeleteNode, canRenameNode, deleteConfirmMessage, present, type AppState, type CreateKind } from "./present.ts";
@@ -82,6 +83,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       setLayout: (layout) => {
         void saveLayout(layout);
       },
+      reorderDial: (draggedId, beforeId) => {
+        void reorderDial(draggedId, beforeId);
+      },
     });
 
   const showFolder = async (id: string) => {
@@ -111,6 +115,28 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     draw();
     try {
       await ports.bookmarks.remove(id);
+      state.saving = false;
+      await reload();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const reorderDial = async (draggedId: string, beforeId: string | null) => {
+    if (state.saving) return;
+    const folder = nodeIndex(state.tree).get(state.currentId ?? "");
+    if (!folder || classify(folder) !== "folder" || !folder.children) return;
+    const index = reorderMoveIndex(folder.children, draggedId, beforeId);
+    if (index === null) return;
+    state.form = null;
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      // Same parentId keeps the move in-folder; subscribe/reload apply the new order.
+      await ports.bookmarks.move(draggedId, { parentId: folder.id, index });
       state.saving = false;
       await reload();
     } catch (error) {
