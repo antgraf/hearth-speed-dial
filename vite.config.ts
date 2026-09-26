@@ -40,7 +40,16 @@ export default defineConfig({
     sourcemap: true,
     target: "chrome120",
     rollupOptions: {
-      input: resolve(projectRoot, "src/index.html"),
+      input: {
+        main: resolve(projectRoot, "src/index.html"),
+        add: resolve(projectRoot, "src/add.html"),
+        background: resolve(projectRoot, "src/background.ts"),
+      },
+      output: {
+        entryFileNames: (chunk) => (chunk.name === "background" ? "background.js" : "assets/[name]-[hash].js"),
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash][extname]",
+      },
     },
   },
   plugins: [aliasNewTabPage(), copyExtensionFiles()],

@@ -352,3 +352,67 @@ h1 {
     width: min(960px, calc(100% - 28px));
   }
 }
+
+.add-frame {
+  width: min(400px, calc(100% - 32px));
+  padding: 28px 0 40px;
+}
+
+.add-form {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.folder-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.folder-picker legend {
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  margin-top: 8px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.folder-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 8px 6px calc(8px + (var(--depth, 0) * 16px));
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.folder-option:hover {
+  background: #2e2824;
+}
+
+.folder-option:has(input:checked) {
+  background: #3a2c26;
+  color: var(--mark);
+}
+
+.add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}

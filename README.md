@@ -6,10 +6,11 @@ The extension has no account and no service of its own. The product scope is [do
 
 ## Privacy
 
-Hearth asks for two permissions:
+Hearth asks for three permissions:
 
-- **Bookmarks**, so it can show your bookmark folders and, when you ask, add a folder or bookmark in the open folder. The dial list stays in Chrome bookmarks.
-- **Storage**, so it can remember the folder you had open. That id stays in the browser profile.
+- **Bookmarks**, so it can show your bookmark folders and, when you ask, add a folder or bookmark. The dial list stays in Chrome bookmarks.
+- **Storage**, so it can remember the folder you had open and your grid layout. Those values stay in the browser profile.
+- **Context menus**, so you can right-click a page or link and choose **Add to Hearth…**. You pick the destination folder in a small extension window; the new-tab’s open folder is not used by default.
 
 The extension does not request access to websites. It does not add an account, analytics, or a server of its own.
 

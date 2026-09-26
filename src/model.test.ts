@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   acceptsChildren,
+  addPageQuery,
   bookmarkUrl,
   breadcrumb,
   childIndex,
@@ -9,6 +10,7 @@ import {
   chromeIndexAtEnd,
   chromeIndexBefore,
   classify,
+  dialFolderOptions,
   dialItems,
   folderName,
   isUnderAncestor,
@@ -16,6 +18,7 @@ import {
   moveIntoFolderError,
   openableUrl,
   parentIds,
+  parseAddPageFields,
   reorderMoveIndex,
   siteLabel,
   type BookmarkNode,
@@ -161,4 +164,39 @@ test("moveIntoFolderError rejects self, descendants, non-folders, and root", () 
   assert.equal(moveIntoFolderError(tree, "11", "20"), null);
   assert.equal(moveIntoFolderError(tree, "11", "missing"), "Drop onto a folder.");
   assert.equal(moveIntoFolderError(tree, "0", "1"), "The bookmarks root cannot be moved.");
+});
+
+test("dialFolderOptions lists nested folders and skips the chrome root", () => {
+  assert.deepEqual(dialFolderOptions(tree), [
+    { id: "1", title: "Bookmarks bar", depth: 0 },
+    { id: "10", title: "News", depth: 1 },
+    { id: "2", title: "Other bookmarks", depth: 0 },
+    { id: "20", title: "Hearth", depth: 1 },
+  ]);
+});
+
+test("add page query keeps an openable url and optional title", () => {
+  assert.equal(
+    addPageQuery({ pageUrl: "https://example.com/path", selectionText: " Example " }),
+    "url=https%3A%2F%2Fexample.com%2Fpath&title=Example",
+  );
+  assert.equal(
+    addPageQuery({ linkUrl: "https://news.example/", pageUrl: "https://ignored.example/" }),
+    "url=https%3A%2F%2Fnews.example%2F",
+  );
+  assert.equal(addPageQuery({ pageUrl: "javascript:alert(1)" }), null);
+  assert.equal(addPageQuery({}), null);
+});
+
+test("parseAddPageFields requires an openable url and fills a title", () => {
+  assert.deepEqual(parseAddPageFields("?url=https%3A%2F%2Fwww.example.com%2F&title=News"), {
+    url: "https://www.example.com/",
+    title: "News",
+  });
+  assert.deepEqual(parseAddPageFields("url=https://www.example.com/path"), {
+    url: "https://www.example.com/path",
+    title: "example.com",
+  });
+  assert.equal(parseAddPageFields("url=chrome://extensions"), null);
+  assert.equal(parseAddPageFields(""), null);
 });
