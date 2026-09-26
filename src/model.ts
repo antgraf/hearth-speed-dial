@@ -96,6 +96,69 @@ export function acceptsChildren(node: BookmarkNode): boolean {
   return classify(node) === "folder" && node.id !== "0";
 }
 
+export type FolderOption = {
+  id: string;
+  title: string;
+  depth: number;
+};
+
+/** Folders that can receive a new dial, depth-first, excluding the Chrome root. */
+export function dialFolderOptions(roots: readonly BookmarkNode[]): FolderOption[] {
+  const options: FolderOption[] = [];
+  const walk = (nodes: readonly BookmarkNode[], depth: number) => {
+    for (const node of nodes) {
+      if (classify(node) !== "folder") continue;
+      if (acceptsChildren(node)) {
+        options.push({ id: node.id, title: folderLabel(node), depth });
+      }
+      if (node.children?.length) {
+        const nextDepth = acceptsChildren(node) ? depth + 1 : depth;
+        walk(node.children, nextDepth);
+      }
+    }
+  };
+  walk(roots, 0);
+  return options;
+}
+
+export type AddPageFields = {
+  url: string;
+  title: string;
+};
+
+/**
+ * Parse `url` / `title` query fields for the context-menu add page.
+ * Returns null when the URL is missing or not an openable dial link.
+ */
+export function parseAddPageFields(search: string): AddPageFields | null {
+  const raw = search.startsWith("?") ? search.slice(1) : search;
+  const params = new URLSearchParams(raw);
+  const url = bookmarkUrl(params.get("url") ?? "");
+  if (!url) return null;
+  const title = (params.get("title") ?? "").trim() || siteLabel(url) || "Untitled";
+  return { url, title };
+}
+
+/**
+ * Build the add-page query string from a context-menu click.
+ * Returns null when there is no openable page or link URL.
+ */
+export function addPageQuery(info: {
+  linkUrl?: string;
+  pageUrl?: string;
+  selectionText?: string;
+}): string | null {
+  const rawUrl = info.linkUrl || info.pageUrl;
+  if (!rawUrl) return null;
+  const url = bookmarkUrl(rawUrl);
+  if (!url) return null;
+  const params = new URLSearchParams();
+  params.set("url", url);
+  const title = info.selectionText?.trim();
+  if (title) params.set("title", title);
+  return params.toString();
+}
+
 export function folderName(input: string): string | null {
   const name = input.trim();
   return name.length > 0 ? name : null;
