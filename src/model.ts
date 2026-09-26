@@ -158,6 +158,62 @@ export function reorderMoveIndex(
   return chromeIndexBefore(fromIndex, beforeIndex);
 }
 
+/** True when `id` is `ancestorId` or nested under it. */
+export function isUnderAncestor(
+  parents: ReadonlyMap<string, string | undefined>,
+  id: string,
+  ancestorId: string,
+): boolean {
+  if (id === ancestorId) return true;
+  const seen = new Set<string>();
+  let current: string | undefined = id;
+  while (current && !seen.has(current)) {
+    if (current === ancestorId) return true;
+    seen.add(current);
+    current = parents.get(current);
+  }
+  return false;
+}
+
+/**
+ * Error when `draggedId` cannot be moved into `targetFolderId`.
+ * Returns null when the move is allowed (including a same-parent no-op).
+ */
+export function moveIntoFolderError(
+  roots: readonly BookmarkNode[],
+  draggedId: string,
+  targetFolderId: string,
+): string | null {
+  const nodes = nodeIndex(roots);
+  const parents = parentIds(roots);
+  const dragged = nodes.get(draggedId);
+  if (!dragged) return "That bookmark is no longer available.";
+  if (draggedId === "0") return "The bookmarks root cannot be moved.";
+
+  const target = nodes.get(targetFolderId);
+  if (!target || classify(target) !== "folder") return "Drop onto a folder.";
+  if (!acceptsChildren(target)) return "Choose a folder inside Bookmarks.";
+
+  if (draggedId === targetFolderId) return "A folder cannot be moved into itself.";
+  if (isUnderAncestor(parents, targetFolderId, draggedId)) {
+    return "A folder cannot be moved into one of its subfolders.";
+  }
+  return null;
+}
+
+/** True when `draggedId` already has `parentId` as its parent. */
+export function alreadyInFolder(
+  roots: readonly BookmarkNode[],
+  draggedId: string,
+  parentId: string,
+): boolean {
+  const nodes = nodeIndex(roots);
+  const parents = parentIds(roots);
+  const dragged = nodes.get(draggedId);
+  if (!dragged) return false;
+  return (dragged.parentId ?? parents.get(draggedId)) === parentId;
+}
+
 export function dialItems(folder: BookmarkNode | undefined): DialItem[] {
   if (!folder?.children) return [];
   const items: DialItem[] = [];

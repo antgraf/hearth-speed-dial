@@ -156,6 +156,16 @@ h1 {
   box-shadow: inset -3px 0 0 var(--focus);
 }
 
+.grid > li.drag-into .tile,
+.crumb.drag-into {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+}
+
+.crumb.drag-into {
+  color: var(--ember);
+}
+
 .primary {
   margin-top: 8px;
   padding: 10px 16px;
