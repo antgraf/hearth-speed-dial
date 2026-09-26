@@ -13,6 +13,8 @@ export type DialItem = {
   url: string | null;
   meta: string;
   monogram: string;
+  /** Local data-URL picture when the user attached one; otherwise null. */
+  imageDataUrl: string | null;
 };
 
 export type Crumb = {
@@ -292,6 +294,7 @@ export function dialItems(folder: BookmarkNode | undefined): DialItem[] {
         url: null,
         meta: "Folder",
         monogram: monogram(title),
+        imageDataUrl: null,
       });
       continue;
     }
@@ -304,6 +307,7 @@ export function dialItems(folder: BookmarkNode | undefined): DialItem[] {
       url: href,
       meta: href ? siteLabel(href) : "Unavailable link",
       monogram: monogram(title),
+      imageDataUrl: null,
     });
   }
   return items;

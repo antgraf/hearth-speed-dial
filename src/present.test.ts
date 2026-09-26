@@ -39,6 +39,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     form: null,
     saving: false,
     layout: { ...DEFAULT_LAYOUT },
+    images: {},
     ...overrides,
   };
 }
@@ -102,6 +103,21 @@ test("the grid carries layout settings for the dial", () => {
   const screen = present(state({ layout }));
   if (screen.name !== "grid") throw new Error("expected the grid");
   assert.deepEqual(screen.layout, layout);
+});
+
+test("stored images attach to matching dial items", () => {
+  const dataUrl = "data:image/png;base64,aaaa";
+  const screen = present(
+    state({
+      currentId: "1",
+      images: { "11": dataUrl },
+    }),
+  );
+  if (screen.name !== "grid") throw new Error("expected the grid");
+  const example = screen.items.find((item) => item.id === "11");
+  const news = screen.items.find((item) => item.id === "12");
+  assert.equal(example?.imageDataUrl, dataUrl);
+  assert.equal(news?.imageDataUrl, null);
 });
 
 test("edit form state is passed through to the grid", () => {

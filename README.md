@@ -9,8 +9,10 @@ The extension has no account and no service of its own. The product scope is [do
 Hearth asks for three permissions:
 
 - **Bookmarks**, so it can show your bookmark folders and, when you ask, add a folder or bookmark. The dial list stays in Chrome bookmarks.
-- **Storage**, so it can remember the folder you had open and your grid layout. Those values stay in the browser profile.
+- **Storage**, so it can remember the folder you had open, your grid layout, and any local pictures you attach to dials. Those values stay in the browser profile (they do not sync with bookmarks).
 - **Context menus**, so you can right-click a page or link and choose **Add to Hearth…**. You pick the destination folder in a small extension window; the new-tab’s open folder is not used by default.
+
+Local dial pictures are optional JPEG, PNG, GIF, or WebP files you pick from disk (about 1.5 MB each). They are stored as data URLs under the default `chrome.storage.local` quota (~10 MB total for settings and images). Hearth does not request `unlimitedStorage` in v1. There is no image URL, screenshot capture, or favicon lookup.
 
 The extension does not request access to websites. It does not add an account, analytics, or a server of its own.
 
