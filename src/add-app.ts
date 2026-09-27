@@ -38,19 +38,26 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
     saving: false,
     done: false,
   };
+  /** Autofocus the name field once when the form becomes ready; restore focus after redraws. */
+  let titleFocused = false;
+  let restoreFocus: "title" | "folder" | null = null;
 
   const draw = () => {
     renderAdd(host, state, {
       setTitle: (title) => {
         if (state.saving || state.done) return;
         state.title = title;
-        state.error = null;
-        draw();
+        if (state.error) {
+          state.error = null;
+          restoreFocus = "title";
+          draw();
+        }
       },
       chooseFolder: (id) => {
         if (state.saving || state.done) return;
         state.parentId = id;
         state.error = null;
+        restoreFocus = "folder";
         draw();
       },
       submit: () => {
@@ -58,6 +65,16 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
       },
       cancel: () => {
         ports.close();
+      },
+    }, {
+      focusTitle: !titleFocused && state.status === "ready" && !state.saving && !state.done,
+      restoreFocus,
+      onTitleFocused: () => {
+        titleFocused = true;
+        restoreFocus = null;
+      },
+      onFocusRestored: () => {
+        restoreFocus = null;
       },
     });
   };
@@ -138,7 +155,14 @@ type AddHandlers = {
   cancel: () => void;
 };
 
-function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers): void {
+type AddFocus = {
+  focusTitle: boolean;
+  restoreFocus: "title" | "folder" | null;
+  onTitleFocused: () => void;
+  onFocusRestored: () => void;
+};
+
+function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, focus: AddFocus): void {
   host.replaceChildren();
   const frame = el("div", "frame add-frame");
   host.append(frame);
@@ -168,6 +192,11 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers): v
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     handlers.submit();
+  });
+  form.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || state.saving) return;
+    event.preventDefault();
+    handlers.cancel();
   });
 
   const titleLabel = el("label");
@@ -205,6 +234,8 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers): v
     folderField.append(empty);
   } else {
     const list = el("div", "folder-list");
+    list.setAttribute("role", "radiogroup");
+    list.setAttribute("aria-label", "Destination folder");
     for (const folder of state.folders) {
       const option = el("label", "folder-option");
       option.style.setProperty("--depth", String(folder.depth));
@@ -244,7 +275,17 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers): v
   form.append(actions);
 
   frame.append(form);
-  if (!state.saving && !state.done) titleInput.focus();
+  if (focus.focusTitle) {
+    titleInput.focus();
+    focus.onTitleFocused();
+  } else if (focus.restoreFocus === "title") {
+    titleInput.focus();
+    focus.onFocusRestored();
+  } else if (focus.restoreFocus === "folder" && state.parentId) {
+    const selected = form.querySelector(`input[name="parentId"][value="${CSS.escape(state.parentId)}"]`);
+    if (selected instanceof HTMLInputElement) selected.focus();
+    focus.onFocusRestored();
+  }
 }
 
 function cancelButton(handlers: AddHandlers): HTMLButtonElement {
@@ -258,6 +299,7 @@ function cancelButton(handlers: AddHandlers): HTMLButtonElement {
 
 function errorLine(message: string): HTMLParagraphElement {
   const error = el("p", "error");
+  error.setAttribute("role", "alert");
   error.textContent = message;
   return error;
 }

@@ -16,6 +16,13 @@ chrome.runtime.onInstalled.addListener(() => {
   ensureMenu();
 });
 
+// Service workers can restart without onInstalled; keep the menu registered.
+chrome.runtime.onStartup.addListener(() => {
+  ensureMenu();
+});
+
+ensureMenu();
+
 chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId !== MENU_ID) return;
   const query = addPageQuery({
