@@ -9,10 +9,11 @@ Manual pass after `npm run build` and **Load unpacked** → select the repo’s 
 - [ ] Reload / open another new tab: last folder is still open.
 - [ ] **New folder** and **New bookmark** create in the open folder (not at Chrome root).
 
-## Rename / delete
+## Rename / delete / pictures
 
-- [ ] **Rename** on a dial and on the current-folder title; titles update in the grid and in Chrome’s bookmark manager.
-- [ ] **Delete** asks for confirm; folder copy is stronger when the folder is not empty; item disappears from the grid.
+- [ ] Tile **⋮** menu: **Rename** opens a dialog; **Delete** asks for confirm in a dialog; folder copy is stronger when the folder is not empty; item disappears from the grid.
+- [ ] Rename / delete also work from the current-folder title chrome.
+- [ ] **Picture** / **Clear picture** from the tile menu; oversized or non-image file shows an error (no silent success).
 
 ## Drag
 
@@ -22,14 +23,13 @@ Manual pass after `npm run build` and **Load unpacked** → select the repo’s 
 
 ## Grid settings
 
-- [ ] Change **Columns** and **Tile size** (16:9 dial faces); layout updates and survives a new tab.
-- [ ] Open **Settings** (new-tab link or extension details → Extension options): toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.
+- [ ] New-tab **gear** opens Settings (not inline column/tile sliders on the dial).
+- [ ] On Settings: change **Columns** and **Tile size** (16:9 faces, size up to 576); layout updates on a new tab.
+- [ ] Toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.
 
 ## Local pictures
 
-- [ ] **Picture** on a dial without art: pick a small JPEG/PNG/GIF/WebP; tile shows the image.
-- [ ] **Clear picture** restores the monogram.
-- [ ] Oversized or non-image file shows an error (no silent success).
+- [ ] Covered under tile menu above.
 
 ## Add to Hearth (context menu)
 

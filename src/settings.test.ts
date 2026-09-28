@@ -78,4 +78,7 @@ test("readLayout pulls columns, tileSize, and reverseOrder from a settings objec
   });
   // Legacy square-era values below the new floor clamp up.
   assert.equal(readTileSize(64), LAYOUT_LIMITS.tileSize.min);
+  assert.equal(LAYOUT_LIMITS.tileSize.max, 576);
+  assert.equal(readTileSize(576), 576);
+  assert.equal(readTileSize(600), 576);
 });

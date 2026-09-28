@@ -1,6 +1,6 @@
 # Hearth Speed Dial — product spec
 
-Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns with enlarged 16:9 dial faces (tile width setting); settings page with display-order reverse (last bookmarks first, bookmark tree unchanged); context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback. Still Chrome only; no image URLs, thumbnails, or refresh.
+Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size on the **Settings** page (gear opens options; 16:9 faces, width up to 576px); display-order reverse; context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback; in-page dialogs for rename, delete confirm, and tile ⋮ actions. Still Chrome only; no image URLs, thumbnails, or refresh.
 
 ## Vision
 
@@ -12,7 +12,7 @@ Thumbnail generation, image URLs, and refresh are part of the vision and are not
 
 Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab page.
 
-- A customizable grid: column count and dial face width (faces are **16:9**), saved in `chrome.storage.local`. An extension **Settings** page can also reverse display order so last bookmarks appear first (display preference only; Chrome bookmark order stays the store of truth).
+- A customizable grid: column count and dial face width (faces are **16:9**, width up to 576px), saved in `chrome.storage.local` and edited on the extension **Settings** page (new-tab gear). That page can also reverse display order so last bookmarks appear first (display preference only; Chrome bookmark order stays the store of truth).
 - The new tab is a grid of the open bookmark folder. Chrome’s root is that same grid of folders. Nested folders open in the grid. A new tab reopens the last folder. The bookmark’s title, URL, parent, and order are the source of truth. The open folder can gain a new folder or bookmark from the grid.
 - Drag a dial to reorder it or move it, including into another folder in the tree.
 - Right-click a normal web page to add it as a bookmark in a folder of the dial tree, including a nested folder.
