@@ -256,16 +256,9 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async requestImageUrlFetchAccess() {
-      // <all_urls> from thumbnails already covers fetch — no second host prompt.
-      try {
-        if (await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] })) {
-          return true;
-        }
-      } catch {
-        // Fall through to request the scheme wildcards.
-      }
-      // Always request http/https wildcards (do not short-circuit on contains for
-      // those patterns). After toggle-off revoke, the next enable must prompt.
+      // Always request the scheme wildcards so this toggle owns its grants and
+      // survives thumbnails revoke of <all_urls>. When <all_urls> is already
+      // granted, Chrome typically returns true without a second prompt.
       const request = imageUrlFetchPermissionRequest();
       try {
         return await chrome.permissions.request({ origins: [...request.origins] });

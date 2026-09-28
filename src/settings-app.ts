@@ -203,6 +203,13 @@ export function startSettings(
     }
 
     if (!next.thumbnailsEnabled && previous.thumbnailsEnabled && permissions) {
+      // Keep URL-fetch independent: own http/https before dropping <all_urls>.
+      if (next.imageUrlFetchEnabled) {
+        const urlKept = await permissions.requestImageUrlFetchAccess();
+        if (!urlKept) {
+          next = { ...next, imageUrlFetchEnabled: false };
+        }
+      }
       try {
         await permissions.removeThumbnailAccess();
       } catch {
@@ -235,13 +242,8 @@ export function startSettings(
       }
     }
 
-    if (next.imageUrlFetchEnabled && permissions) {
-      const stillGranted = await permissions.hasImageUrlFetchAccess();
-      if (!stillGranted) {
-        next = { ...next, imageUrlFetchEnabled: false };
-        denial = imageUrlPermissionDeniedMessage();
-      }
-    }
+    // Do not demote imageUrlFetchEnabled here when <all_urls> was revoked with
+    // thumbnails — that path is handled above. Denial banner only on enable deny.
 
     saving = true;
     error = denial;

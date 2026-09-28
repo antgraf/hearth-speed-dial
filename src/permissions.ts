@@ -175,8 +175,10 @@ export type PermissionsApi = {
    */
   hasImageUrlFetchAccess(): Promise<boolean>;
   /**
-   * Prompt for http/https scheme wildcards (or no-op if <all_urls> already
-   * covers fetch). Returns false if denied or rejected.
+   * Prompt for http/https scheme wildcards so this toggle owns its grants
+   * (survives thumbnails revoke of <all_urls>). Returns false if denied or
+   * rejected. When <all_urls> is already granted, Chrome typically returns
+   * true without a second prompt.
    */
   requestImageUrlFetchAccess(): Promise<boolean>;
   /**
