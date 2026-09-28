@@ -313,6 +313,37 @@ export function dialItems(folder: BookmarkNode | undefined): DialItem[] {
   return items;
 }
 
+/** Display-order helper: last bookmarks first when `reverseOrder` is on. Does not mutate the tree. */
+export function orderDialItems<T>(items: readonly T[], reverseOrder: boolean): T[] {
+  return reverseOrder ? items.slice().reverse() : [...items];
+}
+
+/**
+ * Maps a visual drop (before/after a displayed tile) to the Chrome `beforeId`
+ * expected by `reorderMoveIndex`. When the grid is reversed for display,
+ * visual before/after flips relative to bookmark order.
+ */
+export function chromeBeforeIdFromDisplayDrop(
+  targetId: string,
+  afterInDisplay: boolean,
+  displayItems: readonly { id: string }[],
+  reverseOrder: boolean,
+): string | null {
+  if (!reverseOrder) {
+    if (!afterInDisplay) return targetId;
+    const index = displayItems.findIndex((entry) => entry.id === targetId);
+    if (index < 0 || index >= displayItems.length - 1) return null;
+    return displayItems[index + 1]?.id ?? null;
+  }
+  // Reversed: visual before target ⇒ chrome after target; visual after ⇒ chrome before.
+  if (!afterInDisplay) {
+    const index = displayItems.findIndex((entry) => entry.id === targetId);
+    if (index <= 0) return null;
+    return displayItems[index - 1]?.id ?? null;
+  }
+  return targetId;
+}
+
 export function breadcrumb(roots: readonly BookmarkNode[], rootId: string, currentId: string): Crumb[] {
   const nodes = nodeIndex(roots);
   const parents = parentIds(roots);

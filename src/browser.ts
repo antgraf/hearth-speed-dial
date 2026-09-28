@@ -114,6 +114,7 @@ export function chromeSettings(): SettingsApi {
       await patchSettings({
         columns: clampColumns(layout.columns),
         tileSize: clampTileSize(layout.tileSize),
+        reverseOrder: Boolean(layout.reverseOrder),
       });
     },
   };

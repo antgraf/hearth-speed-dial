@@ -7,12 +7,14 @@ import {
   LAYOUT_LIMITS,
   readColumns,
   readLayout,
+  readReverseOrder,
   readTileSize,
 } from "./settings.ts";
 
 test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.columns, 5);
   assert.equal(DEFAULT_LAYOUT.tileSize, 64);
+  assert.equal(DEFAULT_LAYOUT.reverseOrder, false);
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout({}), DEFAULT_LAYOUT);
@@ -43,17 +45,33 @@ test("parsers accept numbers and numeric strings", () => {
   assert.equal(readTileSize({}), DEFAULT_LAYOUT.tileSize);
 });
 
-test("readLayout pulls columns and tileSize from a settings object", () => {
+test("readReverseOrder accepts booleans and common encodings", () => {
+  assert.equal(readReverseOrder(true), true);
+  assert.equal(readReverseOrder(false), false);
+  assert.equal(readReverseOrder("true"), true);
+  assert.equal(readReverseOrder("false"), false);
+  assert.equal(readReverseOrder(1), true);
+  assert.equal(readReverseOrder(0), false);
+  assert.equal(readReverseOrder("1"), true);
+  assert.equal(readReverseOrder("0"), false);
+  assert.equal(readReverseOrder(null), false);
+  assert.equal(readReverseOrder("maybe"), false);
+});
+
+test("readLayout pulls columns, tileSize, and reverseOrder from a settings object", () => {
   assert.deepEqual(readLayout({ columns: 3, tileSize: 48, openFolderId: "1" }), {
     columns: 3,
     tileSize: 48,
+    reverseOrder: false,
   });
-  assert.deepEqual(readLayout({ columns: 99, tileSize: 1 }), {
+  assert.deepEqual(readLayout({ columns: 99, tileSize: 1, reverseOrder: true }), {
     columns: LAYOUT_LIMITS.columns.max,
     tileSize: LAYOUT_LIMITS.tileSize.min,
+    reverseOrder: true,
   });
-  assert.deepEqual(readLayout({ columns: "4", tileSize: "100" }), {
+  assert.deepEqual(readLayout({ columns: "4", tileSize: "100", reverseOrder: "true" }), {
     columns: 4,
     tileSize: 100,
+    reverseOrder: true,
   });
 });

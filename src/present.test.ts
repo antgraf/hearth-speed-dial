@@ -99,10 +99,25 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
 });
 
 test("the grid carries layout settings for the dial", () => {
-  const layout = { columns: 3, tileSize: 80 };
+  const layout = { columns: 3, tileSize: 80, reverseOrder: false };
   const screen = present(state({ layout }));
   if (screen.name !== "grid") throw new Error("expected the grid");
   assert.deepEqual(screen.layout, layout);
+});
+
+test("reverseOrder shows last bookmarks first without changing empty copy", () => {
+  const screen = present(
+    state({
+      currentId: "1",
+      layout: { ...DEFAULT_LAYOUT, reverseOrder: true },
+    }),
+  );
+  if (screen.name !== "grid") throw new Error("expected the grid");
+  assert.deepEqual(
+    screen.items.map((item) => item.title),
+    ["News", "Example"],
+  );
+  assert.equal(screen.layout.reverseOrder, true);
 });
 
 test("stored images attach to matching dial items", () => {

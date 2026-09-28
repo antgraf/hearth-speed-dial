@@ -7,6 +7,7 @@ import {
   breadcrumb,
   childIndex,
   alreadyInFolder,
+  chromeBeforeIdFromDisplayDrop,
   chromeIndexAtEnd,
   chromeIndexBefore,
   classify,
@@ -17,6 +18,7 @@ import {
   monogram,
   moveIntoFolderError,
   openableUrl,
+  orderDialItems,
   parentIds,
   parseAddPageFields,
   reorderMoveIndex,
@@ -139,6 +141,39 @@ test("reorderMoveIndex uses full sibling indices including separators", () => {
   assert.equal(reorderMoveIndex(children, "a", null), 4);
   assert.equal(reorderMoveIndex(children, "c", null), null);
   assert.equal(reorderMoveIndex(children, "missing", "b"), null);
+});
+
+test("orderDialItems reverses only for display", () => {
+  const items = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.deepEqual(
+    orderDialItems(items, false).map((item) => item.id),
+    ["a", "b", "c"],
+  );
+  assert.deepEqual(
+    orderDialItems(items, true).map((item) => item.id),
+    ["c", "b", "a"],
+  );
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["a", "b", "c"],
+  );
+});
+
+test("chromeBeforeIdFromDisplayDrop maps visual drops to Chrome beforeId", () => {
+  const natural = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.equal(chromeBeforeIdFromDisplayDrop("b", false, natural, false), "b");
+  assert.equal(chromeBeforeIdFromDisplayDrop("b", true, natural, false), "c");
+  assert.equal(chromeBeforeIdFromDisplayDrop("c", true, natural, false), null);
+
+  const reversed = [{ id: "c" }, { id: "b" }, { id: "a" }];
+  // Visual before B (between C and B) ⇒ Chrome after B ⇒ before C
+  assert.equal(chromeBeforeIdFromDisplayDrop("b", false, reversed, true), "c");
+  // Visual after B (between B and A) ⇒ Chrome before B
+  assert.equal(chromeBeforeIdFromDisplayDrop("b", true, reversed, true), "b");
+  // Visual before first (C) ⇒ end of Chrome order
+  assert.equal(chromeBeforeIdFromDisplayDrop("c", false, reversed, true), null);
+  // Visual after last (A) ⇒ Chrome before A
+  assert.equal(chromeBeforeIdFromDisplayDrop("a", true, reversed, true), "a");
 });
 
 test("isUnderAncestor walks parents including self", () => {

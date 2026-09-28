@@ -1,6 +1,6 @@
 import type { CreateKind, ViewModel } from "./present.ts";
 import { LAYOUT_LIMITS, type LayoutSettings } from "./settings.ts";
-import type { DialItem } from "./model.ts";
+import { chromeBeforeIdFromDisplayDrop, type DialItem } from "./model.ts";
 
 export type ViewActions = {
   openFolder(id: string): void;
@@ -15,6 +15,7 @@ export type ViewActions = {
   moveDialInto(draggedId: string, parentId: string): void;
   attachImage(id: string, file: File): void;
   clearImage(id: string): void;
+  openSettings(): void;
 };
 
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
@@ -94,6 +95,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   list.className = "grid";
   list.setAttribute("aria-label", "Speed dial");
   const canDrag = !view.saving && view.items.length > 0;
+  const reverseOrder = view.layout.reverseOrder;
   for (const item of view.items) {
     const entry = document.createElement("li");
     let tile: HTMLElement;
@@ -131,7 +133,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     entry.append(tile);
     entry.append(tileActions(item, actions, view.saving));
     if (canDrag) {
-      bindDialDrag(entry, item, view.items, actions, () => {
+      bindDialDrag(entry, item, view.items, reverseOrder, actions, () => {
         suppressClick = true;
       });
     }
@@ -195,6 +197,7 @@ function bindDialDrag(
   entry: HTMLLIElement,
   item: DialItem,
   items: readonly DialItem[],
+  reverseOrder: boolean,
   actions: ViewActions,
   onDragged: () => void,
 ): void {
@@ -248,23 +251,16 @@ function bindDialDrag(
         actions.moveDialInto(draggedId, item.id);
         return;
       }
-      const beforeId = dropBeforeId(item.id, zone === "after", items);
+      const beforeId = chromeBeforeIdFromDisplayDrop(item.id, zone === "after", items, reverseOrder);
       onDragged();
       actions.reorderDial(draggedId, beforeId);
       return;
     }
     const after = event.clientX > rect.left + rect.width / 2;
-    const beforeId = dropBeforeId(item.id, after, items);
+    const beforeId = chromeBeforeIdFromDisplayDrop(item.id, after, items, reverseOrder);
     onDragged();
     actions.reorderDial(draggedId, beforeId);
   });
-}
-
-function dropBeforeId(targetId: string, after: boolean, items: readonly { id: string }[]): string | null {
-  if (!after) return targetId;
-  const index = items.findIndex((entry) => entry.id === targetId);
-  if (index < 0 || index >= items.length - 1) return null;
-  return items[index + 1]?.id ?? null;
 }
 
 function layoutControls(layout: LayoutSettings, actions: ViewActions): HTMLElement {
@@ -283,6 +279,7 @@ function layoutControls(layout: LayoutSettings, actions: ViewActions): HTMLEleme
     actions.setLayout({
       columns: Number(columns.value),
       tileSize: layout.tileSize,
+      reverseOrder: layout.reverseOrder,
     });
   });
 
@@ -298,12 +295,20 @@ function layoutControls(layout: LayoutSettings, actions: ViewActions): HTMLEleme
     actions.setLayout({
       columns: layout.columns,
       tileSize: Number(tileSize.value),
+      reverseOrder: layout.reverseOrder,
     });
   });
+
+  const settings = document.createElement("button");
+  settings.type = "button";
+  settings.className = "quiet settings-link";
+  settings.textContent = "Settings";
+  settings.addEventListener("click", () => actions.openSettings());
 
   row.append(
     labeledControl("Columns", columns),
     labeledControl("Tile size", tileSize),
+    settings,
   );
   return row;
 }

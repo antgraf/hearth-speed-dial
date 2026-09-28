@@ -28,6 +28,7 @@ export type AppPorts = {
   settings: SettingsApi;
   images: ImagesApi;
   banner?: string | null;
+  openSettings?: () => void;
 };
 
 export function start(host: HTMLElement, ports: AppPorts): () => void {
@@ -99,6 +100,15 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       },
       clearImage: (id) => {
         void clearImage(id);
+      },
+      openSettings: () => {
+        if (ports.openSettings) {
+          ports.openSettings();
+          return;
+        }
+        if (typeof chrome !== "undefined" && chrome.runtime?.openOptionsPage) {
+          void chrome.runtime.openOptionsPage();
+        }
       },
     });
 
@@ -231,6 +241,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     const next = {
       columns: clampColumns(layout.columns),
       tileSize: clampTileSize(layout.tileSize),
+      reverseOrder: Boolean(layout.reverseOrder),
     };
     state.layout = next;
     draw();

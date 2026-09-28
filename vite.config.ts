@@ -43,6 +43,7 @@ export default defineConfig({
       input: {
         main: resolve(projectRoot, "src/index.html"),
         add: resolve(projectRoot, "src/add.html"),
+        settings: resolve(projectRoot, "src/settings.html"),
         background: resolve(projectRoot, "src/background.ts"),
       },
       output: {

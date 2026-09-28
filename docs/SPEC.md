@@ -1,6 +1,6 @@
 # Hearth Speed Dial — product spec
 
-Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size; context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback. Still Chrome only; no image URLs, thumbnails, or refresh.
+Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size; settings page with display-order reverse (last bookmarks first, bookmark tree unchanged); context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback. Still Chrome only; no image URLs, thumbnails, or refresh.
 
 ## Vision
 
@@ -12,7 +12,7 @@ Thumbnail generation, image URLs, and refresh are part of the vision and are not
 
 Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab page.
 
-- A customizable grid: column count and tile size, saved in `chrome.storage.local`.
+- A customizable grid: column count and tile size, saved in `chrome.storage.local`. An extension **Settings** page can also reverse display order so last bookmarks appear first (display preference only; Chrome bookmark order stays the store of truth).
 - The new tab is a grid of the open bookmark folder. Chrome’s root is that same grid of folders. Nested folders open in the grid. A new tab reopens the last folder. The bookmark’s title, URL, parent, and order are the source of truth. The open folder can gain a new folder or bookmark from the grid.
 - Drag a dial to reorder it or move it, including into another folder in the tree.
 - Right-click a normal web page to add it as a bookmark in a folder of the dial tree, including a nested folder.
@@ -36,5 +36,5 @@ These stay the product bar. v1 covers each one except remote and generated image
 
 - The fallback picture is a monogram, not Chrome’s favicon cache. Say if v1 should show the favicon instead.
 - The right-click item lets the user pick the destination folder. It does not silently use whichever folder is open on the new-tab page.
-- Settings that are not bookmarks (grid, last opened folder id, image blobs) live in extension storage and do not sync in v1.
+- Settings that are not bookmarks (grid, display-order reverse, last opened folder id, image blobs) live in extension storage and do not sync in v1.
 - Copyright holder for the MIT license is the GitHub account `antgraf`.

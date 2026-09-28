@@ -18,7 +18,13 @@ if (bookmarksReady && storageReady) {
 } else if (import.meta.env.DEV) {
   const { previewBanner, previewPorts } = await import("./preview.ts");
   const ports = previewPorts();
-  start(host, { ...ports, banner: previewBanner });
+  start(host, {
+    ...ports,
+    banner: previewBanner,
+    openSettings: () => {
+      window.location.assign("./settings.html");
+    },
+  });
 } else {
   host.textContent = "Open Hearth from a Chrome new tab after loading the extension.";
 }
