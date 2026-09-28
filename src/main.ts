@@ -1,5 +1,5 @@
 import { start } from "./app.ts";
-import { chromeBookmarks, chromeImages, chromeSettings } from "./browser.ts";
+import { chromeBookmarks, chromeCapture, chromeImages, chromePermissions, chromeSettings } from "./browser.ts";
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
@@ -14,6 +14,8 @@ if (bookmarksReady && storageReady) {
     bookmarks: chromeBookmarks(),
     settings: chromeSettings(),
     images: chromeImages(),
+    permissions: chromePermissions(),
+    capture: chromeCapture(),
   });
 } else if (import.meta.env.DEV) {
   const { previewBanner, previewPorts } = await import("./preview.ts");

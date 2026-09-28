@@ -2,6 +2,7 @@ import type { BookmarkNode } from "./model.ts";
 import { moveIntoFolderError } from "./model.ts";
 import type { BookmarksApi } from "./browser.ts";
 import { previewImages, type ImagesApi } from "./images.ts";
+import type { CaptureApi, PermissionsApi } from "./permissions.ts";
 import { previewSettings, type SettingsApi } from "./settings.ts";
 
 const sampleTree = (): BookmarkNode[] => [
@@ -40,11 +41,19 @@ export const previewBanner =
 const PREVIEW_TREE_KEY = "hearth.previewTree";
 const PREVIEW_TREE_VERSION = 1;
 
-export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi; images: ImagesApi } {
+export function previewPorts(): {
+  bookmarks: BookmarksApi;
+  settings: SettingsApi;
+  images: ImagesApi;
+  permissions: PermissionsApi;
+  capture: CaptureApi;
+} {
   const tree = loadPreviewTree();
   let nextId = nextPreviewId(tree);
   const listeners = new Set<() => void>();
   const images = previewImages();
+  let previewFetchGranted = false;
+  let previewThumbnailGranted = false;
 
   const notify = () => {
     for (const listener of listeners) listener();
@@ -139,7 +148,33 @@ export function previewPorts(): { bookmarks: BookmarksApi; settings: SettingsApi
     return structuredClone(node);
   }
 
-  return { bookmarks, settings: previewSettings(), images };
+  return {
+    bookmarks,
+    settings: previewSettings(),
+    images,
+    permissions: {
+      async hasThumbnailAccess() {
+        return previewThumbnailGranted;
+      },
+      async requestThumbnailAccess() {
+        previewThumbnailGranted = true;
+        return true;
+      },
+      async canFetchUrl() {
+        return previewFetchGranted || previewThumbnailGranted;
+      },
+      async requestFetchAccess() {
+        previewFetchGranted = true;
+        return true;
+      },
+    },
+    capture: {
+      async capturePage() {
+        // Tiny 1×1 PNG so preview can exercise the store path without Chrome APIs.
+        return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+      },
+    },
+  };
 }
 
 function loadPreviewTree(): BookmarkNode[] {

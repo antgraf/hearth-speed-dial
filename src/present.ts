@@ -44,6 +44,8 @@ export type AppState = {
   layout: LayoutSettings;
   /** Local dial pictures keyed by bookmark id (data URLs). */
   images: Record<string, string>;
+  /** True when thumbnails setting is on and optional permissions are granted. */
+  thumbnailsActive: boolean;
 };
 
 export type ViewModel =
@@ -60,10 +62,12 @@ export type ViewModel =
       canRenameCurrent: boolean;
       canDeleteCurrent: boolean;
       /** Open folder id and optional picture for the breadcrumb ⋮ menu. */
-      currentFolder: { id: string; title: string; imageDataUrl: string | null };
+      currentFolder: { id: string; title: string; imageDataUrl: string | null; kind: "folder"; url: null };
       form: DialForm | null;
       saving: boolean;
       layout: LayoutSettings;
+      /** Capture thumbnail is available in the picture menu. */
+      thumbnailsActive: boolean;
     };
 
 function folderNode(tree: readonly BookmarkNode[], id: string | null): BookmarkNode | null {
@@ -136,9 +140,12 @@ export function present(state: AppState): ViewModel {
       id: current.id,
       title: folderLabel(current),
       imageDataUrl: state.images[current.id] ?? null,
+      kind: "folder",
+      url: null,
     },
     form: state.form,
     saving: state.saving,
     layout: state.layout,
+    thumbnailsActive: state.thumbnailsActive,
   };
 }

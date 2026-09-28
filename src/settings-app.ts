@@ -6,8 +6,17 @@ import {
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
+import {
+  thumbnailPermissionDeniedMessage,
+  type PermissionsApi,
+} from "./permissions.ts";
 
-export function startSettings(host: HTMLElement, settings: SettingsApi, banner?: string | null): void {
+export function startSettings(
+  host: HTMLElement,
+  settings: SettingsApi,
+  banner?: string | null,
+  permissions?: PermissionsApi,
+): void {
   let layout: LayoutSettings = { ...DEFAULT_LAYOUT };
   let saving = false;
   let error: string | null = null;
@@ -71,6 +80,28 @@ export function startSettings(host: HTMLElement, settings: SettingsApi, banner?:
     reverseLabel.append(reverse, reverseText);
     form.append(reverseLabel);
 
+    const thumbnails = document.createElement("input");
+    thumbnails.type = "checkbox";
+    thumbnails.name = "thumbnailsEnabled";
+    thumbnails.checked = layout.thumbnailsEnabled;
+    thumbnails.id = "thumbnailsEnabled";
+    thumbnails.disabled = saving;
+    const thumbnailsLabel = document.createElement("label");
+    thumbnailsLabel.className = "settings-check";
+    thumbnailsLabel.htmlFor = "thumbnailsEnabled";
+    const thumbnailsText = document.createElement("span");
+    thumbnailsText.className = "settings-check-text";
+    const thumbnailsCaption = document.createElement("span");
+    thumbnailsCaption.className = "settings-check-title";
+    thumbnailsCaption.textContent = "Generate dial thumbnails";
+    const thumbnailsHelp = document.createElement("span");
+    thumbnailsHelp.className = "settings-help";
+    thumbnailsHelp.textContent =
+      "Off by default. When you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Images stay local — nothing is uploaded.";
+    thumbnailsText.append(thumbnailsCaption, thumbnailsHelp);
+    thumbnailsLabel.append(thumbnails, thumbnailsText);
+    form.append(thumbnailsLabel);
+
     const columns = document.createElement("input");
     columns.type = "number";
     columns.name = "columns";
@@ -113,11 +144,42 @@ export function startSettings(host: HTMLElement, settings: SettingsApi, banner?:
     const form = host.querySelector("form");
     if (!(form instanceof HTMLFormElement)) return;
     const data = new FormData(form);
-    const next: LayoutSettings = {
+    let next: LayoutSettings = {
       columns: clampColumns(Number(data.get("columns"))),
       tileSize: clampTileSize(Number(data.get("tileSize"))),
       reverseOrder: data.get("reverseOrder") === "on",
+      thumbnailsEnabled: data.get("thumbnailsEnabled") === "on",
     };
+
+    if (next.thumbnailsEnabled && !layout.thumbnailsEnabled && permissions) {
+      const granted = await permissions.requestThumbnailAccess();
+      if (!granted) {
+        next = { ...next, thumbnailsEnabled: false };
+        error = thumbnailPermissionDeniedMessage();
+        savedNote = null;
+        layout = next;
+        draw();
+        try {
+          await settings.setLayout(next);
+        } catch (caught) {
+          error =
+            caught instanceof Error && caught.message.trim()
+              ? caught.message
+              : "Could not save settings.";
+          draw();
+        }
+        return;
+      }
+    }
+
+    if (next.thumbnailsEnabled && permissions) {
+      const stillGranted = await permissions.hasThumbnailAccess();
+      if (!stillGranted) {
+        next = { ...next, thumbnailsEnabled: false };
+        error = thumbnailPermissionDeniedMessage();
+      }
+    }
+
     saving = true;
     error = null;
     savedNote = null;
@@ -138,6 +200,13 @@ export function startSettings(host: HTMLElement, settings: SettingsApi, banner?:
   void (async () => {
     try {
       layout = await settings.getLayout();
+      if (layout.thumbnailsEnabled && permissions) {
+        const granted = await permissions.hasThumbnailAccess();
+        if (!granted) {
+          layout = { ...layout, thumbnailsEnabled: false };
+          void settings.setLayout(layout);
+        }
+      }
     } catch (caught) {
       error = caught instanceof Error && caught.message.trim() ? caught.message : "Could not load settings.";
     }

@@ -1,6 +1,6 @@
 import type { CreateKind, ViewModel } from "./present.ts";
 import { openDialog, type DialogHandle } from "./dialog.ts";
-import { chromeBeforeIdFromDisplayDrop, type DialItem } from "./model.ts";
+import { chromeBeforeIdFromDisplayDrop, openableUrl, type DialItem } from "./model.ts";
 import { LAYOUT_LIMITS, type LayoutSettings } from "./settings.ts";
 
 export type ViewActions = {
@@ -14,13 +14,18 @@ export type ViewActions = {
   reorderDial(draggedId: string, beforeId: string | null): void;
   moveDialInto(draggedId: string, parentId: string): void;
   attachImage(id: string, file: File): void;
+  attachImageUrl(id: string, url: string): void;
+  captureThumbnail(id: string): void;
   clearImage(id: string): void;
-  setLayout(layout: LayoutSettings): void;
+  /** Persist layout; may clear thumbnailsEnabled if optional permission is denied. */
+  setLayout(layout: LayoutSettings): void | Promise<LayoutSettings>;
 };
 
 type MenuTarget = {
   id: string;
   title: string;
+  kind: "link" | "folder";
+  url: string | null;
   imageDataUrl: string | null;
 };
 
@@ -88,15 +93,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       if (view.canRenameCurrent || view.canDeleteCurrent) {
         current.append(
           menuButton(`Actions for ${crumb.title}`, view.saving, (button) => {
-            openActionMenu(
-              {
-                id: view.currentFolder.id,
-                title: view.currentFolder.title,
-                imageDataUrl: view.currentFolder.imageDataUrl,
-              },
-              actions,
-              button,
-            );
+            openActionMenu(view.currentFolder, actions, button, view.thumbnailsActive);
           }),
         );
       }
@@ -161,7 +158,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       main = document.createElement("div");
       main.className = "tile-main";
     }
-    main.append(tileMark(item), tileCaption(item, actions, view.saving));
+    main.append(tileMark(item), tileCaption(item, actions, view.saving, view.thumbnailsActive));
     shell.append(main);
     entry.append(shell);
     if (canDrag) {
@@ -239,6 +236,27 @@ function openSettingsDialog(
   reverseLabel.append(reverse, reverseText);
   body.append(reverseLabel);
 
+  const thumbnails = document.createElement("input");
+  thumbnails.type = "checkbox";
+  thumbnails.name = "thumbnailsEnabled";
+  thumbnails.checked = layout.thumbnailsEnabled;
+  thumbnails.id = "settings-thumbnailsEnabled";
+  const thumbnailsLabel = document.createElement("label");
+  thumbnailsLabel.className = "settings-check";
+  thumbnailsLabel.htmlFor = "settings-thumbnailsEnabled";
+  const thumbnailsText = document.createElement("span");
+  thumbnailsText.className = "settings-check-text";
+  const thumbnailsCaption = document.createElement("span");
+  thumbnailsCaption.className = "settings-check-title";
+  thumbnailsCaption.textContent = "Generate dial thumbnails";
+  const thumbnailsHelp = document.createElement("span");
+  thumbnailsHelp.className = "settings-help";
+  thumbnailsHelp.textContent =
+    "Off by default. When you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Images stay local — nothing is uploaded.";
+  thumbnailsText.append(thumbnailsCaption, thumbnailsHelp);
+  thumbnailsLabel.append(thumbnails, thumbnailsText);
+  body.append(thumbnailsLabel);
+
   const columns = document.createElement("input");
   columns.type = "number";
   columns.name = "columns";
@@ -267,15 +285,23 @@ function openSettingsDialog(
     columns: Number(columns.value),
     tileSize: Number(tileSize.value),
     reverseOrder: reverse.checked,
+    thumbnailsEnabled: thumbnails.checked,
   });
 
   const applyLayout = () => {
-    actions.setLayout(readLayout());
+    void Promise.resolve(actions.setLayout(readLayout())).then((applied) => {
+      if (!applied) return;
+      reverse.checked = applied.reverseOrder;
+      thumbnails.checked = applied.thumbnailsEnabled;
+      columns.value = String(applied.columns);
+      tileSize.value = String(applied.tileSize);
+    });
   };
 
   columns.addEventListener("change", applyLayout);
   tileSize.addEventListener("change", applyLayout);
   reverse.addEventListener("change", applyLayout);
+  thumbnails.addEventListener("change", applyLayout);
   body.addEventListener("submit", (event) => {
     event.preventDefault();
     applyLayout();
@@ -335,7 +361,12 @@ function menuButton(
   return button;
 }
 
-function tileCaption(item: DialItem, actions: ViewActions, disabled: boolean): HTMLElement {
+function tileCaption(
+  item: DialItem,
+  actions: ViewActions,
+  disabled: boolean,
+  thumbnailsActive: boolean,
+): HTMLElement {
   const caption = document.createElement("div");
   caption.className = "tile-caption";
   const title = document.createElement("span");
@@ -349,14 +380,19 @@ function tileCaption(item: DialItem, actions: ViewActions, disabled: boolean): H
   metaRow.append(
     meta,
     menuButton(`Actions for ${item.title}`, disabled, (button) => {
-      openActionMenu(item, actions, button);
+      openActionMenu(item, actions, button, thumbnailsActive);
     }),
   );
   caption.append(title, metaRow);
   return caption;
 }
 
-function openActionMenu(item: MenuTarget, actions: ViewActions, anchor: HTMLElement): void {
+function openActionMenu(
+  item: MenuTarget,
+  actions: ViewActions,
+  anchor: HTMLElement,
+  thumbnailsActive: boolean,
+): void {
   const list = document.createElement("div");
   list.className = "dialog-menu-list";
   list.setAttribute("role", "menu");
@@ -375,11 +411,7 @@ function openActionMenu(item: MenuTarget, actions: ViewActions, anchor: HTMLElem
   };
 
   addItem("Rename", iconRename(), () => actions.beginEdit(item.id));
-  if (item.imageDataUrl) {
-    addItem("Clear picture", iconPicture(), () => actions.clearImage(item.id));
-  } else {
-    addItem("Picture", iconPicture(), () => pickImageFile(item, actions));
-  }
+  addItem("Picture…", iconPicture(), () => openPictureMenu(item, actions, anchor, thumbnailsActive));
   addItem("Delete", iconDelete(), () => actions.requestDelete(item.id), true);
 
   const handle = openDialog({
@@ -388,6 +420,127 @@ function openActionMenu(item: MenuTarget, actions: ViewActions, anchor: HTMLElem
     returnFocus: anchor,
     closeOnBackdrop: true,
     closeOnEscape: true,
+  });
+}
+
+function openPictureMenu(
+  item: MenuTarget,
+  actions: ViewActions,
+  anchor: HTMLElement,
+  thumbnailsActive: boolean,
+): void {
+  const list = document.createElement("div");
+  list.className = "dialog-menu-list";
+  list.setAttribute("role", "menu");
+
+  const addItem = (
+    label: string,
+    icon: SVGSVGElement,
+    onPick: () => void,
+    opts?: { danger?: boolean; disabled?: boolean },
+  ) => {
+    const itemButton = document.createElement("button");
+    itemButton.type = "button";
+    itemButton.className = opts?.danger ? "dialog-menu-item danger" : "dialog-menu-item";
+    itemButton.setAttribute("role", "menuitem");
+    itemButton.disabled = Boolean(opts?.disabled);
+    itemButton.append(icon, document.createTextNode(label));
+    itemButton.addEventListener("click", () => {
+      if (itemButton.disabled) return;
+      handle.close();
+      onPick();
+    });
+    list.append(itemButton);
+  };
+
+  addItem("Attach file…", iconPicture(), () => pickImageFile(item, actions));
+  addItem("Image from URL…", iconLink(), () => promptImageUrl(item, actions, anchor));
+
+  const pageUrl = item.kind === "link" && item.url ? openableUrl(item.url) : null;
+  const canCapture = Boolean(pageUrl && (pageUrl.startsWith("http:") || pageUrl.startsWith("https:")));
+  if (canCapture) {
+    if (thumbnailsActive) {
+      addItem("Capture thumbnail", iconCamera(), () => actions.captureThumbnail(item.id));
+    } else {
+      addItem("Capture thumbnail (enable in Settings)", iconCamera(), () => undefined, {
+        disabled: true,
+      });
+    }
+  }
+
+  if (item.imageDataUrl) {
+    addItem("Clear picture", iconPicture(), () => actions.clearImage(item.id), { danger: true });
+  }
+
+  const handle = openDialog({
+    panelClass: "dialog-menu",
+    body: list,
+    returnFocus: anchor,
+    closeOnBackdrop: true,
+    closeOnEscape: true,
+  });
+}
+
+function promptImageUrl(item: MenuTarget, actions: ViewActions, returnFocus: HTMLElement): void {
+  const body = document.createElement("form");
+  body.className = "dialog-form";
+  body.id = "hearth-image-url-form";
+
+  const input = document.createElement("input");
+  input.type = "url";
+  input.name = "imageUrl";
+  input.placeholder = "https://…";
+  input.autocomplete = "off";
+  input.required = true;
+  input.setAttribute("aria-label", "Image address");
+
+  const label = document.createElement("label");
+  const caption = document.createElement("span");
+  caption.textContent = "Image address";
+  label.append(caption, input);
+  body.append(label);
+
+  const help = document.createElement("p");
+  help.className = "dialog-message";
+  help.textContent =
+    "Hearth downloads the image once and stores it locally. The dial does not keep linking to the remote URL.";
+  body.append(help);
+
+  const footer = document.createElement("div");
+  footer.className = "dialog-actions";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "quiet";
+  cancel.textContent = "Cancel";
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.className = "primary";
+  submit.textContent = "Use image";
+  submit.setAttribute("form", "hearth-image-url-form");
+  footer.append(cancel, submit);
+
+  let closedByAction = false;
+  const handle = openDialog({
+    title: "Image from URL",
+    body,
+    footer,
+    returnFocus,
+    onClose: () => {
+      if (!closedByAction) return;
+    },
+  });
+
+  cancel.addEventListener("click", () => {
+    closedByAction = true;
+    handle.close();
+  });
+  body.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const url = input.value.trim();
+    if (!url) return;
+    closedByAction = true;
+    handle.close();
+    actions.attachImageUrl(item.id, url);
   });
 }
 
@@ -816,6 +969,18 @@ function iconRename(): SVGSVGElement {
 function iconPicture(): SVGSVGElement {
   return svgIcon(
     "M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
+  );
+}
+
+function iconLink(): SVGSVGElement {
+  return svgIcon(
+    "M3.9 12a5 5 0 0 1 5-5h4v2h-4a3 3 0 1 0 0 6h4v2h-4a5 5 0 0 1-5-5zm7-1h6v2h-6v-2zm5.1-4h-4v2h4a3 3 0 1 1 0 6h-4v2h4a5 5 0 0 0 0-10z",
+  );
+}
+
+function iconCamera(): SVGSVGElement {
+  return svgIcon(
+    "M12 15.2A3.2 3.2 0 1 0 12 8.8a3.2 3.2 0 0 0 0 6.4zM9 3l-1.8 2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9z",
   );
 }
 

@@ -7,6 +7,7 @@ import {
   folderName,
   moveIntoFolderError,
   nodeIndex,
+  openableUrl,
   parentIds,
   reorderMoveIndex,
   type BookmarkNode,
@@ -14,7 +15,14 @@ import {
 import { canDeleteNode, canRenameNode, deleteConfirmMessage, present, type AppState, type CreateKind } from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
 import { confirmDialog } from "./dialog.ts";
-import { fileToDataUrl, type ImagesApi } from "./images.ts";
+import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
+import {
+  imageUrlPermissionDeniedMessage,
+  thumbnailPermissionDeniedMessage,
+  thumbnailUnavailableMessage,
+  type CaptureApi,
+  type PermissionsApi,
+} from "./permissions.ts";
 import {
   clampColumns,
   clampTileSize,
@@ -28,6 +36,8 @@ export type AppPorts = {
   bookmarks: BookmarksApi;
   settings: SettingsApi;
   images: ImagesApi;
+  permissions: PermissionsApi;
+  capture: CaptureApi;
   banner?: string | null;
 };
 
@@ -42,6 +52,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     saving: false,
     layout: { ...DEFAULT_LAYOUT },
     images: {},
+    thumbnailsActive: false,
   };
   let request = 0;
 
@@ -95,13 +106,27 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       attachImage: (id, file) => {
         void attachImage(id, file);
       },
+      attachImageUrl: (id, url) => {
+        void attachImageUrl(id, url);
+      },
+      captureThumbnail: (id) => {
+        void captureThumbnail(id);
+      },
       clearImage: (id) => {
         void clearImage(id);
       },
-      setLayout: (layout) => {
-        void saveLayout(layout);
-      },
+      setLayout: (layout) => saveLayout(layout),
     });
+
+  const syncThumbnailActive = async (preferEnabled: boolean): Promise<boolean> => {
+    if (!preferEnabled) {
+      state.thumbnailsActive = false;
+      return false;
+    }
+    const granted = await ports.permissions.hasThumbnailAccess();
+    state.thumbnailsActive = granted;
+    return granted;
+  };
 
   const showFolder = async (id: string) => {
     const folder = nodeIndex(state.tree).get(id);
@@ -158,6 +183,77 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     draw();
     try {
       const dataUrl = await fileToDataUrl(file);
+      await ports.images.setImage(id, dataUrl);
+      state.images = { ...state.images, [id]: dataUrl };
+      state.saving = false;
+      draw();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const attachImageUrl = async (id: string, rawUrl: string) => {
+    if (state.saving) return;
+    const node = nodeIndex(state.tree).get(id);
+    if (!node || classify(node) === "skip") return;
+    const href = imageSourceUrl(rawUrl);
+    if (!href) {
+      state.error = imageUrlInvalidMessage();
+      draw();
+      return;
+    }
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      const allowed = await ports.permissions.requestFetchAccess(href);
+      if (!allowed) throw new Error(imageUrlPermissionDeniedMessage());
+      const dataUrl = await fetchImageAsDataUrl(href);
+      await ports.images.setImage(id, dataUrl);
+      state.images = { ...state.images, [id]: dataUrl };
+      state.saving = false;
+      draw();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const captureThumbnail = async (id: string) => {
+    if (state.saving) return;
+    const node = nodeIndex(state.tree).get(id);
+    if (!node || classify(node) !== "link" || !node.url) return;
+    const pageUrl = openableUrl(node.url);
+    if (!pageUrl || pageUrl.startsWith("file:")) {
+      state.error = "Thumbnails work for http:// and https:// bookmarks only.";
+      draw();
+      return;
+    }
+    if (!state.layout.thumbnailsEnabled) {
+      state.error = thumbnailUnavailableMessage();
+      draw();
+      return;
+    }
+    const granted = await syncThumbnailActive(true);
+    if (!granted) {
+      state.layout = { ...state.layout, thumbnailsEnabled: false };
+      state.error = thumbnailPermissionDeniedMessage();
+      draw();
+      try {
+        await ports.settings.setLayout(state.layout);
+      } catch {
+        // Keep the in-memory off state even if persist fails.
+      }
+      return;
+    }
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      const dataUrl = await ports.capture.capturePage(pageUrl);
       await ports.images.setImage(id, dataUrl);
       state.images = { ...state.images, [id]: dataUrl };
       state.saving = false;
@@ -235,12 +331,42 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     }
   };
 
-  const saveLayout = async (layout: LayoutSettings) => {
-    const next = {
+  const saveLayout = async (layout: LayoutSettings): Promise<LayoutSettings> => {
+    const previous = state.layout;
+    let next = {
       columns: clampColumns(layout.columns),
       tileSize: clampTileSize(layout.tileSize),
       reverseOrder: Boolean(layout.reverseOrder),
+      thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
     };
+
+    if (next.thumbnailsEnabled && !previous.thumbnailsEnabled) {
+      const granted = await ports.permissions.requestThumbnailAccess();
+      if (!granted) {
+        next = { ...next, thumbnailsEnabled: false };
+        state.layout = next;
+        state.thumbnailsActive = false;
+        state.error = thumbnailPermissionDeniedMessage();
+        draw();
+        try {
+          await ports.settings.setLayout(next);
+        } catch (error) {
+          state.error = errorText(error);
+          draw();
+        }
+        return next;
+      }
+      state.thumbnailsActive = true;
+    } else if (!next.thumbnailsEnabled) {
+      state.thumbnailsActive = false;
+    } else {
+      await syncThumbnailActive(true);
+      if (!state.thumbnailsActive) {
+        next = { ...next, thumbnailsEnabled: false };
+        state.error = thumbnailPermissionDeniedMessage();
+      }
+    }
+
     state.layout = next;
     draw();
     try {
@@ -249,6 +375,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.error = errorText(error);
       draw();
     }
+    return next;
   };
 
   const saveForm = async (input: { title: string; url: string }) => {
@@ -361,7 +488,14 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   void (async () => {
     try {
       state.currentId = await ports.settings.getOpenFolderId();
-      state.layout = await ports.settings.getLayout();
+      const layout = await ports.settings.getLayout();
+      state.layout = layout;
+      const active = await syncThumbnailActive(layout.thumbnailsEnabled);
+      if (layout.thumbnailsEnabled && !active) {
+        // Permission revoked while the preference was on — degrade gracefully.
+        state.layout = { ...layout, thumbnailsEnabled: false };
+        void ports.settings.setLayout(state.layout);
+      }
     } catch (error) {
       state.error = errorText(error);
     }

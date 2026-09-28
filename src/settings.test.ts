@@ -8,6 +8,7 @@ import {
   readColumns,
   readLayout,
   readReverseOrder,
+  readThumbnailsEnabled,
   readTileSize,
   TILE_ASPECT,
 } from "./settings.ts";
@@ -16,6 +17,7 @@ test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.columns, 5);
   assert.equal(DEFAULT_LAYOUT.tileSize, 176);
   assert.equal(DEFAULT_LAYOUT.reverseOrder, false);
+  assert.equal(DEFAULT_LAYOUT.thumbnailsEnabled, false);
   assert.equal(TILE_ASPECT, 16 / 9);
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);
@@ -60,21 +62,35 @@ test("readReverseOrder accepts booleans and common encodings", () => {
   assert.equal(readReverseOrder("maybe"), false);
 });
 
-test("readLayout pulls columns, tileSize, and reverseOrder from a settings object", () => {
+test("readThumbnailsEnabled defaults off and accepts common encodings", () => {
+  assert.equal(readThumbnailsEnabled(true), true);
+  assert.equal(readThumbnailsEnabled(false), false);
+  assert.equal(readThumbnailsEnabled("true"), true);
+  assert.equal(readThumbnailsEnabled("false"), false);
+  assert.equal(readThumbnailsEnabled(1), true);
+  assert.equal(readThumbnailsEnabled(0), false);
+  assert.equal(readThumbnailsEnabled(null), false);
+  assert.equal(readThumbnailsEnabled("maybe"), false);
+});
+
+test("readLayout pulls columns, tileSize, reverseOrder, and thumbnailsEnabled", () => {
   assert.deepEqual(readLayout({ columns: 3, tileSize: 128, openFolderId: "1" }), {
     columns: 3,
     tileSize: 128,
     reverseOrder: false,
+    thumbnailsEnabled: false,
   });
-  assert.deepEqual(readLayout({ columns: 99, tileSize: 1, reverseOrder: true }), {
+  assert.deepEqual(readLayout({ columns: 99, tileSize: 1, reverseOrder: true, thumbnailsEnabled: true }), {
     columns: LAYOUT_LIMITS.columns.max,
     tileSize: LAYOUT_LIMITS.tileSize.min,
     reverseOrder: true,
+    thumbnailsEnabled: true,
   });
-  assert.deepEqual(readLayout({ columns: "4", tileSize: "200", reverseOrder: "true" }), {
+  assert.deepEqual(readLayout({ columns: "4", tileSize: "200", reverseOrder: "true", thumbnailsEnabled: "1" }), {
     columns: 4,
     tileSize: 200,
     reverseOrder: true,
+    thumbnailsEnabled: true,
   });
   // Legacy square-era values below the new floor clamp up.
   assert.equal(readTileSize(64), LAYOUT_LIMITS.tileSize.min);

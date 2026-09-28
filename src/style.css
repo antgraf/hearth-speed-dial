@@ -516,6 +516,11 @@ h1 {
   color: #f0b4a4;
 }
 
+.dialog-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .dialog-menu-item .icon {
   width: 18px;
   height: 18px;

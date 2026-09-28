@@ -1,11 +1,21 @@
 import type { BookmarkNode } from "./model.ts";
 import {
   collectImages,
+  dataUrlByteLength,
   imageStorageKey,
+  MAX_IMAGE_BYTES,
   orphanImageKeys,
   readImageDataUrl,
   type ImagesApi,
 } from "./images.ts";
+import {
+  originHostPermission,
+  THUMBNAIL_HOST_PERMISSION,
+  thumbnailPermissionDeniedMessage,
+  thumbnailPermissionRequest,
+  type CaptureApi,
+  type PermissionsApi,
+} from "./permissions.ts";
 import {
   clampColumns,
   clampTileSize,
@@ -115,6 +125,7 @@ export function chromeSettings(): SettingsApi {
         columns: clampColumns(layout.columns),
         tileSize: clampTileSize(layout.tileSize),
         reverseOrder: Boolean(layout.reverseOrder),
+        thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
       });
     },
   };
@@ -149,4 +160,125 @@ export function chromeImages(): ImagesApi {
       if (orphans.length > 0) await chrome.storage.local.remove(orphans);
     },
   };
+}
+
+export function chromePermissions(): PermissionsApi {
+  return {
+    async hasThumbnailAccess() {
+      const request = thumbnailPermissionRequest();
+      return chrome.permissions.contains({
+        permissions: [...request.permissions],
+        origins: [...request.origins],
+      });
+    },
+    async requestThumbnailAccess() {
+      const request = thumbnailPermissionRequest();
+      return chrome.permissions.request({
+        permissions: [...request.permissions],
+        origins: [...request.origins],
+      });
+    },
+    async canFetchUrl(href) {
+      const hasAll = await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
+      if (hasAll) return true;
+      const origin = originHostPermission(href);
+      if (!origin) return false;
+      return chrome.permissions.contains({ origins: [origin] });
+    },
+    async requestFetchAccess(href) {
+      if (await this.canFetchUrl(href)) return true;
+      const origin = originHostPermission(href);
+      if (!origin) return false;
+      return chrome.permissions.request({ origins: [origin] });
+    },
+  };
+}
+
+const CAPTURE_LOAD_TIMEOUT_MS = 45_000;
+
+export function chromeCapture(): CaptureApi {
+  return {
+    async capturePage(pageUrl) {
+      const permissions = chromePermissions();
+      if (!(await permissions.hasThumbnailAccess())) {
+        throw new Error(thumbnailPermissionDeniedMessage());
+      }
+
+      const windowId = await openCaptureWindow(pageUrl);
+      try {
+        await waitForWindowTabComplete(windowId);
+        const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
+          format: "jpeg",
+          quality: 72,
+        });
+        const valid = readImageDataUrl(dataUrl);
+        if (!valid) throw new Error("The page screenshot could not be stored as an image.");
+        if (dataUrlByteLength(valid) > MAX_IMAGE_BYTES) {
+          throw new Error(
+            "That screenshot is too large to store. Try a simpler page, or attach a smaller image file.",
+          );
+        }
+        return valid;
+      } finally {
+        try {
+          await chrome.windows.remove(windowId);
+        } catch {
+          // Window may already be closed by the user.
+        }
+      }
+    },
+  };
+}
+
+async function openCaptureWindow(pageUrl: string): Promise<number> {
+  const created = await chrome.windows.create({
+    url: pageUrl,
+    type: "popup",
+    focused: true,
+    width: 1280,
+    height: 720,
+  });
+  const windowId = created?.id;
+  if (windowId === undefined) throw new Error("Could not open a window to capture that page.");
+  return windowId;
+}
+
+function waitForWindowTabComplete(windowId: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      finish(() => reject(new Error("That page took too long to load for a thumbnail.")));
+    }, CAPTURE_LOAD_TIMEOUT_MS);
+
+    const finish = (action: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      action();
+    };
+
+    const onUpdated = (
+      _tabId: number,
+      changeInfo: { status?: string },
+      tab: chrome.tabs.Tab,
+    ) => {
+      if (tab.windowId !== windowId) return;
+      if (changeInfo.status === "complete") {
+        finish(() => {
+          // Brief settle so late paints / redirects finish before capture.
+          setTimeout(() => resolve(), 400);
+        });
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(onUpdated);
+
+    void chrome.tabs.query({ windowId, active: true }).then((tabs) => {
+      const tab = tabs[0];
+      if (tab?.status === "complete") {
+        finish(() => setTimeout(() => resolve(), 400));
+      }
+    });
+  });
 }

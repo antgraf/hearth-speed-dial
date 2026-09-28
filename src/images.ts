@@ -93,34 +93,99 @@ export function imageTypeMessage(): string {
   return "Choose a JPEG, PNG, GIF, or WebP image.";
 }
 
+export function imageUrlInvalidMessage(): string {
+  return "Enter an http:// or https:// image address.";
+}
+
+export function imageDownloadFailedMessage(status?: number): string {
+  if (status) return `Could not download that image (${status}).`;
+  return "Could not download that image.";
+}
+
+/**
+ * Accept only http(s) image URLs. Returns the normalized href, or null.
+ * Data URLs and other schemes are rejected — dial pictures are stored locally.
+ */
+export function imageSourceUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
+/** Infer MIME from a Content-Type header or blob.type (ignore parameters). */
+export function mimeFromContentType(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.split(";")[0]?.trim().toLowerCase() ?? "";
+}
+
+/**
+ * Read a remote image into a data URL (same store shape as a local file attach).
+ * Caller must ensure host permission / network access before calling.
+ */
+export async function fetchImageAsDataUrl(
+  href: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const source = imageSourceUrl(href);
+  if (!source) throw new Error(imageUrlInvalidMessage());
+
+  let response: Response;
+  try {
+    response = await fetchImpl(source, { redirect: "follow", credentials: "omit" });
+  } catch {
+    throw new Error(imageDownloadFailedMessage());
+  }
+  if (!response.ok) throw new Error(imageDownloadFailedMessage(response.status));
+
+  const headerType = mimeFromContentType(response.headers.get("content-type"));
+  const blob = await response.blob();
+  const blobType = mimeFromContentType(blob.type);
+  const type = blobType || headerType;
+  if (!isAllowedImageType(type)) throw new Error(imageTypeMessage());
+  if (blob.size > MAX_IMAGE_BYTES) throw new Error(imageTooLargeMessage());
+
+  return blobToDataUrl(blob, type);
+}
+
+/** Approximate decoded byte length of a base64 data URL payload. */
+export function dataUrlByteLength(dataUrl: string): number {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) return 0;
+  const base64 = dataUrl.slice(comma + 1).replace(/\s/g, "");
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
+/** Encode a blob as a validated image data URL (works in Node and the browser). */
+export async function blobToDataUrl(blob: Blob, type: string): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  const dataUrl = `data:${type};base64,${btoa(binary)}`;
+  const valid = readImageDataUrl(dataUrl);
+  if (!valid) throw new Error("That file could not be read as an image.");
+  return valid;
+}
+
 /** Read a local image file into a data URL, enforcing type and size limits. */
-export function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!isAllowedImageType(file.type)) {
-      reject(new Error(imageTypeMessage()));
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      reject(new Error(imageTooLargeMessage()));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        reject(new Error("That file could not be read as an image."));
-        return;
-      }
-      const dataUrl = readImageDataUrl(result);
-      if (!dataUrl) {
-        reject(new Error("That file could not be read as an image."));
-        return;
-      }
-      resolve(dataUrl);
-    };
-    reader.onerror = () => reject(new Error("That file could not be read."));
-    reader.readAsDataURL(file);
-  });
+export async function fileToDataUrl(file: File): Promise<string> {
+  if (!isAllowedImageType(file.type)) {
+    throw new Error(imageTypeMessage());
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error(imageTooLargeMessage());
+  }
+  return blobToDataUrl(file, file.type);
 }
 
 const PREVIEW_IMAGES_KEY = "hearth.previewImages";

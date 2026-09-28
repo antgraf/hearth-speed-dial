@@ -1,14 +1,14 @@
 # Hearth Speed Dial — product spec
 
-Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size and display-order reverse in an in-page **Settings** overlay (gear; 16:9 faces, width up to 576px; `settings.html` remains a secondary options entry); context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback for bookmarks and a folder icon for folders; in-page dialogs for rename, delete confirm, settings, and ⋮ action menus (tile + current folder). Create uses one **New** control that chooses folder vs bookmark. Still Chrome only; no image URLs, thumbnails, or refresh.
+Status: Chrome Manifest V3 new-tab speed dial of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size and display-order reverse in an in-page **Settings** overlay (gear; 16:9 faces, width up to 576px; `settings.html` remains a secondary options entry); context-menu **Add to Hearth…** with folder picker; dial pictures from a local file, an image URL (fetched once into local storage), or an optional captured thumbnail; monogram fallback for bookmarks and a folder icon for folders; in-page dialogs for rename, delete confirm, settings, and ⋮ action menus (tile + current folder). Create uses one **New** control that chooses folder vs bookmark. Still Chrome only; refresh one / refresh folder remain out of scope.
 
 ## Vision
 
 Hearth Speed Dial replaces the new tab with a grid of sites you can see, group in folders, and rearrange. Adding a page can show a picture of that site. The extension keeps no account and does not upload the dial list, images, or usage anywhere. Every dial is an ordinary browser bookmark, folders included, so Chrome sync is the cloud copy and the bookmark manager edits the same tree.
 
-Thumbnail generation, image URLs, and refresh are part of the vision and are not in v1.
+Refresh of one thumbnail or a whole folder is part of the vision and is not required yet. Image URLs and optional thumbnail capture are in product scope under the opt-in permission model below.
 
-## v1
+## Product bar (Chrome MV3)
 
 Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab page.
 
@@ -16,17 +16,33 @@ Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab pa
 - The new tab is a grid of the open bookmark folder. Chrome’s root is that same grid of folders. Nested folders open in the grid. A new tab reopens the last folder. The bookmark’s title, URL, parent, and order are the source of truth. The open folder can gain a new folder or bookmark from a single **New** control (chooser for folder vs bookmark).
 - Drag a dial to reorder it or move it, including into another folder in the tree.
 - Right-click a normal web page to add it as a bookmark in a folder of the dial tree, including a nested folder.
-- A dial with no picture shows a monogram for bookmarks, or a folder icon for folders. The user can attach one local image file. That file is stored in the extension, keyed by bookmark id. There is no image URL, no screenshot capture, no favicon lookup, and no refresh action.
-- No account, no analytics, and no request to a service run for this extension. v1 does not ask for host permissions.
+- A dial with no picture shows a monogram for bookmarks, or a folder icon for folders. The user can assign a picture by:
+  - attaching one local image file, or
+  - entering an image URL (http/https). Hearth fetches the image **once** and stores it as a local data URL in `chrome.storage.local` (same store as file attach). The dial does **not** hotlink the remote URL afterward.
+  - capturing a page thumbnail when the opt-in setting is on (see Permissions).
+- **Thumbnail generation** is optional and **disabled by default** in Settings. Enabling it calls `chrome.permissions.request` for the optional permissions needed to open the page and capture a screenshot. On grant, the tile **Picture…** menu offers **Capture thumbnail** (temporary window → `captureVisibleTab` → store JPEG data URL → close window). If the user denies the prompt, or later revokes optional access in Chrome’s extension details, the setting stays off / capture degrades gracefully. Optional permissions are **not** requested at install or on first new-tab open.
+- No account, no analytics, and no request to a service run for this extension.
 
-Out of v1: Firefox, image URLs, generated thumbnails, refresh one, refresh a folder, `unlimitedStorage` (revisit only if local images outgrow the default quota).
+Default install permissions stay narrow: `bookmarks`, `storage`, `contextMenus` only. Host access and `tabs` are **optional** (see Permissions).
+
+Out of scope for now: Firefox; refresh one; refresh a folder; `unlimitedStorage` (revisit only if local images outgrow the default quota); favicon-as-fallback (monogram / folder icon remain the defaults).
+
+## Permissions
+
+| Kind | Permissions | When |
+| --- | --- | --- |
+| Always on | `bookmarks`, `storage`, `contextMenus` | Install |
+| Optional | `tabs` + host `<all_urls>` | Only when the user enables **Generate dial thumbnails** in Settings |
+| Optional (per use) | Host access for the image’s origin | When assigning a picture from URL, if `<all_urls>` is not already granted |
+
+**Choice:** Thumbnail capture and URL fetch share the same optional host capability when thumbnails are enabled (`<all_urls>` covers fetches). URL-only users who never enable thumbnails get a narrower origin grant for that image host instead of expanding default install permissions. Nothing is requested until the user explicitly uses one of those features.
 
 ## Hard requirements this spec is aiming at
 
-These stay the product bar. v1 covers each one except remote and generated images.
+These stay the product bar.
 
 1. New-tab speed dial with a customizable grid.
-2. Assign an image, or generate a thumbnail, with a picture or favicon on creation, plus refresh of one thumbnail or all of them. v1 assigns a local image only.
+2. Assign an image (local file or URL), or generate a thumbnail when opt-in permissions are granted. Favicon-on-creation and refresh of one / all thumbnails remain later vision.
 3. Add the current page from a right-click, into a chosen folder.
 4. Items are normal bookmarks. Sync is the browser’s. The bookmark manager can edit them.
 5. Drag to order and to move.
@@ -34,7 +50,7 @@ These stay the product bar. v1 covers each one except remote and generated image
 
 ## Assumptions
 
-- The fallback picture is a monogram for bookmarks (not Chrome’s favicon cache). Folders without a picture use a folder icon. Say if v1 should show the favicon instead.
+- The fallback picture is a monogram for bookmarks (not Chrome’s favicon cache). Folders without a picture use a folder icon. Say if the product should show the favicon instead.
 - The right-click item lets the user pick the destination folder. It does not silently use whichever folder is open on the new-tab page.
-- Settings that are not bookmarks (grid, display-order reverse, last opened folder id, image blobs) live in extension storage and do not sync in v1.
+- Settings that are not bookmarks (grid, display-order reverse, thumbnail opt-in, last opened folder id, image blobs) live in extension storage and do not sync yet.
 - Copyright holder for the MIT license is the GitHub account `antgraf`.
