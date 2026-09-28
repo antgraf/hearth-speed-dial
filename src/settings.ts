@@ -7,15 +7,20 @@ export type LayoutSettings = {
   reverseOrder: boolean;
 };
 
+/** Width of each dial face; height follows TILE_ASPECT (16:9). */
 export const DEFAULT_LAYOUT: LayoutSettings = {
   columns: 5,
-  tileSize: 64,
+  tileSize: 176,
   reverseOrder: false,
 };
 
+/** Dial face width ÷ height. */
+export const TILE_ASPECT = 16 / 9;
+
 export const LAYOUT_LIMITS = {
   columns: { min: 2, max: 8 },
-  tileSize: { min: 40, max: 120 },
+  /** Width in CSS pixels of the 16:9 dial face. */
+  tileSize: { min: 96, max: 288 },
 } as const;
 
 export type SettingsApi = {
