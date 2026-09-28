@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   fetchPermissionRequest,
+  imageUrlFetchPermissionRequest,
   OPTIONAL_FETCH_HOST_PERMISSIONS,
   originHostPermission,
   OPTIONAL_TABS_PERMISSION,
@@ -21,6 +22,13 @@ test("thumbnailPermissionRequest asks for tabs and all_urls optionally", () => {
   });
   assert.equal(OPTIONAL_TABS_PERMISSION, "tabs");
   assert.equal(THUMBNAIL_HOST_PERMISSION, "<all_urls>");
+});
+
+test("imageUrlFetchPermissionRequest asks for http and https scheme wildcards", () => {
+  assert.deepEqual(imageUrlFetchPermissionRequest(), {
+    origins: [...OPTIONAL_FETCH_HOST_PERMISSIONS],
+  });
+  assert.deepEqual(OPTIONAL_FETCH_HOST_PERMISSIONS, ["http://*/*", "https://*/*"]);
 });
 
 test("originHostPermission builds a match pattern for http(s) URLs", () => {
@@ -40,6 +48,7 @@ test("fetchPermissionRequest asks only for the image origin", () => {
 test("manifest optional_host_permissions allow origin-scoped URL fetch", () => {
   const manifest = JSON.parse(readFileSync(join(repoRoot, "manifest.json"), "utf8")) as {
     optional_host_permissions: string[];
+    permissions: string[];
   };
   for (const pattern of OPTIONAL_FETCH_HOST_PERMISSIONS) {
     assert.ok(
@@ -48,4 +57,5 @@ test("manifest optional_host_permissions allow origin-scoped URL fetch", () => {
     );
   }
   assert.ok(manifest.optional_host_permissions.includes(THUMBNAIL_HOST_PERMISSION));
+  assert.deepEqual(manifest.permissions, ["bookmarks", "storage", "contextMenus"]);
 });

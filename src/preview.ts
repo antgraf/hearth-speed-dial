@@ -160,6 +160,16 @@ export function previewPorts(): {
         previewThumbnailGranted = true;
         return true;
       },
+      async hasImageUrlFetchAccess() {
+        return previewFetchGranted || previewThumbnailGranted;
+      },
+      async requestImageUrlFetchAccess() {
+        previewFetchGranted = true;
+        return true;
+      },
+      async removeImageUrlFetchAccess() {
+        previewFetchGranted = false;
+      },
       async canFetchUrl() {
         return previewFetchGranted || previewThumbnailGranted;
       },

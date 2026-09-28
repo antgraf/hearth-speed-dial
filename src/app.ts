@@ -18,6 +18,7 @@ import { confirmDialog } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
 import {
   imageUrlPermissionDeniedMessage,
+  imageUrlUnavailableMessage,
   thumbnailPermissionDeniedMessage,
   thumbnailUnavailableMessage,
   type CaptureApi,
@@ -53,6 +54,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     layout: { ...DEFAULT_LAYOUT },
     images: {},
     thumbnailsActive: false,
+    imageUrlFetchActive: false,
   };
   let request = 0;
 
@@ -125,6 +127,16 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     }
     const granted = await ports.permissions.hasThumbnailAccess();
     state.thumbnailsActive = granted;
+    return granted;
+  };
+
+  const syncImageUrlFetchActive = async (preferEnabled: boolean): Promise<boolean> => {
+    if (!preferEnabled) {
+      state.imageUrlFetchActive = false;
+      return false;
+    }
+    const granted = await ports.permissions.hasImageUrlFetchAccess();
+    state.imageUrlFetchActive = granted;
     return granted;
   };
 
@@ -202,6 +214,24 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (!href) {
       state.error = imageUrlInvalidMessage();
       draw();
+      return;
+    }
+    if (!state.layout.imageUrlFetchEnabled) {
+      state.error = imageUrlUnavailableMessage();
+      draw();
+      return;
+    }
+    const featureGranted = await syncImageUrlFetchActive(true);
+    if (!featureGranted) {
+      state.layout = { ...state.layout, imageUrlFetchEnabled: false };
+      state.error = imageUrlPermissionDeniedMessage();
+      draw();
+      try {
+        await ports.settings.setLayout(state.layout);
+      } catch (error) {
+        state.error = errorText(error);
+        draw();
+      }
       return;
     }
     state.saving = true;
@@ -338,6 +368,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       tileSize: clampTileSize(layout.tileSize),
       reverseOrder: Boolean(layout.reverseOrder),
       thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
+      imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
     };
 
     if (next.thumbnailsEnabled && !previous.thumbnailsEnabled) {
@@ -364,6 +395,40 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       if (!state.thumbnailsActive) {
         next = { ...next, thumbnailsEnabled: false };
         state.error = thumbnailPermissionDeniedMessage();
+      }
+    }
+
+    if (next.imageUrlFetchEnabled && !previous.imageUrlFetchEnabled) {
+      const granted = await ports.permissions.requestImageUrlFetchAccess();
+      if (!granted) {
+        next = { ...next, imageUrlFetchEnabled: false };
+        state.layout = next;
+        state.imageUrlFetchActive = false;
+        state.error = imageUrlPermissionDeniedMessage();
+        draw();
+        try {
+          await ports.settings.setLayout(next);
+        } catch (error) {
+          state.error = errorText(error);
+          draw();
+        }
+        return next;
+      }
+      state.imageUrlFetchActive = true;
+    } else if (!next.imageUrlFetchEnabled) {
+      if (previous.imageUrlFetchEnabled) {
+        try {
+          await ports.permissions.removeImageUrlFetchAccess();
+        } catch {
+          // Best-effort; setting still turns off.
+        }
+      }
+      state.imageUrlFetchActive = false;
+    } else {
+      await syncImageUrlFetchActive(true);
+      if (!state.imageUrlFetchActive) {
+        next = { ...next, imageUrlFetchEnabled: false };
+        state.error = imageUrlPermissionDeniedMessage();
       }
     }
 
@@ -490,10 +555,18 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.currentId = await ports.settings.getOpenFolderId();
       const layout = await ports.settings.getLayout();
       state.layout = layout;
-      const active = await syncThumbnailActive(layout.thumbnailsEnabled);
-      if (layout.thumbnailsEnabled && !active) {
+      const thumbnailsActive = await syncThumbnailActive(layout.thumbnailsEnabled);
+      const imageUrlFetchActive = await syncImageUrlFetchActive(layout.imageUrlFetchEnabled);
+      let nextLayout = layout;
+      if (layout.thumbnailsEnabled && !thumbnailsActive) {
         // Permission revoked while the preference was on — degrade gracefully.
-        state.layout = { ...layout, thumbnailsEnabled: false };
+        nextLayout = { ...nextLayout, thumbnailsEnabled: false };
+      }
+      if (layout.imageUrlFetchEnabled && !imageUrlFetchActive) {
+        nextLayout = { ...nextLayout, imageUrlFetchEnabled: false };
+      }
+      if (nextLayout !== layout) {
+        state.layout = nextLayout;
         void ports.settings.setLayout(state.layout);
       }
     } catch (error) {

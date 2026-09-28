@@ -18,9 +18,10 @@ Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab pa
 - Right-click a normal web page to add it as a bookmark in a folder of the dial tree, including a nested folder.
 - A dial with no picture shows a monogram for bookmarks, or a folder icon for folders. The user can assign a picture by:
   - attaching one local image file, or
-  - entering an image URL (http/https). Hearth fetches the image **once** and stores it as a local data URL in `chrome.storage.local` (same store as file attach). The dial does **not** hotlink the remote URL afterward.
-  - capturing a page thumbnail when the opt-in setting is on (see Permissions).
-- **Thumbnail generation** is optional and **disabled by default** in Settings. Enabling it calls `chrome.permissions.request` for the optional permissions needed to open the page and capture a screenshot. On grant, the tile **Picture…** menu offers **Capture thumbnail** (temporary window → `captureVisibleTab` → store JPEG data URL → close window). If the user denies the prompt, or later revokes optional access in Chrome’s extension details, the setting stays off / capture degrades gracefully. Optional permissions are **not** requested at install or on first new-tab open.
+  - entering an image URL (http/https) when that opt-in is on. Hearth fetches the image **once** and stores it as a local data URL in `chrome.storage.local` (same store as file attach). The dial does **not** hotlink the remote URL afterward.
+  - capturing a page thumbnail when that opt-in is on (see Permissions).
+- **Thumbnail generation** is optional and **disabled by default** in Settings. Enabling it calls `chrome.permissions.request` for the optional permissions needed to open the page and capture a screenshot. On grant, the tile **Picture…** menu offers **Capture thumbnail** (temporary window → `captureVisibleTab` → store JPEG data URL → close window). If the user denies the prompt, or later revokes optional access in Chrome’s extension details, the setting stays off / capture degrades gracefully.
+- **Assign pictures from URLs** is a separate Settings toggle, also **off by default**. Enabling it requests optional http/https host access. On grant, **Picture… → Image from URL…** is unlocked. Turning the toggle off calls `chrome.permissions.remove` for those http/https grants (not `tabs` / `<all_urls>` used by thumbnails) and clears the setting so the next enable prompts again. Deny or revoke degrades gracefully like thumbnails. Optional permissions are **not** requested at install or on first new-tab open.
 - No account, no analytics, and no request to a service run for this extension.
 
 Default install permissions stay narrow: `bookmarks`, `storage`, `contextMenus` only. Host access and `tabs` are **optional** (see Permissions).
@@ -33,16 +34,16 @@ Out of scope for now: Firefox; refresh one; refresh a folder; `unlimitedStorage`
 | --- | --- | --- |
 | Always on | `bookmarks`, `storage`, `contextMenus` | Install |
 | Optional | `tabs` + host `<all_urls>` | Only when the user enables **Generate dial thumbnails** in Settings |
-| Optional (per use) | Host access for the image’s origin | When assigning a picture from URL, if `<all_urls>` is not already granted. Manifest `optional_host_permissions` must include `http://*/*` and `https://*/*` (in addition to `<all_urls>`) so Chrome allows requesting that specific origin. |
+| Optional | Host `http://*/*` + `https://*/*` | Only when the user enables **Assign pictures from URLs** in Settings. Manifest `optional_host_permissions` lists those scheme wildcards (plus `<all_urls>` for thumbnails). Turning the toggle off removes the http/https grants. |
 
-**Choice:** Thumbnail capture and URL fetch share the same optional host capability when thumbnails are enabled (`<all_urls>` covers fetches). URL-only users who never enable thumbnails get a narrower origin grant for that image host instead of expanding default install permissions. Nothing is requested until the user explicitly uses one of those features.
+**Choice:** The two opt-ins are independent. Thumbnails keep `tabs` + `<all_urls>`; URL fetch uses the http/https scheme wildcards. If thumbnails already granted `<all_urls>`, URL fetch can use that host access when its own toggle is on (no second host prompt). Turning URL fetch off does **not** revoke thumbnail `<all_urls>` / `tabs`. Always-on install permissions stay narrow.
 
 ## Hard requirements this spec is aiming at
 
 These stay the product bar.
 
 1. New-tab speed dial with a customizable grid.
-2. Assign an image (local file or URL), or generate a thumbnail when opt-in permissions are granted. Favicon-on-creation and refresh of one / all thumbnails remain later vision.
+2. Assign an image (local file, or URL / thumbnail when the matching Settings opt-in and optional permissions are granted). Favicon-on-creation and refresh of one / all thumbnails remain later vision.
 3. Add the current page from a right-click, into a chosen folder.
 4. Items are normal bookmarks. Sync is the browser’s. The bookmark manager can edit them.
 5. Drag to order and to move.

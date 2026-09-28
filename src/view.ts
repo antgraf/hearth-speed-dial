@@ -17,7 +17,7 @@ export type ViewActions = {
   attachImageUrl(id: string, url: string): void;
   captureThumbnail(id: string): void;
   clearImage(id: string): void;
-  /** Persist layout; may clear thumbnailsEnabled if optional permission is denied. */
+  /** Persist layout; may clear opt-in flags if optional permission is denied. */
   setLayout(layout: LayoutSettings): void | Promise<LayoutSettings>;
 };
 
@@ -93,7 +93,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       if (view.canRenameCurrent || view.canDeleteCurrent) {
         current.append(
           menuButton(`Actions for ${crumb.title}`, view.saving, (button) => {
-            openActionMenu(view.currentFolder, actions, button, view.thumbnailsActive);
+            openActionMenu(view.currentFolder, actions, button, view.thumbnailsActive, view.imageUrlFetchActive);
           }),
         );
       }
@@ -158,7 +158,10 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       main = document.createElement("div");
       main.className = "tile-main";
     }
-    main.append(tileMark(item), tileCaption(item, actions, view.saving, view.thumbnailsActive));
+    main.append(
+      tileMark(item),
+      tileCaption(item, actions, view.saving, view.thumbnailsActive, view.imageUrlFetchActive),
+    );
     shell.append(main);
     entry.append(shell);
     if (canDrag) {
@@ -257,6 +260,27 @@ function openSettingsDialog(
   thumbnailsLabel.append(thumbnails, thumbnailsText);
   body.append(thumbnailsLabel);
 
+  const imageUrlFetch = document.createElement("input");
+  imageUrlFetch.type = "checkbox";
+  imageUrlFetch.name = "imageUrlFetchEnabled";
+  imageUrlFetch.checked = layout.imageUrlFetchEnabled;
+  imageUrlFetch.id = "settings-imageUrlFetchEnabled";
+  const imageUrlFetchLabel = document.createElement("label");
+  imageUrlFetchLabel.className = "settings-check";
+  imageUrlFetchLabel.htmlFor = "settings-imageUrlFetchEnabled";
+  const imageUrlFetchText = document.createElement("span");
+  imageUrlFetchText.className = "settings-check-text";
+  const imageUrlFetchCaption = document.createElement("span");
+  imageUrlFetchCaption.className = "settings-check-title";
+  imageUrlFetchCaption.textContent = "Assign pictures from URLs";
+  const imageUrlFetchHelp = document.createElement("span");
+  imageUrlFetchHelp.className = "settings-help";
+  imageUrlFetchHelp.textContent =
+    "Off by default. When you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops that access.";
+  imageUrlFetchText.append(imageUrlFetchCaption, imageUrlFetchHelp);
+  imageUrlFetchLabel.append(imageUrlFetch, imageUrlFetchText);
+  body.append(imageUrlFetchLabel);
+
   const columns = document.createElement("input");
   columns.type = "number";
   columns.name = "columns";
@@ -286,6 +310,7 @@ function openSettingsDialog(
     tileSize: Number(tileSize.value),
     reverseOrder: reverse.checked,
     thumbnailsEnabled: thumbnails.checked,
+    imageUrlFetchEnabled: imageUrlFetch.checked,
   });
 
   const applyLayout = () => {
@@ -293,6 +318,7 @@ function openSettingsDialog(
       if (!applied) return;
       reverse.checked = applied.reverseOrder;
       thumbnails.checked = applied.thumbnailsEnabled;
+      imageUrlFetch.checked = applied.imageUrlFetchEnabled;
       columns.value = String(applied.columns);
       tileSize.value = String(applied.tileSize);
     });
@@ -302,6 +328,7 @@ function openSettingsDialog(
   tileSize.addEventListener("change", applyLayout);
   reverse.addEventListener("change", applyLayout);
   thumbnails.addEventListener("change", applyLayout);
+  imageUrlFetch.addEventListener("change", applyLayout);
   body.addEventListener("submit", (event) => {
     event.preventDefault();
     applyLayout();
@@ -366,6 +393,7 @@ function tileCaption(
   actions: ViewActions,
   disabled: boolean,
   thumbnailsActive: boolean,
+  imageUrlFetchActive: boolean,
 ): HTMLElement {
   const caption = document.createElement("div");
   caption.className = "tile-caption";
@@ -380,7 +408,7 @@ function tileCaption(
   metaRow.append(
     meta,
     menuButton(`Actions for ${item.title}`, disabled, (button) => {
-      openActionMenu(item, actions, button, thumbnailsActive);
+      openActionMenu(item, actions, button, thumbnailsActive, imageUrlFetchActive);
     }),
   );
   caption.append(title, metaRow);
@@ -392,6 +420,7 @@ function openActionMenu(
   actions: ViewActions,
   anchor: HTMLElement,
   thumbnailsActive: boolean,
+  imageUrlFetchActive: boolean,
 ): void {
   const list = document.createElement("div");
   list.className = "dialog-menu-list";
@@ -411,7 +440,9 @@ function openActionMenu(
   };
 
   addItem("Rename", iconRename(), () => actions.beginEdit(item.id));
-  addItem("Picture…", iconPicture(), () => openPictureMenu(item, actions, anchor, thumbnailsActive));
+  addItem("Picture…", iconPicture(), () =>
+    openPictureMenu(item, actions, anchor, thumbnailsActive, imageUrlFetchActive),
+  );
   addItem("Delete", iconDelete(), () => actions.requestDelete(item.id), true);
 
   const handle = openDialog({
@@ -428,6 +459,7 @@ function openPictureMenu(
   actions: ViewActions,
   anchor: HTMLElement,
   thumbnailsActive: boolean,
+  imageUrlFetchActive: boolean,
 ): void {
   const list = document.createElement("div");
   list.className = "dialog-menu-list";
@@ -454,7 +486,13 @@ function openPictureMenu(
   };
 
   addItem("Attach file…", iconPicture(), () => pickImageFile(item, actions));
-  addItem("Image from URL…", iconLink(), () => promptImageUrl(item, actions, anchor));
+  if (imageUrlFetchActive) {
+    addItem("Image from URL…", iconLink(), () => promptImageUrl(item, actions, anchor));
+  } else {
+    addItem("Image from URL… (enable in Settings)", iconLink(), () => undefined, {
+      disabled: true,
+    });
+  }
 
   const pageUrl = item.kind === "link" && item.url ? openableUrl(item.url) : null;
   const canCapture = Boolean(pageUrl && (pageUrl.startsWith("http:") || pageUrl.startsWith("https:")));

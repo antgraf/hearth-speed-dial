@@ -6,6 +6,7 @@ import {
   DEFAULT_LAYOUT,
   LAYOUT_LIMITS,
   readColumns,
+  readImageUrlFetchEnabled,
   readLayout,
   readReverseOrder,
   readThumbnailsEnabled,
@@ -18,6 +19,7 @@ test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.tileSize, 176);
   assert.equal(DEFAULT_LAYOUT.reverseOrder, false);
   assert.equal(DEFAULT_LAYOUT.thumbnailsEnabled, false);
+  assert.equal(DEFAULT_LAYOUT.imageUrlFetchEnabled, false);
   assert.equal(TILE_ASPECT, 16 / 9);
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);
@@ -73,25 +75,57 @@ test("readThumbnailsEnabled defaults off and accepts common encodings", () => {
   assert.equal(readThumbnailsEnabled("maybe"), false);
 });
 
-test("readLayout pulls columns, tileSize, reverseOrder, and thumbnailsEnabled", () => {
+test("readImageUrlFetchEnabled defaults off and accepts common encodings", () => {
+  assert.equal(readImageUrlFetchEnabled(true), true);
+  assert.equal(readImageUrlFetchEnabled(false), false);
+  assert.equal(readImageUrlFetchEnabled("true"), true);
+  assert.equal(readImageUrlFetchEnabled("false"), false);
+  assert.equal(readImageUrlFetchEnabled(1), true);
+  assert.equal(readImageUrlFetchEnabled(0), false);
+  assert.equal(readImageUrlFetchEnabled(null), false);
+  assert.equal(readImageUrlFetchEnabled("maybe"), false);
+});
+
+test("readLayout pulls columns, tileSize, reverseOrder, and opt-in flags", () => {
   assert.deepEqual(readLayout({ columns: 3, tileSize: 128, openFolderId: "1" }), {
     columns: 3,
     tileSize: 128,
     reverseOrder: false,
     thumbnailsEnabled: false,
+    imageUrlFetchEnabled: false,
   });
-  assert.deepEqual(readLayout({ columns: 99, tileSize: 1, reverseOrder: true, thumbnailsEnabled: true }), {
-    columns: LAYOUT_LIMITS.columns.max,
-    tileSize: LAYOUT_LIMITS.tileSize.min,
-    reverseOrder: true,
-    thumbnailsEnabled: true,
-  });
-  assert.deepEqual(readLayout({ columns: "4", tileSize: "200", reverseOrder: "true", thumbnailsEnabled: "1" }), {
-    columns: 4,
-    tileSize: 200,
-    reverseOrder: true,
-    thumbnailsEnabled: true,
-  });
+  assert.deepEqual(
+    readLayout({
+      columns: 99,
+      tileSize: 1,
+      reverseOrder: true,
+      thumbnailsEnabled: true,
+      imageUrlFetchEnabled: true,
+    }),
+    {
+      columns: LAYOUT_LIMITS.columns.max,
+      tileSize: LAYOUT_LIMITS.tileSize.min,
+      reverseOrder: true,
+      thumbnailsEnabled: true,
+      imageUrlFetchEnabled: true,
+    },
+  );
+  assert.deepEqual(
+    readLayout({
+      columns: "4",
+      tileSize: "200",
+      reverseOrder: "true",
+      thumbnailsEnabled: "1",
+      imageUrlFetchEnabled: "1",
+    }),
+    {
+      columns: 4,
+      tileSize: 200,
+      reverseOrder: true,
+      thumbnailsEnabled: true,
+      imageUrlFetchEnabled: true,
+    },
+  );
   // Legacy square-era values below the new floor clamp up.
   assert.equal(readTileSize(64), LAYOUT_LIMITS.tileSize.min);
   assert.equal(LAYOUT_LIMITS.tileSize.max, 576);
