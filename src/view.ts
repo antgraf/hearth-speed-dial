@@ -1,6 +1,7 @@
 import type { CreateKind, ViewModel } from "./present.ts";
 import { openDialog, type DialogHandle } from "./dialog.ts";
 import { chromeBeforeIdFromDisplayDrop, type DialItem } from "./model.ts";
+import { LAYOUT_LIMITS, type LayoutSettings } from "./settings.ts";
 
 export type ViewActions = {
   openFolder(id: string): void;
@@ -14,7 +15,7 @@ export type ViewActions = {
   moveDialInto(draggedId: string, parentId: string): void;
   attachImage(id: string, file: File): void;
   clearImage(id: string): void;
-  openSettings(): void;
+  setLayout(layout: LayoutSettings): void;
 };
 
 type MenuTarget = {
@@ -25,6 +26,9 @@ type MenuTarget = {
 
 /** Edit dialog kept across draw cycles; closed silently before each render. */
 let editDialog: DialogHandle | null = null;
+/** Settings overlay lives on document.body and survives dial re-renders. */
+let settingsDialog: DialogHandle | null = null;
+let settingsOpen = false;
 
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
   editDialog?.close({ silent: true });
@@ -48,6 +52,7 @@ export function render(host: HTMLElement, view: ViewModel, actions: ViewActions)
 
   frame.append(grid(view, actions));
   if (view.form?.mode === "edit") {
+    closeSettingsDialog({ silent: true });
     editDialog = showEditDialog(view, actions);
   }
 }
@@ -107,7 +112,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     nav.append(button);
   });
   header.append(nav);
-  header.append(settingsGear(actions));
+  header.append(settingsGear(view.layout, actions));
   section.append(header);
 
   if (view.error) section.append(alertLine(view.error));
@@ -173,7 +178,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   return section;
 }
 
-function settingsGear(actions: ViewActions): HTMLButtonElement {
+function settingsGear(layout: LayoutSettings, actions: ViewActions): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "settings-gear";
@@ -183,9 +188,126 @@ function settingsGear(actions: ViewActions): HTMLButtonElement {
   button.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    actions.openSettings();
+    openSettingsDialog(layout, actions, button);
   });
   return button;
+}
+
+function closeSettingsDialog(opts?: { silent?: boolean }): void {
+  if (!settingsDialog) {
+    settingsOpen = false;
+    return;
+  }
+  settingsDialog.close(opts);
+  settingsDialog = null;
+  settingsOpen = false;
+}
+
+function openSettingsDialog(
+  layout: LayoutSettings,
+  actions: ViewActions,
+  returnFocus: HTMLElement,
+): void {
+  if (settingsOpen && settingsDialog) {
+    const focusables = settingsDialog.panel.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), input:not([disabled])",
+    );
+    focusables[0]?.focus();
+    return;
+  }
+
+  const body = document.createElement("form");
+  body.className = "dialog-form settings-dialog-form";
+
+  const reverse = document.createElement("input");
+  reverse.type = "checkbox";
+  reverse.name = "reverseOrder";
+  reverse.checked = layout.reverseOrder;
+  reverse.id = "settings-reverseOrder";
+  const reverseLabel = document.createElement("label");
+  reverseLabel.className = "settings-check";
+  reverseLabel.htmlFor = "settings-reverseOrder";
+  const reverseCaption = document.createElement("span");
+  reverseCaption.textContent = "Show last bookmarks first";
+  reverseLabel.append(reverse, reverseCaption);
+  const reverseHelp = document.createElement("span");
+  reverseHelp.className = "settings-help";
+  reverseHelp.textContent = "Newest or last-listed bookmarks appear at the start of the grid.";
+  body.append(reverseLabel, reverseHelp);
+
+  const columns = document.createElement("input");
+  columns.type = "number";
+  columns.name = "columns";
+  columns.min = String(LAYOUT_LIMITS.columns.min);
+  columns.max = String(LAYOUT_LIMITS.columns.max);
+  columns.step = "1";
+  columns.value = String(layout.columns);
+  columns.setAttribute("aria-label", "Columns");
+  body.append(settingsField("Columns", columns));
+
+  const tileSize = document.createElement("input");
+  tileSize.type = "range";
+  tileSize.name = "tileSize";
+  tileSize.min = String(LAYOUT_LIMITS.tileSize.min);
+  tileSize.max = String(LAYOUT_LIMITS.tileSize.max);
+  tileSize.step = "1";
+  tileSize.value = String(layout.tileSize);
+  tileSize.setAttribute("aria-label", "Tile size");
+  body.append(settingsField("Tile size", tileSize));
+  const tileHelp = document.createElement("span");
+  tileHelp.className = "settings-help";
+  tileHelp.textContent = "Width of each dial face (96–576px). Faces use a 16:9 aspect ratio.";
+  body.append(tileHelp);
+
+  const readLayout = (): LayoutSettings => ({
+    columns: Number(columns.value),
+    tileSize: Number(tileSize.value),
+    reverseOrder: reverse.checked,
+  });
+
+  const applyLayout = () => {
+    actions.setLayout(readLayout());
+  };
+
+  columns.addEventListener("change", applyLayout);
+  tileSize.addEventListener("change", applyLayout);
+  reverse.addEventListener("change", applyLayout);
+  body.addEventListener("submit", (event) => {
+    event.preventDefault();
+    applyLayout();
+    closeSettingsDialog();
+  });
+
+  const footer = document.createElement("div");
+  footer.className = "dialog-actions";
+  const done = document.createElement("button");
+  done.type = "submit";
+  done.className = "primary";
+  done.textContent = "Done";
+  done.setAttribute("form", "hearth-settings-form");
+  body.id = "hearth-settings-form";
+  footer.append(done);
+
+  settingsOpen = true;
+  settingsDialog = openDialog({
+    title: "Settings",
+    panelClass: "settings-dialog",
+    body,
+    footer,
+    returnFocus,
+    onClose: () => {
+      settingsDialog = null;
+      settingsOpen = false;
+    },
+  });
+}
+
+function settingsField(labelText: string, control: HTMLInputElement): HTMLLabelElement {
+  const label = document.createElement("label");
+  const caption = document.createElement("span");
+  caption.textContent = labelText;
+  label.append(caption, control);
+  return label;
 }
 
 function menuButton(

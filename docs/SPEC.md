@@ -1,6 +1,6 @@
 # Hearth Speed Dial — product spec
 
-Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size on the **Settings** page (gear opens options; 16:9 faces, width up to 576px); display-order reverse; context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback for bookmarks and a folder icon for folders; in-page dialogs for rename, delete confirm, and ⋮ action menus (tile + current folder). Create uses one **New** control that chooses folder vs bookmark. Still Chrome only; no image URLs, thumbnails, or refresh.
+Status: v1 product bar is implemented on Chrome (Manifest V3). New-tab grid of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size and display-order reverse in an in-page **Settings** overlay (gear; 16:9 faces, width up to 576px; `settings.html` remains a secondary options entry); context-menu **Add to Hearth…** with folder picker; local image per dial with monogram fallback for bookmarks and a folder icon for folders; in-page dialogs for rename, delete confirm, settings, and ⋮ action menus (tile + current folder). Create uses one **New** control that chooses folder vs bookmark. Still Chrome only; no image URLs, thumbnails, or refresh.
 
 ## Vision
 
@@ -12,7 +12,7 @@ Thumbnail generation, image URLs, and refresh are part of the vision and are not
 
 Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab page.
 
-- A customizable grid: column count and dial face width (faces are **16:9**, width up to 576px), saved in `chrome.storage.local` and edited on the extension **Settings** page (new-tab gear). That page can also reverse display order so last bookmarks appear first (display preference only; Chrome bookmark order stays the store of truth).
+- A customizable grid: column count and dial face width (faces are **16:9**, width up to 576px), saved in `chrome.storage.local` and edited from the new-tab **Settings** overlay (gear). That overlay can also reverse display order so last bookmarks appear first (display preference only; Chrome bookmark order stays the store of truth). `settings.html` / `options_page` remains a secondary entry from Chrome’s extension details.
 - The new tab is a grid of the open bookmark folder. Chrome’s root is that same grid of folders. Nested folders open in the grid. A new tab reopens the last folder. The bookmark’s title, URL, parent, and order are the source of truth. The open folder can gain a new folder or bookmark from a single **New** control (chooser for folder vs bookmark).
 - Drag a dial to reorder it or move it, including into another folder in the tree.
 - Right-click a normal web page to add it as a bookmark in a folder of the dial tree, including a nested folder.
