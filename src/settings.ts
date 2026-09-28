@@ -5,6 +5,12 @@ export type LayoutSettings = {
   tileSize: number;
   /** When true, dial tiles show last bookmarks first (display only). */
   reverseOrder: boolean;
+  /**
+   * When true, the user opted into optional thumbnail capture.
+   * Still requires chrome.permissions (tabs + host access); if those are
+   * missing, the UI treats capture as off until permissions are granted again.
+   */
+  thumbnailsEnabled: boolean;
 };
 
 /** Width of each dial face; height follows TILE_ASPECT (16:9). */
@@ -12,6 +18,7 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
   columns: 5,
   tileSize: 176,
   reverseOrder: false,
+  thumbnailsEnabled: false,
 };
 
 /** Dial face width ÷ height. */
@@ -63,13 +70,26 @@ export function readReverseOrder(value: unknown): boolean {
   return DEFAULT_LAYOUT.reverseOrder;
 }
 
+export function readThumbnailsEnabled(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1 || value === "1") return true;
+  if (value === "false" || value === 0 || value === "0") return false;
+  return DEFAULT_LAYOUT.thumbnailsEnabled;
+}
+
 export function readLayout(value: unknown): LayoutSettings {
   if (!value || typeof value !== "object") return { ...DEFAULT_LAYOUT };
-  const record = value as { columns?: unknown; tileSize?: unknown; reverseOrder?: unknown };
+  const record = value as {
+    columns?: unknown;
+    tileSize?: unknown;
+    reverseOrder?: unknown;
+    thumbnailsEnabled?: unknown;
+  };
   return {
     columns: readColumns(record.columns),
     tileSize: readTileSize(record.tileSize),
     reverseOrder: readReverseOrder(record.reverseOrder),
+    thumbnailsEnabled: readThumbnailsEnabled(record.thumbnailsEnabled),
   };
 }
 
@@ -120,6 +140,7 @@ export function previewSettings(): SettingsApi {
         columns: clampColumns(layout.columns),
         tileSize: clampTileSize(layout.tileSize),
         reverseOrder: Boolean(layout.reverseOrder),
+        thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
       });
     },
   };

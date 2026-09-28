@@ -40,6 +40,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     saving: false,
     layout: { ...DEFAULT_LAYOUT },
     images: {},
+    thumbnailsActive: false,
     ...overrides,
   };
 }
@@ -103,10 +104,11 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
 });
 
 test("the grid carries layout settings for the dial", () => {
-  const layout = { columns: 3, tileSize: 160, reverseOrder: false };
+  const layout = { columns: 3, tileSize: 160, reverseOrder: false, thumbnailsEnabled: false };
   const screen = present(state({ layout }));
   if (screen.name !== "grid") throw new Error("expected the grid");
   assert.deepEqual(screen.layout, layout);
+  assert.equal(screen.thumbnailsActive, false);
 });
 
 test("reverseOrder shows last bookmarks first without changing empty copy", () => {

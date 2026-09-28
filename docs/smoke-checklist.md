@@ -1,6 +1,6 @@
 # Chrome load-unpacked smoke checklist
 
-Manual pass after `npm run build` and **Load unpacked** → select the repo’s `dist` folder. Expect permissions: **bookmarks**, **storage**, **contextMenus** only (no host access).
+Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) and **Load unpacked** → select the repo’s `dist` folder. Expect always-on permissions: **bookmarks**, **storage**, **contextMenus** only. Optional **tabs** / **site access** appear only after you enable thumbnails or fetch an image URL.
 
 ## New tab grid
 
@@ -11,9 +11,10 @@ Manual pass after `npm run build` and **Load unpacked** → select the repo’s 
 
 ## Rename / delete / pictures
 
-- [ ] Tile **⋮** sits on the meta row (Folder / domain); menu: **Rename**, **Picture** / **Clear picture**, **Delete** (delete confirms in a dialog).
+- [ ] Tile **⋮** sits on the meta row (Folder / domain); menu: **Rename**, **Picture…**, **Delete** (delete confirms in a dialog).
+- [ ] **Picture…** offers **Attach file…**, **Image from URL…**, and (for http(s) bookmarks) **Capture thumbnail** — disabled with “enable in Settings” until the opt-in is on.
 - [ ] Current-folder breadcrumb **⋮** offers the same actions (including Picture); Chrome root has no menu.
-- [ ] New-tab **gear** opens Settings in the in-page dialog overlay (columns, tile size, reverse order). `settings.html` remains available as the extension options page.
+- [ ] New-tab **gear** opens Settings in the in-page dialog overlay (columns, tile size, reverse order, **Generate dial thumbnails**). `settings.html` remains available as the extension options page.
 
 ## Drag
 
@@ -26,9 +27,12 @@ Manual pass after `npm run build` and **Load unpacked** → select the repo’s 
 - [ ] In the Settings overlay: change **Columns** and **Tile size** (16:9 faces, size up to 576); layout updates on the open new tab.
 - [ ] Toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.
 
-## Local pictures
+## Local pictures / URL / thumbnails
 
 - [ ] Oversized or non-image file shows an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.
+- [ ] **Image from URL…**: enter an https image URL → Chrome may ask for that site’s access → dial shows the picture after reload; network tab / storage shows a data URL, not a live remote src.
+- [ ] **Generate dial thumbnails** off by default; enabling prompts for optional tabs + site access. Deny → setting stays off; grant → **Capture thumbnail** works (temp window opens, then closes; dial face updates).
+- [ ] After grant: revoke optional site access in `chrome://extensions` → Hearth details → reopen new tab → thumbnail setting/capture degrades (off / error), no crash.
 
 ## Add to Hearth (context menu)
 
@@ -39,5 +43,5 @@ Manual pass after `npm run build` and **Load unpacked** → select the repo’s 
 
 ## Packaging sanity
 
-- [ ] `chrome://extensions` → Hearth details: no host permissions; no unexpected optional permissions.
+- [ ] Fresh install: `chrome://extensions` → Hearth details: no host permissions granted yet; optional permissions listed but inactive until used.
 - [ ] Service worker / Errors panel stays clean while exercising the steps above.

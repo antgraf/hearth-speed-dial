@@ -1,5 +1,5 @@
 import { startSettings } from "./settings-app.ts";
-import { chromeSettings } from "./browser.ts";
+import { chromePermissions, chromeSettings } from "./browser.ts";
 import { previewSettings } from "./settings.ts";
 
 const host = document.querySelector("#app");
@@ -10,7 +10,7 @@ if (!(host instanceof HTMLElement)) {
 const storageReady = typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
 
 if (storageReady) {
-  startSettings(host, chromeSettings());
+  startSettings(host, chromeSettings(), null, chromePermissions());
 } else if (import.meta.env.DEV) {
   startSettings(host, previewSettings(), "Preview mode — settings save in this browser’s localStorage.");
 } else {
