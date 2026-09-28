@@ -88,6 +88,10 @@ export function startSettings(host: HTMLElement, settings: SettingsApi, banner?:
     tileSize.disabled = saving;
     tileSize.setAttribute("aria-label", "Tile size");
     form.append(labeled("Tile size", tileSize));
+    const tileHelp = document.createElement("span");
+    tileHelp.className = "settings-help";
+    tileHelp.textContent = "Width of each dial face. Faces use a 16:9 aspect ratio.";
+    form.append(tileHelp);
 
     const submit = document.createElement("button");
     submit.type = "submit";

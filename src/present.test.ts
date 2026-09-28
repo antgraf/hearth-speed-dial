@@ -99,7 +99,7 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
 });
 
 test("the grid carries layout settings for the dial", () => {
-  const layout = { columns: 3, tileSize: 80, reverseOrder: false };
+  const layout = { columns: 3, tileSize: 160, reverseOrder: false };
   const screen = present(state({ layout }));
   if (screen.name !== "grid") throw new Error("expected the grid");
   assert.deepEqual(screen.layout, layout);

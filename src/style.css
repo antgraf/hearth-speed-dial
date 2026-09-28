@@ -14,7 +14,8 @@
   --focus: #e7a07a;
   --note: #d7c3a4;
   --columns: 5;
-  --tile-size: 64px;
+  --tile-size: 176px;
+  --tile-aspect: 16 / 9;
 }
 
 * {
@@ -60,7 +61,7 @@ button {
 }
 
 .frame {
-  width: min(960px, calc(100% - 48px));
+  width: min(1100px, calc(100% - 48px));
   margin: 0 auto;
   padding: 40px 0 72px;
 }
@@ -367,14 +368,18 @@ label.picture input {
 }
 
 .settings-form .settings-help {
-  margin: -8px 0 0 1.75rem;
+  margin: -8px 0 0;
   font-size: 13px;
+}
+
+.settings-form .settings-check + .settings-help {
+  margin-left: 1.75rem;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
-  gap: calc(var(--tile-size) * 0.25);
+  gap: calc(var(--tile-size) * 0.14);
   margin: 28px 0 0;
   padding: 0;
   list-style: none;
@@ -386,7 +391,7 @@ label.picture input {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 18px 10px 14px;
+  padding: 14px 10px 12px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--raise);
@@ -397,12 +402,13 @@ label.picture input {
 .mark {
   display: grid;
   place-items: center;
-  width: var(--tile-size);
-  height: var(--tile-size);
-  border-radius: calc(var(--tile-size) * 0.28);
+  width: min(100%, var(--tile-size));
+  aspect-ratio: var(--tile-aspect);
+  height: auto;
+  border-radius: calc(var(--tile-size) * 0.08);
   background: var(--mark-bg);
   color: var(--mark);
-  font-size: calc(var(--tile-size) * 0.44);
+  font-size: calc(var(--tile-size) * 9 / 16 * 0.52);
   line-height: 1;
 }
 
@@ -447,7 +453,7 @@ label.picture input {
 
 @media (max-width: 520px) {
   .frame {
-    width: min(960px, calc(100% - 28px));
+    width: min(1100px, calc(100% - 28px));
   }
 }
 

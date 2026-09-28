@@ -22,7 +22,7 @@ Manual pass after `npm run build` and **Load unpacked** → select the repo’s 
 
 ## Grid settings
 
-- [ ] Change **Columns** and **Tile size**; layout updates and survives a new tab.
+- [ ] Change **Columns** and **Tile size** (16:9 dial faces); layout updates and survives a new tab.
 - [ ] Open **Settings** (new-tab link or extension details → Extension options): toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.
 
 ## Local pictures
