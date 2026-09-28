@@ -17,6 +17,12 @@ export type ViewActions = {
   openSettings(): void;
 };
 
+type MenuTarget = {
+  id: string;
+  title: string;
+  imageDataUrl: string | null;
+};
+
 /** Edit dialog kept across draw cycles; closed silently before each render. */
 let editDialog: DialogHandle | null = null;
 
@@ -74,20 +80,19 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       const title = document.createElement("h1");
       title.textContent = crumb.title;
       current.append(title);
-      if (view.canRenameCurrent) {
+      if (view.canRenameCurrent || view.canDeleteCurrent) {
         current.append(
-          chromeActionButton("Rename", `Rename ${crumb.title}`, () => actions.beginEdit(crumb.id), view.saving),
-        );
-      }
-      if (view.canDeleteCurrent) {
-        current.append(
-          chromeActionButton(
-            "Delete",
-            `Delete ${crumb.title}`,
-            () => actions.requestDelete(crumb.id),
-            view.saving,
-            "delete",
-          ),
+          menuButton(`Actions for ${crumb.title}`, view.saving, (button) => {
+            openActionMenu(
+              {
+                id: view.currentFolder.id,
+                title: view.currentFolder.title,
+                imageDataUrl: view.currentFolder.imageDataUrl,
+              },
+              actions,
+              button,
+            );
+          }),
         );
       }
       nav.append(current);
@@ -151,8 +156,8 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       main = document.createElement("div");
       main.className = "tile-main";
     }
-    main.append(tileMark(item), labeled(item.title, item.meta));
-    shell.append(main, tileMenuButton(item, actions, view.saving));
+    main.append(tileMark(item), tileCaption(item, actions, view.saving));
+    shell.append(main);
     entry.append(shell);
     if (canDrag) {
       bindDialDrag(entry, item, view.items, reverseOrder, actions, () => {
@@ -162,8 +167,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     list.append(entry);
   }
   if (view.canCreate) {
-    list.append(actionTile("folder", "New folder", () => actions.beginCreate("folder")));
-    list.append(actionTile("bookmark", "New bookmark", () => actions.beginCreate("bookmark")));
+    list.append(createTile(actions, view.saving));
   }
   if (view.items.length > 0 || view.canCreate) section.append(list);
   return section;
@@ -176,15 +180,23 @@ function settingsGear(actions: ViewActions): HTMLButtonElement {
   button.setAttribute("aria-label", "Settings");
   button.title = "Settings";
   button.append(iconGear());
-  button.addEventListener("click", () => actions.openSettings());
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    actions.openSettings();
+  });
   return button;
 }
 
-function tileMenuButton(item: DialItem, actions: ViewActions, disabled: boolean): HTMLButtonElement {
+function menuButton(
+  ariaLabel: string,
+  disabled: boolean,
+  onOpen: (button: HTMLButtonElement) => void,
+): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "tile-menu";
-  button.setAttribute("aria-label", `Actions for ${item.title}`);
+  button.className = "action-menu";
+  button.setAttribute("aria-label", ariaLabel);
   button.setAttribute("aria-haspopup", "menu");
   button.disabled = disabled;
   button.append(iconMore());
@@ -192,12 +204,33 @@ function tileMenuButton(item: DialItem, actions: ViewActions, disabled: boolean)
     event.preventDefault();
     event.stopPropagation();
     if (disabled) return;
-    openTileMenu(item, actions, button);
+    onOpen(button);
   });
   return button;
 }
 
-function openTileMenu(item: DialItem, actions: ViewActions, anchor: HTMLElement): void {
+function tileCaption(item: DialItem, actions: ViewActions, disabled: boolean): HTMLElement {
+  const caption = document.createElement("div");
+  caption.className = "tile-caption";
+  const title = document.createElement("span");
+  title.className = "title";
+  title.textContent = item.title;
+  const metaRow = document.createElement("div");
+  metaRow.className = "tile-meta-row";
+  const meta = document.createElement("span");
+  meta.className = "meta";
+  meta.textContent = item.meta;
+  metaRow.append(
+    meta,
+    menuButton(`Actions for ${item.title}`, disabled, (button) => {
+      openActionMenu(item, actions, button);
+    }),
+  );
+  caption.append(title, metaRow);
+  return caption;
+}
+
+function openActionMenu(item: MenuTarget, actions: ViewActions, anchor: HTMLElement): void {
   const list = document.createElement("div");
   list.className = "dialog-menu-list";
   list.setAttribute("role", "menu");
@@ -232,7 +265,37 @@ function openTileMenu(item: DialItem, actions: ViewActions, anchor: HTMLElement)
   });
 }
 
-function pickImageFile(item: DialItem, actions: ViewActions): void {
+function openCreateMenu(actions: ViewActions, anchor: HTMLElement): void {
+  const list = document.createElement("div");
+  list.className = "dialog-menu-list";
+  list.setAttribute("role", "menu");
+
+  const addItem = (label: string, icon: SVGSVGElement, kind: CreateKind) => {
+    const itemButton = document.createElement("button");
+    itemButton.type = "button";
+    itemButton.className = "dialog-menu-item";
+    itemButton.setAttribute("role", "menuitem");
+    itemButton.append(icon, document.createTextNode(label));
+    itemButton.addEventListener("click", () => {
+      handle.close();
+      actions.beginCreate(kind);
+    });
+    list.append(itemButton);
+  };
+
+  addItem("New folder", iconFolder(), "folder");
+  addItem("New bookmark", iconBookmark(), "bookmark");
+
+  const handle = openDialog({
+    panelClass: "dialog-menu",
+    body: list,
+    returnFocus: anchor,
+    closeOnBackdrop: true,
+    closeOnEscape: true,
+  });
+}
+
+function pickImageFile(item: MenuTarget, actions: ViewActions): void {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "image/jpeg,image/png,image/gif,image/webp";
@@ -370,7 +433,7 @@ function bindDialDrag(
   entry.classList.add("reorderable");
   entry.addEventListener("dragstart", (event) => {
     const target = event.target;
-    if (target instanceof Element && target.closest(".tile-menu")) {
+    if (target instanceof Element && target.closest(".action-menu")) {
       event.preventDefault();
       return;
     }
@@ -481,39 +544,45 @@ function field(labelText: string, name: string, value: string, disabled: boolean
   return label;
 }
 
-function chromeActionButton(
-  text: string,
-  ariaLabel: string,
-  onClick: () => void,
-  disabled: boolean,
-  className = "rename",
-): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = className;
-  button.textContent = text;
-  button.setAttribute("aria-label", ariaLabel);
-  button.disabled = disabled;
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onClick();
-  });
-  return button;
-}
-
-function actionTile(kind: "folder" | "bookmark", title: string, onClick: () => void): HTMLLIElement {
+function createTile(actions: ViewActions, disabled: boolean): HTMLLIElement {
   const entry = document.createElement("li");
   const shell = document.createElement("div");
   shell.className = "tile add";
   const button = document.createElement("button");
   button.type = "button";
   button.className = "tile-main";
-  button.addEventListener("click", onClick);
-  button.append(mark("+", kind === "folder"), labeled(title, kind === "folder" ? "Folder" : "Link"));
+  button.setAttribute("aria-label", "Create dial");
+  button.setAttribute("aria-haspopup", "menu");
+  button.disabled = disabled;
+  button.addEventListener("click", () => {
+    if (disabled) return;
+    openCreateMenu(actions, button);
+  });
+  button.append(createMark(), createCaption());
   shell.append(button);
   entry.append(shell);
   return entry;
+}
+
+function createMark(): HTMLSpanElement {
+  const badge = document.createElement("span");
+  badge.className = "mark add-mark";
+  badge.setAttribute("aria-hidden", "true");
+  badge.textContent = "+";
+  return badge;
+}
+
+function createCaption(): HTMLElement {
+  const caption = document.createElement("div");
+  caption.className = "tile-caption";
+  const title = document.createElement("span");
+  title.className = "title";
+  title.textContent = "New";
+  const meta = document.createElement("span");
+  meta.className = "meta";
+  meta.textContent = "Folder or bookmark";
+  caption.append(title, meta);
+  return caption;
 }
 
 function tileMark(item: DialItem): HTMLElement {
@@ -528,7 +597,16 @@ function tileMark(item: DialItem): HTMLElement {
     figure.append(image);
     return figure;
   }
-  return mark(item.monogram, item.kind === "folder");
+  if (item.kind === "folder") return folderMark();
+  return mark(item.monogram, false);
+}
+
+function folderMark(): HTMLSpanElement {
+  const badge = document.createElement("span");
+  badge.className = "mark folder mark-icon";
+  badge.setAttribute("aria-hidden", "true");
+  badge.append(iconFolder());
+  return badge;
 }
 
 function mark(text: string, folder: boolean): HTMLSpanElement {
@@ -537,18 +615,6 @@ function mark(text: string, folder: boolean): HTMLSpanElement {
   badge.setAttribute("aria-hidden", "true");
   badge.textContent = text;
   return badge;
-}
-
-function labeled(title: string, meta: string): DocumentFragment {
-  const fragment = document.createDocumentFragment();
-  const titleNode = document.createElement("span");
-  titleNode.className = "title";
-  titleNode.textContent = title;
-  const metaNode = document.createElement("span");
-  metaNode.className = "meta";
-  metaNode.textContent = meta;
-  fragment.append(titleNode, metaNode);
-  return fragment;
 }
 
 function brand(): HTMLElement {
@@ -631,4 +697,14 @@ function iconDelete(): SVGSVGElement {
   return svgIcon(
     "M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
   );
+}
+
+function iconFolder(): SVGSVGElement {
+  return svgIcon(
+    "M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z",
+  );
+}
+
+function iconBookmark(): SVGSVGElement {
+  return svgIcon("M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z");
 }

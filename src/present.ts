@@ -59,6 +59,8 @@ export type ViewModel =
       canCreate: boolean;
       canRenameCurrent: boolean;
       canDeleteCurrent: boolean;
+      /** Open folder id and optional picture for the breadcrumb ⋮ menu. */
+      currentFolder: { id: string; title: string; imageDataUrl: string | null };
       form: DialForm | null;
       saving: boolean;
       layout: LayoutSettings;
@@ -130,6 +132,11 @@ export function present(state: AppState): ViewModel {
     canCreate: acceptsChildren(current),
     canRenameCurrent: canRenameNode(current),
     canDeleteCurrent: canDeleteNode(current),
+    currentFolder: {
+      id: current.id,
+      title: folderLabel(current),
+      imageDataUrl: state.images[current.id] ?? null,
+    },
     form: state.form,
     saving: state.saving,
     layout: state.layout,

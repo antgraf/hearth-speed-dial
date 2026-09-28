@@ -14,6 +14,9 @@ if (bookmarksReady && storageReady) {
     bookmarks: chromeBookmarks(),
     settings: chromeSettings(),
     images: chromeImages(),
+    openSettings: () => {
+      void chrome.runtime.openOptionsPage();
+    },
   });
 } else if (import.meta.env.DEV) {
   const { previewBanner, previewPorts } = await import("./preview.ts");
