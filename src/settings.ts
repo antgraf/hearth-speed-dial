@@ -3,11 +3,14 @@ const STORAGE_KEY = "hearth.settings";
 export type LayoutSettings = {
   columns: number;
   tileSize: number;
+  /** When true, dial tiles show last bookmarks first (display only). */
+  reverseOrder: boolean;
 };
 
 export const DEFAULT_LAYOUT: LayoutSettings = {
   columns: 5,
   tileSize: 64,
+  reverseOrder: false,
 };
 
 export const LAYOUT_LIMITS = {
@@ -48,12 +51,20 @@ export function readTileSize(value: unknown): number {
   return parsed === null ? DEFAULT_LAYOUT.tileSize : clampTileSize(parsed);
 }
 
+export function readReverseOrder(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1 || value === "1") return true;
+  if (value === "false" || value === 0 || value === "0") return false;
+  return DEFAULT_LAYOUT.reverseOrder;
+}
+
 export function readLayout(value: unknown): LayoutSettings {
   if (!value || typeof value !== "object") return { ...DEFAULT_LAYOUT };
-  const record = value as { columns?: unknown; tileSize?: unknown };
+  const record = value as { columns?: unknown; tileSize?: unknown; reverseOrder?: unknown };
   return {
     columns: readColumns(record.columns),
     tileSize: readTileSize(record.tileSize),
+    reverseOrder: readReverseOrder(record.reverseOrder),
   };
 }
 
@@ -103,6 +114,7 @@ export function previewSettings(): SettingsApi {
       writeStored({
         columns: clampColumns(layout.columns),
         tileSize: clampTileSize(layout.tileSize),
+        reverseOrder: Boolean(layout.reverseOrder),
       });
     },
   };

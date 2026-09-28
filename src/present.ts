@@ -7,6 +7,7 @@ import {
   displayTitle,
   folderLabel,
   nodeIndex,
+  orderDialItems,
   type BookmarkNode,
   type Crumb,
   type DialItem,
@@ -112,10 +113,13 @@ export function present(state: AppState): ViewModel {
   }
 
   const current = folderNode(state.tree, state.currentId) ?? root;
-  const items = dialItems(current).map((item) => ({
-    ...item,
-    imageDataUrl: state.images[item.id] ?? null,
-  }));
+  const items = orderDialItems(
+    dialItems(current).map((item) => ({
+      ...item,
+      imageDataUrl: state.images[item.id] ?? null,
+    })),
+    state.layout.reverseOrder,
+  );
   return {
     name: "grid",
     banner: state.banner,

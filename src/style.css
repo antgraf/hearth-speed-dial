@@ -308,6 +308,69 @@ label.picture input {
   accent-color: var(--ember);
 }
 
+.layout .settings-link {
+  align-self: end;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.settings-page .settings-intro,
+.settings-page .settings-help,
+.settings-page .settings-saved {
+  color: var(--muted);
+  max-width: 36rem;
+}
+
+.settings-page .settings-saved {
+  color: var(--note);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 24px;
+  max-width: 28rem;
+}
+
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-form .settings-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.settings-form input[type="number"] {
+  width: 4.5rem;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-form input[type="range"] {
+  width: min(220px, 40vw);
+  accent-color: var(--ember);
+}
+
+.settings-form .settings-help {
+  margin: -8px 0 0 1.75rem;
+  font-size: 13px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
