@@ -25,7 +25,7 @@ npm install
 npm run build
 ```
 
-Or from the repo root: `.\build.ps1` (or `pwsh ./build.ps1`). Runs `npm install` if `node_modules` is missing, then the production build into `dist`.
+Or from the repo root: `.\build.ps1` (or `pwsh ./build.ps1`). Runs `npm install` if `node_modules` is missing, then the production build into `dist`. To update from git first, use `.\pull_and_build.ps1` (or `pwsh ./pull_and_build.ps1`) — it runs `git pull`, then the same build path.
 
 1. Open `chrome://extensions`.
 2. Turn on Developer mode.
