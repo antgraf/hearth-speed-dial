@@ -227,13 +227,17 @@ function openSettingsDialog(
   const reverseLabel = document.createElement("label");
   reverseLabel.className = "settings-check";
   reverseLabel.htmlFor = "settings-reverseOrder";
+  const reverseText = document.createElement("span");
+  reverseText.className = "settings-check-text";
   const reverseCaption = document.createElement("span");
+  reverseCaption.className = "settings-check-title";
   reverseCaption.textContent = "Show last bookmarks first";
-  reverseLabel.append(reverse, reverseCaption);
   const reverseHelp = document.createElement("span");
   reverseHelp.className = "settings-help";
   reverseHelp.textContent = "Newest or last-listed bookmarks appear at the start of the grid.";
-  body.append(reverseLabel, reverseHelp);
+  reverseText.append(reverseCaption, reverseHelp);
+  reverseLabel.append(reverse, reverseText);
+  body.append(reverseLabel);
 
   const columns = document.createElement("input");
   columns.type = "number";

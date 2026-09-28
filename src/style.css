@@ -429,22 +429,53 @@ h1 {
   font: inherit;
 }
 
+.dialog-form input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  align-self: start;
+  margin: 0.2em 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  accent-color: var(--ember);
+}
+
 .settings-dialog-form .settings-check {
+  display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   color: var(--text);
   font-size: 15px;
 }
 
-.settings-dialog-form .settings-help {
-  margin: -4px 0 0;
-  color: var(--muted);
-  font-size: 13px;
+.settings-dialog-form .settings-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.settings-dialog-form .settings-check + .settings-help {
-  margin-left: 1.75rem;
+.settings-dialog-form .settings-check-title {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.settings-dialog-form .settings-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.settings-dialog-form .settings-check .settings-help {
+  margin: 0;
+}
+
+.settings-dialog-form > .settings-help {
+  margin-top: -4px;
 }
 
 .settings-dialog-form input[type="number"] {
@@ -520,11 +551,33 @@ h1 {
 }
 
 .settings-form .settings-check {
+  display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   color: var(--text);
   font-size: 15px;
+}
+
+.settings-form .settings-check input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  align-self: start;
+  margin: 0.2em 0 0;
+  accent-color: var(--ember);
+}
+
+.settings-form .settings-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings-form .settings-check-title {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
 }
 
 .settings-form input[type="number"] {
@@ -543,12 +596,17 @@ h1 {
 }
 
 .settings-form .settings-help {
-  margin: -8px 0 0;
+  margin: 0;
   font-size: 13px;
+  line-height: 1.4;
 }
 
-.settings-form .settings-check + .settings-help {
-  margin-left: 1.75rem;
+.settings-form .settings-check .settings-help {
+  margin: 0;
+}
+
+.settings-form > .settings-help {
+  margin-top: -8px;
 }
 
 .grid {

@@ -59,13 +59,17 @@ export function startSettings(host: HTMLElement, settings: SettingsApi, banner?:
     const reverseLabel = document.createElement("label");
     reverseLabel.className = "settings-check";
     reverseLabel.htmlFor = "reverseOrder";
+    const reverseText = document.createElement("span");
+    reverseText.className = "settings-check-text";
     const reverseCaption = document.createElement("span");
+    reverseCaption.className = "settings-check-title";
     reverseCaption.textContent = "Show last bookmarks first";
     const reverseHelp = document.createElement("span");
     reverseHelp.className = "settings-help";
     reverseHelp.textContent = "Newest or last-listed bookmarks appear at the start of the grid.";
-    reverseLabel.append(reverse, reverseCaption);
-    form.append(reverseLabel, reverseHelp);
+    reverseText.append(reverseCaption, reverseHelp);
+    reverseLabel.append(reverse, reverseText);
+    form.append(reverseLabel);
 
     const columns = document.createElement("input");
     columns.type = "number";
