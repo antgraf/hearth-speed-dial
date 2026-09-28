@@ -9,6 +9,7 @@ import {
   type ImagesApi,
 } from "./images.ts";
 import {
+  fetchPermissionRequest,
   originHostPermission,
   THUMBNAIL_HOST_PERMISSION,
   thumbnailPermissionDeniedMessage,
@@ -187,9 +188,9 @@ export function chromePermissions(): PermissionsApi {
     },
     async requestFetchAccess(href) {
       if (await this.canFetchUrl(href)) return true;
-      const origin = originHostPermission(href);
-      if (!origin) return false;
-      return chrome.permissions.request({ origins: [origin] });
+      const request = fetchPermissionRequest(href);
+      if (!request) return false;
+      return chrome.permissions.request({ origins: [...request.origins] });
     },
   };
 }

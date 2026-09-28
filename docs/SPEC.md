@@ -33,7 +33,7 @@ Out of scope for now: Firefox; refresh one; refresh a folder; `unlimitedStorage`
 | --- | --- | --- |
 | Always on | `bookmarks`, `storage`, `contextMenus` | Install |
 | Optional | `tabs` + host `<all_urls>` | Only when the user enables **Generate dial thumbnails** in Settings |
-| Optional (per use) | Host access for the image’s origin | When assigning a picture from URL, if `<all_urls>` is not already granted |
+| Optional (per use) | Host access for the image’s origin | When assigning a picture from URL, if `<all_urls>` is not already granted. Manifest `optional_host_permissions` must include `http://*/*` and `https://*/*` (in addition to `<all_urls>`) so Chrome allows requesting that specific origin. |
 
 **Choice:** Thumbnail capture and URL fetch share the same optional host capability when thumbnails are enabled (`<all_urls>` covers fetches). URL-only users who never enable thumbnails get a narrower origin grant for that image host instead of expanding default install permissions. Nothing is requested until the user explicitly uses one of those features.
 

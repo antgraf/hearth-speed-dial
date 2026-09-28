@@ -5,7 +5,7 @@
   "description": "New tab speed dial for one folder of your bookmarks.",
   "permissions": ["bookmarks", "storage", "contextMenus"],
   "optional_permissions": ["tabs"],
-  "optional_host_permissions": ["<all_urls>"],
+  "optional_host_permissions": ["<all_urls>", "http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

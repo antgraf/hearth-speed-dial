@@ -4,12 +4,23 @@
  * Default install stays bookmarks + storage + contextMenus only.
  * Thumbnails request tabs + <all_urls> when the user enables the setting.
  * Image-from-URL requests the image origin when <all_urls> is not already granted.
+ *
+ * Chrome only allows permissions.request origins that are listed (or are a
+ * subset of a listed pattern) in optional_host_permissions. Declaring only
+ * <all_urls> does not allow requesting a specific https host origin, so the
+ * manifest also lists the http and https scheme wildcards for per-origin fetch.
  */
 
 export const OPTIONAL_TABS_PERMISSION = "tabs" as const;
 
 /** Host pattern required for captureVisibleTab on arbitrary dial URLs. */
 export const THUMBNAIL_HOST_PERMISSION = "<all_urls>" as const;
+
+/**
+ * Scheme wildcards that must appear in manifest optional_host_permissions so
+ * origin-scoped Image-from-URL requests are legal to pass to permissions.request.
+ */
+export const OPTIONAL_FETCH_HOST_PERMISSIONS = ["http://*/*", "https://*/*"] as const;
 
 export type ThumbnailPermissionRequest = {
   permissions: typeof OPTIONAL_TABS_PERMISSION[];
@@ -32,6 +43,17 @@ export function originHostPermission(href: string): string | null {
   } catch {
     return null;
   }
+}
+
+export type FetchPermissionRequest = {
+  origins: [string];
+};
+
+/** Origins payload for permissions.request when fetching an image URL. */
+export function fetchPermissionRequest(href: string): FetchPermissionRequest | null {
+  const origin = originHostPermission(href);
+  if (!origin) return null;
+  return { origins: [origin] };
 }
 
 export type PermissionsApi = {

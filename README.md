@@ -50,7 +50,7 @@ Manual Chrome checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 
 | Path | Role |
 | --- | --- |
-| `manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `contextMenus`; optional: `tabs`, `<all_urls>`) |
+| `manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `contextMenus`; optional: `tabs`, `<all_urls>`, `http://*/*`, `https://*/*`) |
 | `icons/` | Extension icons (16 / 32 / 48 / 128) |
 | `index.html` | New-tab page (`chrome_url_overrides.newtab`) |
 | `settings.html` | Extension options / settings page (`manifest.json` `options_page`) |
