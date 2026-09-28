@@ -86,8 +86,6 @@ h1 {
 
 .meta,
 .quiet,
-.rename,
-.delete,
 .crumb,
 .sep {
   color: var(--muted);
@@ -99,30 +97,16 @@ h1 {
 
 .primary,
 .quiet,
-.rename,
-.delete,
 .crumb {
   border: 0;
   background: transparent;
 }
 
-.rename,
-.delete {
-  padding: 4px 0 0;
-  font-size: 12px;
-}
-
-.rename:disabled,
-.delete:disabled {
-  cursor: default;
-  opacity: 0.65;
-}
-
 .current {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -227,11 +211,8 @@ h1 {
   background: #2e2824;
 }
 
-.tile-menu {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  z-index: 1;
+.action-menu {
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   width: 28px;
@@ -243,33 +224,63 @@ h1 {
   color: var(--muted);
 }
 
-.tile-menu:hover,
-.tile-menu:focus-visible {
+.action-menu:hover,
+.action-menu:focus-visible {
   border-color: var(--line);
   background: #2e2824;
   color: var(--text);
 }
 
-.tile-menu:disabled {
+.action-menu:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.tile-menu .icon {
+.action-menu .icon {
   width: 16px;
   height: 16px;
+  pointer-events: none;
+}
+
+.tile-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tile-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tile-meta-row .meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .top {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 20px;
 }
 
 .settings-gear {
+  position: relative;
+  z-index: 2;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
+  align-self: center;
   margin-left: auto;
   width: 36px;
   height: 36px;
@@ -278,6 +289,7 @@ h1 {
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
+  pointer-events: auto;
 }
 
 .settings-gear:hover,
@@ -287,9 +299,15 @@ h1 {
   color: var(--text);
 }
 
+.settings-gear:active {
+  background: #2e2824;
+  color: var(--text);
+}
+
 .settings-gear .icon {
   width: 20px;
   height: 20px;
+  pointer-events: none;
 }
 
 .crumbs {
@@ -519,7 +537,7 @@ h1 {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 14px 10px 36px;
+  padding: 14px 10px 12px;
   border: 0;
   border-radius: 16px;
   background: transparent;
@@ -535,7 +553,6 @@ div.tile-main {
 }
 
 .tile.add .tile-main {
-  padding-bottom: 12px;
   border-style: dashed;
   border-width: 0;
 }
@@ -561,6 +578,11 @@ div.tile-main {
 .mark.folder {
   background: var(--folder-bg);
   color: var(--brass);
+}
+
+.mark.mark-icon .icon {
+  width: calc(var(--tile-size) * 9 / 16 * 0.42);
+  height: calc(var(--tile-size) * 9 / 16 * 0.42);
 }
 
 .mark.photo {

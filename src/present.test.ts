@@ -62,6 +62,8 @@ test("the top level is a grid of the root folders", () => {
   assert.equal(screen.canCreate, false);
   assert.equal(screen.canRenameCurrent, false);
   assert.equal(screen.canDeleteCurrent, false);
+  assert.equal(screen.currentFolder.id, "0");
+  assert.equal(screen.currentFolder.imageDataUrl, null);
 });
 
 test("an open folder uses the same grid and can add tiles", () => {
@@ -78,6 +80,8 @@ test("an open folder uses the same grid and can add tiles", () => {
   assert.equal(screen.canCreate, true);
   assert.equal(screen.canRenameCurrent, true);
   assert.equal(screen.canDeleteCurrent, true);
+  assert.equal(screen.currentFolder.id, "1");
+  assert.equal(screen.currentFolder.title, "Bookmarks bar");
   assert.equal(screen.empty, null);
 });
 
@@ -125,7 +129,7 @@ test("stored images attach to matching dial items", () => {
   const screen = present(
     state({
       currentId: "1",
-      images: { "11": dataUrl },
+      images: { "11": dataUrl, "1": dataUrl },
     }),
   );
   if (screen.name !== "grid") throw new Error("expected the grid");
@@ -133,6 +137,7 @@ test("stored images attach to matching dial items", () => {
   const news = screen.items.find((item) => item.id === "12");
   assert.equal(example?.imageDataUrl, dataUrl);
   assert.equal(news?.imageDataUrl, null);
+  assert.equal(screen.currentFolder.imageDataUrl, dataUrl);
 });
 
 test("edit form state is passed through to the grid", () => {
