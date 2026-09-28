@@ -30,9 +30,9 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 ## Local pictures / URL / thumbnails
 
 - [ ] Oversized or non-image file shows an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.
-- [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. Turn on → Chrome prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL.
-- [ ] Turn **Assign pictures from URLs** off → access is dropped; menu locks again; turning on prompts again.
-- [ ] **Generate dial thumbnails** off by default; enabling prompts for optional tabs + site access. Deny → setting stays off; grant → **Capture thumbnail** works (temp window opens, then closes; dial face updates).
+- [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. First turn on → Chrome prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL.
+- [ ] Turn **Assign pictures from URLs** off → active access is dropped; menu locks again. Turn on again → `permissions.request` runs; Chrome usually restores without a dialog after the first Allow (expected). To force a new prompt, revoke under `chrome://extensions` → Hearth → site access, then enable again.
+- [ ] **Generate dial thumbnails** off by default; first enable prompts for optional tabs + site access. Deny → setting stays off; grant → **Capture thumbnail** works (temp window opens, then closes; dial face updates). Off → on after Allow usually silent; revoke in extension details to force a new prompt.
 - [ ] After grant: revoke optional site access in `chrome://extensions` → Hearth details → reopen new tab → thumbnail / URL-fetch settings degrade (off / menu locked), no crash.
 
 ## Add to Hearth (context menu)

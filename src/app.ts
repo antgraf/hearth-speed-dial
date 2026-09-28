@@ -388,7 +388,24 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         return next;
       }
       state.thumbnailsActive = true;
+      state.error = null;
     } else if (!next.thumbnailsEnabled) {
+      if (previous.thumbnailsEnabled) {
+        // URL fetch may have been riding on <all_urls>. Ensure it owns
+        // http/https wildcards before dropping thumbnail grants (same click).
+        if (next.imageUrlFetchEnabled) {
+          const urlKept = await ports.permissions.requestImageUrlFetchAccess();
+          state.imageUrlFetchActive = urlKept;
+          if (!urlKept) {
+            next = { ...next, imageUrlFetchEnabled: false };
+          }
+        }
+        try {
+          await ports.permissions.removeThumbnailAccess();
+        } catch {
+          // Best-effort; setting still turns off.
+        }
+      }
       state.thumbnailsActive = false;
     } else {
       await syncThumbnailActive(true);
@@ -415,6 +432,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         return next;
       }
       state.imageUrlFetchActive = true;
+      state.error = null;
     } else if (!next.imageUrlFetchEnabled) {
       if (previous.imageUrlFetchEnabled) {
         try {
@@ -425,11 +443,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       }
       state.imageUrlFetchActive = false;
     } else {
+      // Still on — sync active flag only. Do not clear the URL toggle or show
+      // a denial banner here (thumbnail revoke must not look like a URL deny).
       await syncImageUrlFetchActive(true);
-      if (!state.imageUrlFetchActive) {
-        next = { ...next, imageUrlFetchEnabled: false };
-        state.error = imageUrlPermissionDeniedMessage();
-      }
     }
 
     state.layout = next;

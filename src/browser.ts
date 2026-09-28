@@ -10,13 +10,17 @@ import {
 } from "./images.ts";
 import {
   fetchPermissionRequest,
+  imageUrlFetchPermissionRemove,
   imageUrlFetchPermissionRequest,
-  OPTIONAL_FETCH_HOST_PERMISSIONS,
+  intersectGrantedPermissions,
   originHostPermission,
+  permissionRemovePieces,
   THUMBNAIL_HOST_PERMISSION,
   thumbnailPermissionDeniedMessage,
+  thumbnailPermissionRemove,
   thumbnailPermissionRequest,
   type CaptureApi,
+  type PermissionRequestPayload,
   type PermissionsApi,
 } from "./permissions.ts";
 import {
@@ -166,47 +170,128 @@ export function chromeImages(): ImagesApi {
   };
 }
 
+async function readGrantedPermissions(): Promise<PermissionRequestPayload> {
+  try {
+    const granted = await chrome.permissions.getAll();
+    return {
+      permissions: granted.permissions ? [...granted.permissions] : [],
+      origins: granted.origins ? [...granted.origins] : [],
+    };
+  } catch {
+    return { permissions: [], origins: [] };
+  }
+}
+
+async function removePermissionPiece(piece: PermissionRequestPayload): Promise<void> {
+  const permissions = piece.permissions?.length ? [...piece.permissions] : undefined;
+  const origins = piece.origins?.length ? [...piece.origins] : undefined;
+  if (!permissions && !origins) return;
+  try {
+    // Cast: our payloads are manifest-declared optional strings; @types/chrome
+    // wants ManifestPermission for the permissions field only.
+    await chrome.permissions.remove({
+      ...(permissions ? { permissions: permissions as chrome.runtime.ManifestPermission[] } : {}),
+      ...(origins ? { origins } : {}),
+    });
+  } catch {
+    // Best-effort; caller verifies with contains/getAll.
+  }
+}
+
+/**
+ * Revoke optional grants for one Settings toggle.
+ * Uses getAll ∩ target, then also tries each target piece directly, so a
+ * mismatched getAll listing still clears http(s) / tabs / <all_urls>.
+ */
+async function revokeOptionalGrants(target: PermissionRequestPayload): Promise<void> {
+  const granted = await readGrantedPermissions();
+  const overlap = intersectGrantedPermissions(granted, target);
+  for (const piece of permissionRemovePieces(overlap)) {
+    await removePermissionPiece(piece);
+  }
+  for (const piece of permissionRemovePieces(target)) {
+    await removePermissionPiece(piece);
+  }
+}
+
 export function chromePermissions(): PermissionsApi {
   return {
     async hasThumbnailAccess() {
       const request = thumbnailPermissionRequest();
-      return chrome.permissions.contains({
-        permissions: [...request.permissions],
-        origins: [...request.origins],
-      });
+      try {
+        return await chrome.permissions.contains({
+          permissions: [...request.permissions],
+          origins: [...request.origins],
+        });
+      } catch {
+        return false;
+      }
     },
     async requestThumbnailAccess() {
+      // Always call request (no contains short-circuit). After toggle-off
+      // remove(), Chrome usually re-grants silently if the user Allowed before;
+      // a dialog appears only on first grant or after the user revokes in
+      // chrome://extensions.
       const request = thumbnailPermissionRequest();
-      return chrome.permissions.request({
-        permissions: [...request.permissions],
-        origins: [...request.origins],
-      });
+      try {
+        return await chrome.permissions.request({
+          permissions: [...request.permissions],
+          origins: [...request.origins],
+        });
+      } catch {
+        // Chrome rejects undeclared optional permissions with a thrown Error
+        // (not granted:false). Treat as deny so Settings toggles stay off.
+        return false;
+      }
+    },
+    async removeThumbnailAccess() {
+      // Drops active access only. Chrome remembers prior Allow for silent restore.
+      await revokeOptionalGrants(thumbnailPermissionRemove());
     },
     async hasImageUrlFetchAccess() {
-      const hasAll = await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
-      if (hasAll) return true;
-      const request = imageUrlFetchPermissionRequest();
-      return chrome.permissions.contains({ origins: [...request.origins] });
+      try {
+        const hasAll = await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
+        if (hasAll) return true;
+        const request = imageUrlFetchPermissionRequest();
+        return await chrome.permissions.contains({ origins: [...request.origins] });
+      } catch {
+        return false;
+      }
     },
     async requestImageUrlFetchAccess() {
-      if (await this.hasImageUrlFetchAccess()) return true;
+      // Always request the scheme wildcards so this toggle owns its grants and
+      // survives thumbnails revoke of <all_urls>. Silent when already covered
+      // (<all_urls> or Chrome’s prior-Allow memory after remove).
       const request = imageUrlFetchPermissionRequest();
-      return chrome.permissions.request({ origins: [...request.origins] });
+      try {
+        return await chrome.permissions.request({ origins: [...request.origins] });
+      } catch {
+        return false;
+      }
     },
     async removeImageUrlFetchAccess() {
-      await chrome.permissions.remove({ origins: [...OPTIONAL_FETCH_HOST_PERMISSIONS] });
+      // Drops active http/https access only. Prior Allow may restore silently.
+      await revokeOptionalGrants(imageUrlFetchPermissionRemove());
     },
     async canFetchUrl(href) {
       if (await this.hasImageUrlFetchAccess()) return Boolean(originHostPermission(href));
       const origin = originHostPermission(href);
       if (!origin) return false;
-      return chrome.permissions.contains({ origins: [origin] });
+      try {
+        return await chrome.permissions.contains({ origins: [origin] });
+      } catch {
+        return false;
+      }
     },
     async requestFetchAccess(href) {
       if (await this.canFetchUrl(href)) return true;
       const request = fetchPermissionRequest(href);
       if (!request) return false;
-      return chrome.permissions.request({ origins: [...request.origins] });
+      try {
+        return await chrome.permissions.request({ origins: [...request.origins] });
+      } catch {
+        return false;
+      }
     },
   };
 }
