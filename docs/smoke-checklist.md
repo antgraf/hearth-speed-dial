@@ -13,7 +13,7 @@ Manual pass after `npm run build` and **Load unpacked** → select the repo’s 
 
 - [ ] Tile **⋮** sits on the meta row (Folder / domain); menu: **Rename**, **Picture** / **Clear picture**, **Delete** (delete confirms in a dialog).
 - [ ] Current-folder breadcrumb **⋮** offers the same actions (including Picture); Chrome root has no menu.
-- [ ] New-tab **gear** opens Settings (`openOptionsPage`).
+- [ ] New-tab **gear** opens Settings (`options_page` / `openOptionsPage`, with `settings.html` fallback).
 
 ## Drag
 

@@ -19,6 +19,7 @@ import {
   DEFAULT_LAYOUT,
   type SettingsApi,
 } from "./settings.ts";
+import { openChromeSettingsPage } from "./open-settings.ts";
 import { render } from "./view.ts";
 
 export type AppPorts = {
@@ -101,8 +102,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
           ports.openSettings();
           return;
         }
-        if (typeof chrome !== "undefined" && chrome.runtime?.openOptionsPage) {
-          void chrome.runtime.openOptionsPage();
+        if (typeof chrome !== "undefined" && chrome.runtime) {
+          void openChromeSettingsPage();
         }
       },
     });

@@ -48,7 +48,7 @@ Manual Chrome checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 | `manifest.json` | Copied from the repo root (`bookmarks`, `storage`, `contextMenus` only) |
 | `icons/` | Extension icons (16 / 32 / 48 / 128) |
 | `index.html` | New-tab page (`chrome_url_overrides.newtab`) |
-| `settings.html` | Extension options / settings page |
+| `settings.html` | Extension options / settings page (`manifest.json` `options_page`) |
 | `add.html` | **Add to Hearth…** popup |
 | `background.js` | MV3 service worker (context menu) |
 | `assets/` | Hashed JS/CSS for the pages |

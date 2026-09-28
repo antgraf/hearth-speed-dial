@@ -1,5 +1,6 @@
 import { start } from "./app.ts";
 import { chromeBookmarks, chromeImages, chromeSettings } from "./browser.ts";
+import { openChromeSettingsPage } from "./open-settings.ts";
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
@@ -15,7 +16,7 @@ if (bookmarksReady && storageReady) {
     settings: chromeSettings(),
     images: chromeImages(),
     openSettings: () => {
-      void chrome.runtime.openOptionsPage();
+      void openChromeSettingsPage();
     },
   });
 } else if (import.meta.env.DEV) {
