@@ -1,5 +1,5 @@
 import type { CreateKind, ViewModel } from "./present.ts";
-import { LAYOUT_LIMITS, type LayoutSettings } from "./settings.ts";
+import { openDialog, type DialogHandle } from "./dialog.ts";
 import { chromeBeforeIdFromDisplayDrop, type DialItem } from "./model.ts";
 
 export type ViewActions = {
@@ -10,7 +10,6 @@ export type ViewActions = {
   requestDelete(id: string): void;
   cancelForm(): void;
   submitForm(input: { title: string; url: string }): void;
-  setLayout(layout: LayoutSettings): void;
   reorderDial(draggedId: string, beforeId: string | null): void;
   moveDialInto(draggedId: string, parentId: string): void;
   attachImage(id: string, file: File): void;
@@ -18,7 +17,13 @@ export type ViewActions = {
   openSettings(): void;
 };
 
+/** Edit dialog kept across draw cycles; closed silently before each render. */
+let editDialog: DialogHandle | null = null;
+
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
+  editDialog?.close({ silent: true });
+  editDialog = null;
+
   host.replaceChildren();
   if (view.banner) host.append(note(view.banner, "preview"));
 
@@ -36,6 +41,9 @@ export function render(host: HTMLElement, view: ViewModel, actions: ViewActions)
   }
 
   frame.append(grid(view, actions));
+  if (view.form?.mode === "edit") {
+    editDialog = showEditDialog(view, actions);
+  }
 }
 
 function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions): HTMLElement {
@@ -67,10 +75,20 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       title.textContent = crumb.title;
       current.append(title);
       if (view.canRenameCurrent) {
-        current.append(renameButton(crumb.title, () => actions.beginEdit(crumb.id), view.saving));
+        current.append(
+          chromeActionButton("Rename", `Rename ${crumb.title}`, () => actions.beginEdit(crumb.id), view.saving),
+        );
       }
       if (view.canDeleteCurrent) {
-        current.append(deleteButton(crumb.title, () => actions.requestDelete(crumb.id), view.saving));
+        current.append(
+          chromeActionButton(
+            "Delete",
+            `Delete ${crumb.title}`,
+            () => actions.requestDelete(crumb.id),
+            view.saving,
+            "delete",
+          ),
+        );
       }
       nav.append(current);
       return;
@@ -84,11 +102,11 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     nav.append(button);
   });
   header.append(nav);
+  header.append(settingsGear(actions));
   section.append(header);
-  section.append(layoutControls(view.layout, actions));
 
   if (view.error) section.append(alertLine(view.error));
-  if (view.form) section.append(composer(view, actions));
+  if (view.form?.mode === "create") section.append(composer(view, actions));
   if (view.empty) section.append(paragraph(view.empty, "empty"));
 
   const list = document.createElement("ul");
@@ -98,15 +116,27 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   const reverseOrder = view.layout.reverseOrder;
   for (const item of view.items) {
     const entry = document.createElement("li");
-    let tile: HTMLElement;
     let suppressClick = false;
+
+    const shell = document.createElement("div");
+    shell.className = "tile";
+
+    let main: HTMLElement;
     if (item.kind === "link" && item.url) {
       const link = document.createElement("a");
       link.href = item.url;
-      tile = link;
+      link.className = "tile-main";
+      link.addEventListener("click", (event) => {
+        if (!suppressClick) return;
+        event.preventDefault();
+        event.stopPropagation();
+        suppressClick = false;
+      });
+      main = link;
     } else if (item.kind === "folder") {
       const button = document.createElement("button");
       button.type = "button";
+      button.className = "tile-main";
       button.addEventListener("click", (event) => {
         if (suppressClick) {
           event.preventDefault();
@@ -116,22 +146,14 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
         }
         actions.openFolder(item.id);
       });
-      tile = button;
+      main = button;
     } else {
-      tile = document.createElement("div");
+      main = document.createElement("div");
+      main.className = "tile-main";
     }
-    tile.className = "tile";
-    if (item.kind === "link" && item.url) {
-      tile.addEventListener("click", (event) => {
-        if (!suppressClick) return;
-        event.preventDefault();
-        event.stopPropagation();
-        suppressClick = false;
-      });
-    }
-    tile.append(tileMark(item), labeled(item.title, item.meta));
-    entry.append(tile);
-    entry.append(tileActions(item, actions, view.saving));
+    main.append(tileMark(item), labeled(item.title, item.meta));
+    shell.append(main, tileMenuButton(item, actions, view.saving));
+    entry.append(shell);
     if (canDrag) {
       bindDialDrag(entry, item, view.items, reverseOrder, actions, () => {
         suppressClick = true;
@@ -145,6 +167,149 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   }
   if (view.items.length > 0 || view.canCreate) section.append(list);
   return section;
+}
+
+function settingsGear(actions: ViewActions): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "settings-gear";
+  button.setAttribute("aria-label", "Settings");
+  button.title = "Settings";
+  button.append(iconGear());
+  button.addEventListener("click", () => actions.openSettings());
+  return button;
+}
+
+function tileMenuButton(item: DialItem, actions: ViewActions, disabled: boolean): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "tile-menu";
+  button.setAttribute("aria-label", `Actions for ${item.title}`);
+  button.setAttribute("aria-haspopup", "menu");
+  button.disabled = disabled;
+  button.append(iconMore());
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (disabled) return;
+    openTileMenu(item, actions, button);
+  });
+  return button;
+}
+
+function openTileMenu(item: DialItem, actions: ViewActions, anchor: HTMLElement): void {
+  const list = document.createElement("div");
+  list.className = "dialog-menu-list";
+  list.setAttribute("role", "menu");
+
+  const addItem = (label: string, icon: SVGSVGElement, onPick: () => void, danger = false) => {
+    const itemButton = document.createElement("button");
+    itemButton.type = "button";
+    itemButton.className = danger ? "dialog-menu-item danger" : "dialog-menu-item";
+    itemButton.setAttribute("role", "menuitem");
+    itemButton.append(icon, document.createTextNode(label));
+    itemButton.addEventListener("click", () => {
+      handle.close();
+      onPick();
+    });
+    list.append(itemButton);
+  };
+
+  addItem("Rename", iconRename(), () => actions.beginEdit(item.id));
+  if (item.imageDataUrl) {
+    addItem("Clear picture", iconPicture(), () => actions.clearImage(item.id));
+  } else {
+    addItem("Picture", iconPicture(), () => pickImageFile(item, actions));
+  }
+  addItem("Delete", iconDelete(), () => actions.requestDelete(item.id), true);
+
+  const handle = openDialog({
+    panelClass: "dialog-menu",
+    body: list,
+    returnFocus: anchor,
+    closeOnBackdrop: true,
+    closeOnEscape: true,
+  });
+}
+
+function pickImageFile(item: DialItem, actions: ViewActions): void {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/jpeg,image/png,image/gif,image/webp";
+  input.hidden = true;
+  document.body.append(input);
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    input.remove();
+    if (file) actions.attachImage(item.id, file);
+  });
+  input.addEventListener("cancel", () => input.remove());
+  input.click();
+}
+
+function showEditDialog(
+  view: Extract<ViewModel, { name: "grid" }>,
+  actions: ViewActions,
+): DialogHandle {
+  const form = view.form;
+  if (!form || form.mode !== "edit") throw new Error("Missing edit form");
+
+  const body = document.createElement("form");
+  body.className = "dialog-form";
+  body.append(field(form.kind === "folder" ? "Folder name" : "Name", "title", form.title, view.saving));
+  if (form.kind === "bookmark") {
+    body.append(field("Address", "url", form.url, view.saving));
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "dialog-actions";
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.className = "primary";
+  submit.textContent = form.kind === "folder" ? "Rename folder" : "Save bookmark";
+  submit.disabled = view.saving;
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "quiet";
+  cancel.textContent = "Cancel";
+  cancel.disabled = view.saving;
+  footer.append(cancel, submit);
+
+  // Associate footer submit with the form (footer is outside the form element).
+  submit.setAttribute("form", "hearth-edit-form");
+  body.id = "hearth-edit-form";
+
+  let closedByAction = false;
+  const handle = openDialog({
+    title: form.kind === "folder" ? "Rename folder" : "Rename bookmark",
+    body,
+    footer,
+    closeOnBackdrop: !view.saving,
+    closeOnEscape: !view.saving,
+    onClose: () => {
+      if (closedByAction || view.saving) return;
+      actions.cancelForm();
+    },
+  });
+
+  cancel.addEventListener("click", () => {
+    if (view.saving) return;
+    closedByAction = true;
+    handle.close();
+    actions.cancelForm();
+  });
+  body.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (view.saving) return;
+    const data = new FormData(body);
+    closedByAction = true;
+    handle.close();
+    actions.submitForm({
+      title: String(data.get("title") ?? ""),
+      url: String(data.get("url") ?? ""),
+    });
+  });
+  return handle;
 }
 
 function isDialDrag(event: DragEvent): boolean {
@@ -205,7 +370,7 @@ function bindDialDrag(
   entry.classList.add("reorderable");
   entry.addEventListener("dragstart", (event) => {
     const target = event.target;
-    if (target instanceof Element && target.closest(".tile-actions")) {
+    if (target instanceof Element && target.closest(".tile-menu")) {
       event.preventDefault();
       return;
     }
@@ -263,68 +428,9 @@ function bindDialDrag(
   });
 }
 
-function layoutControls(layout: LayoutSettings, actions: ViewActions): HTMLElement {
-  const row = document.createElement("div");
-  row.className = "layout";
-
-  const columns = document.createElement("input");
-  columns.type = "number";
-  columns.name = "columns";
-  columns.min = String(LAYOUT_LIMITS.columns.min);
-  columns.max = String(LAYOUT_LIMITS.columns.max);
-  columns.step = "1";
-  columns.value = String(layout.columns);
-  columns.setAttribute("aria-label", "Columns");
-  columns.addEventListener("change", () => {
-    actions.setLayout({
-      columns: Number(columns.value),
-      tileSize: layout.tileSize,
-      reverseOrder: layout.reverseOrder,
-    });
-  });
-
-  const tileSize = document.createElement("input");
-  tileSize.type = "range";
-  tileSize.name = "tileSize";
-  tileSize.min = String(LAYOUT_LIMITS.tileSize.min);
-  tileSize.max = String(LAYOUT_LIMITS.tileSize.max);
-  tileSize.step = "1";
-  tileSize.value = String(layout.tileSize);
-  tileSize.setAttribute("aria-label", "Tile size");
-  tileSize.addEventListener("change", () => {
-    actions.setLayout({
-      columns: layout.columns,
-      tileSize: Number(tileSize.value),
-      reverseOrder: layout.reverseOrder,
-    });
-  });
-
-  const settings = document.createElement("button");
-  settings.type = "button";
-  settings.className = "quiet settings-link";
-  settings.textContent = "Settings";
-  settings.addEventListener("click", () => actions.openSettings());
-
-  row.append(
-    labeledControl("Columns", columns),
-    labeledControl("Tile size", tileSize),
-    settings,
-  );
-  return row;
-}
-
-function labeledControl(labelText: string, control: HTMLInputElement): HTMLLabelElement {
-  const label = document.createElement("label");
-  const caption = document.createElement("span");
-  caption.textContent = labelText;
-  label.append(caption, control);
-  return label;
-}
-
 function composer(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions): HTMLFormElement {
   const form = view.form;
-  if (!form) throw new Error("Missing form");
-  const editing = form.mode === "edit";
+  if (!form || form.mode !== "create") throw new Error("Missing create form");
   const composerForm = document.createElement("form");
   composerForm.className = "composer";
   composerForm.append(field(form.kind === "folder" ? "Folder name" : "Name", "title", form.title, view.saving));
@@ -334,8 +440,7 @@ function composer(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActio
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "primary";
-  if (editing) submit.textContent = form.kind === "folder" ? "Rename folder" : "Save bookmark";
-  else submit.textContent = form.kind === "folder" ? "Add folder" : "Add bookmark";
+  submit.textContent = form.kind === "folder" ? "Add folder" : "Add bookmark";
   submit.disabled = view.saving;
   const cancel = document.createElement("button");
   cancel.type = "button";
@@ -376,80 +481,18 @@ function field(labelText: string, name: string, value: string, disabled: boolean
   return label;
 }
 
-function tileActions(item: DialItem, actions: ViewActions, disabled: boolean): HTMLDivElement {
-  const row = document.createElement("div");
-  row.className = "tile-actions";
-  row.append(
-    renameButton(item.title, () => actions.beginEdit(item.id), disabled),
-    pictureButton(item, actions, disabled),
-    deleteButton(item.title, () => actions.requestDelete(item.id), disabled),
-  );
-  return row;
-}
-
-function pictureButton(item: DialItem, actions: ViewActions, disabled: boolean): HTMLSpanElement {
-  const wrap = document.createElement("span");
-  wrap.className = "picture-actions";
-
-  if (item.imageDataUrl) {
-    const clear = document.createElement("button");
-    clear.type = "button";
-    clear.className = "picture";
-    clear.textContent = "Clear picture";
-    clear.setAttribute("aria-label", `Clear picture for ${item.title}`);
-    clear.disabled = disabled;
-    clear.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      actions.clearImage(item.id);
-    });
-    wrap.append(clear);
-    return wrap;
-  }
-
-  const label = document.createElement("label");
-  label.className = "picture";
-  const caption = document.createElement("span");
-  caption.textContent = "Picture";
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/jpeg,image/png,image/gif,image/webp";
-  input.disabled = disabled;
-  input.setAttribute("aria-label", `Attach picture for ${item.title}`);
-  input.addEventListener("click", (event) => {
-    event.stopPropagation();
-  });
-  input.addEventListener("change", () => {
-    const file = input.files?.[0];
-    input.value = "";
-    if (file) actions.attachImage(item.id, file);
-  });
-  label.append(caption, input);
-  wrap.append(label);
-  return wrap;
-}
-
-function renameButton(title: string, onClick: () => void, disabled: boolean): HTMLButtonElement {
+function chromeActionButton(
+  text: string,
+  ariaLabel: string,
+  onClick: () => void,
+  disabled: boolean,
+  className = "rename",
+): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "rename";
-  button.textContent = "Rename";
-  button.setAttribute("aria-label", `Rename ${title}`);
-  button.disabled = disabled;
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onClick();
-  });
-  return button;
-}
-
-function deleteButton(title: string, onClick: () => void, disabled: boolean): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "delete";
-  button.textContent = "Delete";
-  button.setAttribute("aria-label", `Delete ${title}`);
+  button.className = className;
+  button.textContent = text;
+  button.setAttribute("aria-label", ariaLabel);
   button.disabled = disabled;
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -461,12 +504,15 @@ function deleteButton(title: string, onClick: () => void, disabled: boolean): HT
 
 function actionTile(kind: "folder" | "bookmark", title: string, onClick: () => void): HTMLLIElement {
   const entry = document.createElement("li");
+  const shell = document.createElement("div");
+  shell.className = "tile add";
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "tile add";
+  button.className = "tile-main";
   button.addEventListener("click", onClick);
   button.append(mark("+", kind === "folder"), labeled(title, kind === "folder" ? "Folder" : "Link"));
-  entry.append(button);
+  shell.append(button);
+  entry.append(shell);
   return entry;
 }
 
@@ -533,4 +579,56 @@ function alertLine(message: string): HTMLParagraphElement {
   const copy = note(message, "error");
   copy.setAttribute("role", "alert");
   return copy;
+}
+
+function svgIcon(paths: string): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("icon");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("fill", "currentColor");
+  path.setAttribute("d", paths);
+  svg.append(path);
+  return svg;
+}
+
+function iconGear(): SVGSVGElement {
+  return svgIcon(
+    "M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.77 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.68.22l2.39-.96c.5.39 1.04.71 1.63.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.25.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z",
+  );
+}
+
+function iconMore(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("icon");
+  for (const cy of [6, 12, 18]) {
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "12");
+    circle.setAttribute("cy", String(cy));
+    circle.setAttribute("r", "1.75");
+    circle.setAttribute("fill", "currentColor");
+    svg.append(circle);
+  }
+  return svg;
+}
+
+function iconRename(): SVGSVGElement {
+  return svgIcon(
+    "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
+  );
+}
+
+function iconPicture(): SVGSVGElement {
+  return svgIcon(
+    "M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z",
+  );
+}
+
+function iconDelete(): SVGSVGElement {
+  return svgIcon(
+    "M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+  );
 }

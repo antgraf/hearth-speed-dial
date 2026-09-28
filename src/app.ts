@@ -13,12 +13,10 @@ import {
 } from "./model.ts";
 import { canDeleteNode, canRenameNode, deleteConfirmMessage, present, type AppState, type CreateKind } from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
+import { confirmDialog } from "./dialog.ts";
 import { fileToDataUrl, type ImagesApi } from "./images.ts";
 import {
-  clampColumns,
-  clampTileSize,
   DEFAULT_LAYOUT,
-  type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
 import { render } from "./view.ts";
@@ -86,9 +84,6 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       submitForm: (input) => {
         void saveForm(input);
       },
-      setLayout: (layout) => {
-        void saveLayout(layout);
-      },
       reorderDial: (draggedId, beforeId) => {
         void reorderDial(draggedId, beforeId);
       },
@@ -131,7 +126,14 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (state.saving) return;
     const node = nodeIndex(state.tree).get(id);
     if (!canDeleteNode(node) || !node) return;
-    const confirmed = window.confirm(deleteConfirmMessage(node));
+    const kind = classify(node);
+    const confirmed = await confirmDialog({
+      title: kind === "folder" ? "Delete folder" : "Delete bookmark",
+      message: deleteConfirmMessage(node),
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
     if (!confirmed) return;
     const removedIds = collectDescendantIds(node);
     state.form = null;
@@ -232,22 +234,6 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       await reload();
     } catch (error) {
       state.saving = false;
-      state.error = errorText(error);
-      draw();
-    }
-  };
-
-  const saveLayout = async (layout: LayoutSettings) => {
-    const next = {
-      columns: clampColumns(layout.columns),
-      tileSize: clampTileSize(layout.tileSize),
-      reverseOrder: Boolean(layout.reverseOrder),
-    };
-    state.layout = next;
-    draw();
-    try {
-      await ports.settings.setLayout(next);
-    } catch (error) {
       state.error = errorText(error);
       draw();
     }

@@ -88,7 +88,6 @@ h1 {
 .quiet,
 .rename,
 .delete,
-.picture,
 .crumb,
 .sep {
   color: var(--muted);
@@ -102,49 +101,21 @@ h1 {
 .quiet,
 .rename,
 .delete,
-.picture,
 .crumb {
   border: 0;
   background: transparent;
 }
 
 .rename,
-.delete,
-.picture {
+.delete {
   padding: 4px 0 0;
   font-size: 12px;
 }
 
 .rename:disabled,
-.delete:disabled,
-.picture:disabled,
-label.picture:has(input:disabled) {
+.delete:disabled {
   cursor: default;
   opacity: 0.65;
-}
-
-label.picture {
-  display: inline-flex;
-  cursor: pointer;
-}
-
-label.picture input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.tile-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
 }
 
 .current {
@@ -195,6 +166,11 @@ label.picture input {
   border-radius: 999px;
   background: var(--ember);
   color: var(--ember-ink);
+}
+
+.primary.danger {
+  background: #c45a4a;
+  color: #fff6f2;
 }
 
 .primary:disabled {
@@ -251,10 +227,69 @@ label.picture input {
   background: #2e2824;
 }
 
+.tile-menu {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tile-menu:hover,
+.tile-menu:focus-visible {
+  border-color: var(--line);
+  background: #2e2824;
+  color: var(--text);
+}
+
+.tile-menu:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.tile-menu .icon {
+  width: 16px;
+  height: 16px;
+}
+
 .top {
   display: flex;
   align-items: baseline;
   gap: 20px;
+}
+
+.settings-gear {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.settings-gear:hover,
+.settings-gear:focus-visible {
+  border-color: var(--line);
+  background: var(--raise);
+  color: var(--text);
+}
+
+.settings-gear .icon {
+  width: 20px;
+  height: 20px;
 }
 
 .crumbs {
@@ -278,15 +313,71 @@ label.picture input {
   user-select: none;
 }
 
-.layout {
+.dialog-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 8, 6, 0.62);
+}
+
+.dialog-panel {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--raise);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+
+.dialog-panel.dialog-menu {
+  width: min(240px, 100%);
+  padding: 8px;
+}
+
+.dialog-title {
+  margin: 0 0 12px;
+  font-family: Palatino, "Iowan Old Style", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.dialog-message {
+  margin: 0;
+  color: var(--note);
+  line-height: 1.45;
+}
+
+.dialog-body {
+  min-width: 0;
+}
+
+.dialog-footer,
+.dialog-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 16px 24px;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
   margin-top: 18px;
 }
 
-.layout label {
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialog-form label {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -294,26 +385,49 @@ label.picture input {
   font-size: 12px;
 }
 
-.layout input[type="number"] {
-  width: 4.5rem;
-  padding: 6px 8px;
+.dialog-form input {
+  width: 100%;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--raise);
+  background: var(--bg);
   color: var(--text);
   font: inherit;
 }
 
-.layout input[type="range"] {
-  width: min(220px, 40vw);
-  accent-color: var(--ember);
+.dialog-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.layout .settings-link {
-  align-self: end;
-  padding: 0;
+.dialog-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
   border: 0;
+  border-radius: 10px;
   background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+}
+
+.dialog-menu-item:hover,
+.dialog-menu-item:focus-visible {
+  background: #2e2824;
+}
+
+.dialog-menu-item.danger {
+  color: #f0b4a4;
+}
+
+.dialog-menu-item .icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
 }
 
 .settings-page .settings-intro,
@@ -386,17 +500,49 @@ label.picture input {
 }
 
 .tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
   width: 100%;
-  padding: 14px 10px 12px;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--raise);
   text-align: center;
   text-decoration: none;
+}
+
+.tile-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 10px 36px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+div.tile-main {
+  cursor: default;
+}
+
+.tile.add .tile-main {
+  padding-bottom: 12px;
+  border-style: dashed;
+  border-width: 0;
+}
+
+.tile.add {
+  border-style: dashed;
+  background: transparent;
 }
 
 .mark {

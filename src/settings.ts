@@ -20,7 +20,7 @@ export const TILE_ASPECT = 16 / 9;
 export const LAYOUT_LIMITS = {
   columns: { min: 2, max: 8 },
   /** Width in CSS pixels of the 16:9 dial face. */
-  tileSize: { min: 96, max: 288 },
+  tileSize: { min: 96, max: 576 },
 } as const;
 
 export type SettingsApi = {
