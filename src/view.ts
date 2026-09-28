@@ -314,14 +314,19 @@ function openSettingsDialog(
   });
 
   const applyLayout = () => {
-    void Promise.resolve(actions.setLayout(readLayout())).then((applied) => {
-      if (!applied) return;
-      reverse.checked = applied.reverseOrder;
-      thumbnails.checked = applied.thumbnailsEnabled;
-      imageUrlFetch.checked = applied.imageUrlFetchEnabled;
-      columns.value = String(applied.columns);
-      tileSize.value = String(applied.tileSize);
-    });
+    void Promise.resolve(actions.setLayout(readLayout()))
+      .then((applied) => {
+        if (!applied) return;
+        reverse.checked = applied.reverseOrder;
+        thumbnails.checked = applied.thumbnailsEnabled;
+        imageUrlFetch.checked = applied.imageUrlFetchEnabled;
+        columns.value = String(applied.columns);
+        tileSize.value = String(applied.tileSize);
+      })
+      .catch(() => {
+        // Permission API rejections are handled inside setLayout / chromePermissions.
+        // Keep the dialog open; next draw syncs checkbox state from storage.
+      });
   };
 
   columns.addEventListener("change", applyLayout);

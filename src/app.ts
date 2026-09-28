@@ -389,6 +389,13 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       }
       state.thumbnailsActive = true;
     } else if (!next.thumbnailsEnabled) {
+      if (previous.thumbnailsEnabled) {
+        try {
+          await ports.permissions.removeThumbnailAccess();
+        } catch {
+          // Best-effort; setting still turns off.
+        }
+      }
       state.thumbnailsActive = false;
     } else {
       await syncThumbnailActive(true);

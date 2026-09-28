@@ -10,11 +10,12 @@ import {
 } from "./images.ts";
 import {
   fetchPermissionRequest,
+  imageUrlFetchPermissionRemove,
   imageUrlFetchPermissionRequest,
-  OPTIONAL_FETCH_HOST_PERMISSIONS,
   originHostPermission,
   THUMBNAIL_HOST_PERMISSION,
   thumbnailPermissionDeniedMessage,
+  thumbnailPermissionRemove,
   thumbnailPermissionRequest,
   type CaptureApi,
   type PermissionsApi,
@@ -170,43 +171,85 @@ export function chromePermissions(): PermissionsApi {
   return {
     async hasThumbnailAccess() {
       const request = thumbnailPermissionRequest();
-      return chrome.permissions.contains({
-        permissions: [...request.permissions],
-        origins: [...request.origins],
-      });
+      try {
+        return await chrome.permissions.contains({
+          permissions: [...request.permissions],
+          origins: [...request.origins],
+        });
+      } catch {
+        return false;
+      }
     },
     async requestThumbnailAccess() {
       const request = thumbnailPermissionRequest();
-      return chrome.permissions.request({
-        permissions: [...request.permissions],
-        origins: [...request.origins],
-      });
+      try {
+        return await chrome.permissions.request({
+          permissions: [...request.permissions],
+          origins: [...request.origins],
+        });
+      } catch {
+        // Chrome rejects undeclared optional permissions with a thrown Error
+        // (not granted:false). Treat as deny so Settings toggles stay off.
+        return false;
+      }
+    },
+    async removeThumbnailAccess() {
+      const request = thumbnailPermissionRemove();
+      try {
+        await chrome.permissions.remove({
+          permissions: [...request.permissions],
+          origins: [...request.origins],
+        });
+      } catch {
+        // Best-effort revoke.
+      }
     },
     async hasImageUrlFetchAccess() {
-      const hasAll = await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
-      if (hasAll) return true;
-      const request = imageUrlFetchPermissionRequest();
-      return chrome.permissions.contains({ origins: [...request.origins] });
+      try {
+        const hasAll = await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
+        if (hasAll) return true;
+        const request = imageUrlFetchPermissionRequest();
+        return await chrome.permissions.contains({ origins: [...request.origins] });
+      } catch {
+        return false;
+      }
     },
     async requestImageUrlFetchAccess() {
       if (await this.hasImageUrlFetchAccess()) return true;
       const request = imageUrlFetchPermissionRequest();
-      return chrome.permissions.request({ origins: [...request.origins] });
+      try {
+        return await chrome.permissions.request({ origins: [...request.origins] });
+      } catch {
+        return false;
+      }
     },
     async removeImageUrlFetchAccess() {
-      await chrome.permissions.remove({ origins: [...OPTIONAL_FETCH_HOST_PERMISSIONS] });
+      const request = imageUrlFetchPermissionRemove();
+      try {
+        await chrome.permissions.remove({ origins: [...request.origins] });
+      } catch {
+        // Best-effort revoke.
+      }
     },
     async canFetchUrl(href) {
       if (await this.hasImageUrlFetchAccess()) return Boolean(originHostPermission(href));
       const origin = originHostPermission(href);
       if (!origin) return false;
-      return chrome.permissions.contains({ origins: [origin] });
+      try {
+        return await chrome.permissions.contains({ origins: [origin] });
+      } catch {
+        return false;
+      }
     },
     async requestFetchAccess(href) {
       if (await this.canFetchUrl(href)) return true;
       const request = fetchPermissionRequest(href);
       if (!request) return false;
-      return chrome.permissions.request({ origins: [...request.origins] });
+      try {
+        return await chrome.permissions.request({ origins: [...request.origins] });
+      } catch {
+        return false;
+      }
     },
   };
 }

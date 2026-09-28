@@ -202,6 +202,14 @@ export function startSettings(
       }
     }
 
+    if (!next.thumbnailsEnabled && previous.thumbnailsEnabled && permissions) {
+      try {
+        await permissions.removeThumbnailAccess();
+      } catch {
+        // Best-effort; setting still turns off.
+      }
+    }
+
     if (next.thumbnailsEnabled && permissions) {
       const stillGranted = await permissions.hasThumbnailAccess();
       if (!stillGranted) {

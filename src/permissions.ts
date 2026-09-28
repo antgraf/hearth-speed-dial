@@ -6,10 +6,13 @@
  * Image-from-URL requests http/https scheme wildcards when that Settings
  * toggle is enabled (origin-scoped fetch stays available as a fallback).
  *
- * Chrome only allows permissions.request origins that are listed (or are a
- * subset of a listed pattern) in optional_host_permissions. Declaring only
- * <all_urls> does not allow requesting a specific https host origin, so the
- * manifest also lists the http and https scheme wildcards for per-origin fetch.
+ * Chrome only allows permissions.request for API names listed in
+ * optional_permissions and host patterns listed in optional_host_permissions.
+ * Host patterns must NOT be placed in optional_permissions — Chrome then
+ * rejects origins: [...] with "Only permissions specified in the manifest
+ * may be requested." Declaring only <all_urls> also does not allow requesting
+ * a specific https host origin, so the manifest lists the http and https
+ * scheme wildcards for per-origin fetch.
  */
 
 export const OPTIONAL_TABS_PERMISSION = "tabs" as const;
@@ -24,6 +27,20 @@ export const THUMBNAIL_HOST_PERMISSION = "<all_urls>" as const;
  */
 export const OPTIONAL_FETCH_HOST_PERMISSIONS = ["http://*/*", "https://*/*"] as const;
 
+/** API permissions declared optional in the root manifest. */
+export const MANIFEST_OPTIONAL_PERMISSIONS = [OPTIONAL_TABS_PERMISSION] as const;
+
+/** Host patterns declared in manifest optional_host_permissions. */
+export const MANIFEST_OPTIONAL_HOST_PERMISSIONS = [
+  THUMBNAIL_HOST_PERMISSION,
+  ...OPTIONAL_FETCH_HOST_PERMISSIONS,
+] as const;
+
+export type PermissionRequestPayload = {
+  permissions?: string[];
+  origins?: string[];
+};
+
 export type ThumbnailPermissionRequest = {
   permissions: typeof OPTIONAL_TABS_PERMISSION[];
   origins: typeof THUMBNAIL_HOST_PERMISSION[];
@@ -36,6 +53,11 @@ export function thumbnailPermissionRequest(): ThumbnailPermissionRequest {
   };
 }
 
+/** Same shape as the grant — used when the thumbnails Settings toggle turns off. */
+export function thumbnailPermissionRemove(): ThumbnailPermissionRequest {
+  return thumbnailPermissionRequest();
+}
+
 export type ImageUrlFetchPermissionRequest = {
   origins: (typeof OPTIONAL_FETCH_HOST_PERMISSIONS)[number][];
 };
@@ -45,6 +67,11 @@ export function imageUrlFetchPermissionRequest(): ImageUrlFetchPermissionRequest
   return {
     origins: [...OPTIONAL_FETCH_HOST_PERMISSIONS],
   };
+}
+
+/** Drop the http/https grants added by the Image-from-URL toggle. */
+export function imageUrlFetchPermissionRemove(): ImageUrlFetchPermissionRequest {
+  return imageUrlFetchPermissionRequest();
 }
 
 /** Match pattern for chrome.permissions host access to one origin. */
@@ -69,17 +96,53 @@ export function fetchPermissionRequest(href: string): FetchPermissionRequest | n
   return { origins: [origin] };
 }
 
+/**
+ * True when every API permission / origin in `request` is allowed by the
+ * declared optional manifest lists. Specific http(s) origins are allowed when
+ * the matching scheme wildcard (or <all_urls>) is declared.
+ */
+export function isRequestCoveredByOptionalManifest(
+  request: PermissionRequestPayload,
+  optionalPermissions: readonly string[] = MANIFEST_OPTIONAL_PERMISSIONS,
+  optionalHostPermissions: readonly string[] = MANIFEST_OPTIONAL_HOST_PERMISSIONS,
+): boolean {
+  for (const permission of request.permissions ?? []) {
+    if (!optionalPermissions.includes(permission)) return false;
+  }
+  for (const origin of request.origins ?? []) {
+    if (!originCoveredByOptionalHosts(origin, optionalHostPermissions)) return false;
+  }
+  return true;
+}
+
+function originCoveredByOptionalHosts(origin: string, optionalHosts: readonly string[]): boolean {
+  if (optionalHosts.includes(origin)) return true;
+  // Chrome does not treat declared <all_urls> as covering a specific-origin
+  // permissions.request — only an exact match or a scheme wildcard does.
+  const specific = /^(https?):\/\/\*\/\*$/.exec(origin);
+  if (specific) return optionalHosts.includes(`${specific[1]}://*/*`);
+  const hostPattern = /^(https?):\/\/[^/]+\/\*$/.exec(origin);
+  if (!hostPattern) return false;
+  const schemeWildcard = `${hostPattern[1]}://*/*`;
+  return optionalHosts.includes(schemeWildcard) || optionalHosts.includes("*://*/*");
+}
+
 export type PermissionsApi = {
   /** True when tabs + <all_urls> are both granted (thumbnail capture ready). */
   hasThumbnailAccess(): Promise<boolean>;
-  /** Prompt for tabs + <all_urls>. Returns false if the user denies. */
+  /** Prompt for tabs + <all_urls>. Returns false if the user denies or Chrome rejects. */
   requestThumbnailAccess(): Promise<boolean>;
+  /**
+   * Drop tabs + <all_urls> granted for thumbnails.
+   * Does not remove http/https scheme wildcards used by Image-from-URL.
+   */
+  removeThumbnailAccess(): Promise<void>;
   /**
    * True when Image-from-URL host access is available: http/https scheme
    * wildcards, or <all_urls> already granted via thumbnails.
    */
   hasImageUrlFetchAccess(): Promise<boolean>;
-  /** Prompt for http/https scheme wildcards. Returns false if denied. */
+  /** Prompt for http/https scheme wildcards. Returns false if denied or rejected. */
   requestImageUrlFetchAccess(): Promise<boolean>;
   /**
    * Drop the http/https scheme wildcards granted for Image-from-URL.
