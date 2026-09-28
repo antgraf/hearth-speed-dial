@@ -255,7 +255,7 @@ function openSettingsDialog(
   const thumbnailsHelp = document.createElement("span");
   thumbnailsHelp.className = "settings-help";
   thumbnailsHelp.textContent =
-    "Off by default. When you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Images stay local — nothing is uploaded.";
+    "Off by default. The first time you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded.";
   thumbnailsText.append(thumbnailsCaption, thumbnailsHelp);
   thumbnailsLabel.append(thumbnails, thumbnailsText);
   body.append(thumbnailsLabel);
@@ -276,7 +276,7 @@ function openSettingsDialog(
   const imageUrlFetchHelp = document.createElement("span");
   imageUrlFetchHelp.className = "settings-help";
   imageUrlFetchHelp.textContent =
-    "Off by default. When you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops that access.";
+    "Off by default. The first time you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking.";
   imageUrlFetchText.append(imageUrlFetchCaption, imageUrlFetchHelp);
   imageUrlFetchLabel.append(imageUrlFetch, imageUrlFetchText);
   body.append(imageUrlFetchLabel);

@@ -228,8 +228,10 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async requestThumbnailAccess() {
-      // Always call request (no contains short-circuit) so a successful revoke
-      // on toggle-off is followed by a real prompt on the next toggle-on.
+      // Always call request (no contains short-circuit). After toggle-off
+      // remove(), Chrome usually re-grants silently if the user Allowed before;
+      // a dialog appears only on first grant or after the user revokes in
+      // chrome://extensions.
       const request = thumbnailPermissionRequest();
       try {
         return await chrome.permissions.request({
@@ -243,6 +245,7 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async removeThumbnailAccess() {
+      // Drops active access only. Chrome remembers prior Allow for silent restore.
       await revokeOptionalGrants(thumbnailPermissionRemove());
     },
     async hasImageUrlFetchAccess() {
@@ -257,8 +260,8 @@ export function chromePermissions(): PermissionsApi {
     },
     async requestImageUrlFetchAccess() {
       // Always request the scheme wildcards so this toggle owns its grants and
-      // survives thumbnails revoke of <all_urls>. When <all_urls> is already
-      // granted, Chrome typically returns true without a second prompt.
+      // survives thumbnails revoke of <all_urls>. Silent when already covered
+      // (<all_urls> or Chrome’s prior-Allow memory after remove).
       const request = imageUrlFetchPermissionRequest();
       try {
         return await chrome.permissions.request({ origins: [...request.origins] });
@@ -267,6 +270,7 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async removeImageUrlFetchAccess() {
+      // Drops active http/https access only. Prior Allow may restore silently.
       await revokeOptionalGrants(imageUrlFetchPermissionRemove());
     },
     async canFetchUrl(href) {

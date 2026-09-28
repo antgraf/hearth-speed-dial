@@ -13,6 +13,12 @@
  * may be requested." Declaring only <all_urls> also does not allow requesting
  * a specific https host origin, so the manifest lists the http and https
  * scheme wildcards for per-origin fetch.
+ *
+ * Toggle-off calls permissions.remove to drop *active* access (least privilege
+ * while the feature is off). Chrome keeps a separate “previously granted”
+ * memory: after remove, the next permissions.request for the same optional
+ * grant usually succeeds without showing the dialog again. Only the user can
+ * clear that memory (chrome://extensions → extension details → site access).
  */
 
 export const OPTIONAL_TABS_PERMISSION = "tabs" as const;
@@ -165,8 +171,9 @@ export type PermissionsApi = {
   /** Prompt for tabs + <all_urls>. Returns false if the user denies or Chrome rejects. */
   requestThumbnailAccess(): Promise<boolean>;
   /**
-   * Drop tabs + <all_urls> granted for thumbnails so the next enable prompts
-   * again. Does not remove http/https scheme wildcards used by Image-from-URL.
+   * Drop active tabs + <all_urls> for thumbnails. Does not remove http/https
+   * scheme wildcards used by Image-from-URL. The next enable still calls
+   * request(); Chrome usually restores without a dialog after the first Allow.
    */
   removeThumbnailAccess(): Promise<void>;
   /**
@@ -175,16 +182,16 @@ export type PermissionsApi = {
    */
   hasImageUrlFetchAccess(): Promise<boolean>;
   /**
-   * Prompt for http/https scheme wildcards so this toggle owns its grants
+   * Request http/https scheme wildcards so this toggle owns its grants
    * (survives thumbnails revoke of <all_urls>). Returns false if denied or
-   * rejected. When <all_urls> is already granted, Chrome typically returns
-   * true without a second prompt.
+   * rejected. Shows a dialog only when Chrome has not already allowed those
+   * grants (or an overlapping grant such as <all_urls>).
    */
   requestImageUrlFetchAccess(): Promise<boolean>;
   /**
-   * Drop the http/https scheme wildcards granted for Image-from-URL so the
-   * next enable prompts again. Does not remove tabs or <all_urls> used by
-   * thumbnails.
+   * Drop active http/https scheme wildcards for Image-from-URL. Does not
+   * remove tabs or <all_urls> used by thumbnails. The next enable still calls
+   * request(); Chrome usually restores without a dialog after the first Allow.
    */
   removeImageUrlFetchAccess(): Promise<void>;
   /** True when the extension may fetch `href` (wildcards, origin, or <all_urls>). */
