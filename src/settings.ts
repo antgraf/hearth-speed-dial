@@ -11,6 +11,11 @@ export type LayoutSettings = {
    * missing, the UI treats capture as off until permissions are granted again.
    */
   thumbnailsEnabled: boolean;
+  /**
+   * When true, the user opted into Image-from-URL (optional http/https host
+   * access). If those grants are missing, the UI treats the feature as off.
+   */
+  imageUrlFetchEnabled: boolean;
 };
 
 /** Width of each dial face; height follows TILE_ASPECT (16:9). */
@@ -19,6 +24,7 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
   tileSize: 176,
   reverseOrder: false,
   thumbnailsEnabled: false,
+  imageUrlFetchEnabled: false,
 };
 
 /** Dial face width ÷ height. */
@@ -77,6 +83,13 @@ export function readThumbnailsEnabled(value: unknown): boolean {
   return DEFAULT_LAYOUT.thumbnailsEnabled;
 }
 
+export function readImageUrlFetchEnabled(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1 || value === "1") return true;
+  if (value === "false" || value === 0 || value === "0") return false;
+  return DEFAULT_LAYOUT.imageUrlFetchEnabled;
+}
+
 export function readLayout(value: unknown): LayoutSettings {
   if (!value || typeof value !== "object") return { ...DEFAULT_LAYOUT };
   const record = value as {
@@ -84,12 +97,14 @@ export function readLayout(value: unknown): LayoutSettings {
     tileSize?: unknown;
     reverseOrder?: unknown;
     thumbnailsEnabled?: unknown;
+    imageUrlFetchEnabled?: unknown;
   };
   return {
     columns: readColumns(record.columns),
     tileSize: readTileSize(record.tileSize),
     reverseOrder: readReverseOrder(record.reverseOrder),
     thumbnailsEnabled: readThumbnailsEnabled(record.thumbnailsEnabled),
+    imageUrlFetchEnabled: readImageUrlFetchEnabled(record.imageUrlFetchEnabled),
   };
 }
 
@@ -141,6 +156,7 @@ export function previewSettings(): SettingsApi {
         tileSize: clampTileSize(layout.tileSize),
         reverseOrder: Boolean(layout.reverseOrder),
         thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
+        imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
       });
     },
   };

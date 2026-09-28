@@ -7,6 +7,7 @@ import {
   type SettingsApi,
 } from "./settings.ts";
 import {
+  imageUrlPermissionDeniedMessage,
   thumbnailPermissionDeniedMessage,
   type PermissionsApi,
 } from "./permissions.ts";
@@ -102,6 +103,28 @@ export function startSettings(
     thumbnailsLabel.append(thumbnails, thumbnailsText);
     form.append(thumbnailsLabel);
 
+    const imageUrlFetch = document.createElement("input");
+    imageUrlFetch.type = "checkbox";
+    imageUrlFetch.name = "imageUrlFetchEnabled";
+    imageUrlFetch.checked = layout.imageUrlFetchEnabled;
+    imageUrlFetch.id = "imageUrlFetchEnabled";
+    imageUrlFetch.disabled = saving;
+    const imageUrlFetchLabel = document.createElement("label");
+    imageUrlFetchLabel.className = "settings-check";
+    imageUrlFetchLabel.htmlFor = "imageUrlFetchEnabled";
+    const imageUrlFetchText = document.createElement("span");
+    imageUrlFetchText.className = "settings-check-text";
+    const imageUrlFetchCaption = document.createElement("span");
+    imageUrlFetchCaption.className = "settings-check-title";
+    imageUrlFetchCaption.textContent = "Assign pictures from URLs";
+    const imageUrlFetchHelp = document.createElement("span");
+    imageUrlFetchHelp.className = "settings-help";
+    imageUrlFetchHelp.textContent =
+      "Off by default. When you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops that access.";
+    imageUrlFetchText.append(imageUrlFetchCaption, imageUrlFetchHelp);
+    imageUrlFetchLabel.append(imageUrlFetch, imageUrlFetchText);
+    form.append(imageUrlFetchLabel);
+
     const columns = document.createElement("input");
     columns.type = "number";
     columns.name = "columns";
@@ -139,35 +162,42 @@ export function startSettings(
     frame.append(form);
   };
 
+  const persistDenied = async (next: LayoutSettings, message: string) => {
+    error = message;
+    savedNote = null;
+    layout = next;
+    draw();
+    try {
+      await settings.setLayout(next);
+    } catch (caught) {
+      error =
+        caught instanceof Error && caught.message.trim()
+          ? caught.message
+          : "Could not save settings.";
+      draw();
+    }
+  };
+
   const save = async () => {
     if (saving) return;
     const form = host.querySelector("form");
     if (!(form instanceof HTMLFormElement)) return;
     const data = new FormData(form);
+    const previous = layout;
     let next: LayoutSettings = {
       columns: clampColumns(Number(data.get("columns"))),
       tileSize: clampTileSize(Number(data.get("tileSize"))),
       reverseOrder: data.get("reverseOrder") === "on",
       thumbnailsEnabled: data.get("thumbnailsEnabled") === "on",
+      imageUrlFetchEnabled: data.get("imageUrlFetchEnabled") === "on",
     };
+    let denial: string | null = null;
 
-    if (next.thumbnailsEnabled && !layout.thumbnailsEnabled && permissions) {
+    if (next.thumbnailsEnabled && !previous.thumbnailsEnabled && permissions) {
       const granted = await permissions.requestThumbnailAccess();
       if (!granted) {
         next = { ...next, thumbnailsEnabled: false };
-        error = thumbnailPermissionDeniedMessage();
-        savedNote = null;
-        layout = next;
-        draw();
-        try {
-          await settings.setLayout(next);
-        } catch (caught) {
-          error =
-            caught instanceof Error && caught.message.trim()
-              ? caught.message
-              : "Could not save settings.";
-          draw();
-        }
+        await persistDenied(next, thumbnailPermissionDeniedMessage());
         return;
       }
     }
@@ -176,19 +206,44 @@ export function startSettings(
       const stillGranted = await permissions.hasThumbnailAccess();
       if (!stillGranted) {
         next = { ...next, thumbnailsEnabled: false };
-        error = thumbnailPermissionDeniedMessage();
+        denial = thumbnailPermissionDeniedMessage();
+      }
+    }
+
+    if (next.imageUrlFetchEnabled && !previous.imageUrlFetchEnabled && permissions) {
+      const granted = await permissions.requestImageUrlFetchAccess();
+      if (!granted) {
+        next = { ...next, imageUrlFetchEnabled: false };
+        await persistDenied(next, imageUrlPermissionDeniedMessage());
+        return;
+      }
+    }
+
+    if (!next.imageUrlFetchEnabled && previous.imageUrlFetchEnabled && permissions) {
+      try {
+        await permissions.removeImageUrlFetchAccess();
+      } catch {
+        // Best-effort; setting still turns off.
+      }
+    }
+
+    if (next.imageUrlFetchEnabled && permissions) {
+      const stillGranted = await permissions.hasImageUrlFetchAccess();
+      if (!stillGranted) {
+        next = { ...next, imageUrlFetchEnabled: false };
+        denial = imageUrlPermissionDeniedMessage();
       }
     }
 
     saving = true;
-    error = null;
+    error = denial;
     savedNote = null;
     layout = next;
     draw();
     try {
       await settings.setLayout(next);
       saving = false;
-      savedNote = "Saved. Open a new tab to see layout changes.";
+      if (!denial) savedNote = "Saved. Open a new tab to see layout changes.";
       draw();
     } catch (caught) {
       saving = false;
@@ -200,13 +255,22 @@ export function startSettings(
   void (async () => {
     try {
       layout = await settings.getLayout();
+      let changed = false;
       if (layout.thumbnailsEnabled && permissions) {
         const granted = await permissions.hasThumbnailAccess();
         if (!granted) {
           layout = { ...layout, thumbnailsEnabled: false };
-          void settings.setLayout(layout);
+          changed = true;
         }
       }
+      if (layout.imageUrlFetchEnabled && permissions) {
+        const granted = await permissions.hasImageUrlFetchAccess();
+        if (!granted) {
+          layout = { ...layout, imageUrlFetchEnabled: false };
+          changed = true;
+        }
+      }
+      if (changed) void settings.setLayout(layout);
     } catch (caught) {
       error = caught instanceof Error && caught.message.trim() ? caught.message : "Could not load settings.";
     }

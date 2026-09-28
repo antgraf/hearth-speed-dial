@@ -9,6 +9,9 @@ import {
   type ImagesApi,
 } from "./images.ts";
 import {
+  fetchPermissionRequest,
+  imageUrlFetchPermissionRequest,
+  OPTIONAL_FETCH_HOST_PERMISSIONS,
   originHostPermission,
   THUMBNAIL_HOST_PERMISSION,
   thumbnailPermissionDeniedMessage,
@@ -126,6 +129,7 @@ export function chromeSettings(): SettingsApi {
         tileSize: clampTileSize(layout.tileSize),
         reverseOrder: Boolean(layout.reverseOrder),
         thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
+        imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
       });
     },
   };
@@ -178,18 +182,31 @@ export function chromePermissions(): PermissionsApi {
         origins: [...request.origins],
       });
     },
-    async canFetchUrl(href) {
+    async hasImageUrlFetchAccess() {
       const hasAll = await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
       if (hasAll) return true;
+      const request = imageUrlFetchPermissionRequest();
+      return chrome.permissions.contains({ origins: [...request.origins] });
+    },
+    async requestImageUrlFetchAccess() {
+      if (await this.hasImageUrlFetchAccess()) return true;
+      const request = imageUrlFetchPermissionRequest();
+      return chrome.permissions.request({ origins: [...request.origins] });
+    },
+    async removeImageUrlFetchAccess() {
+      await chrome.permissions.remove({ origins: [...OPTIONAL_FETCH_HOST_PERMISSIONS] });
+    },
+    async canFetchUrl(href) {
+      if (await this.hasImageUrlFetchAccess()) return Boolean(originHostPermission(href));
       const origin = originHostPermission(href);
       if (!origin) return false;
       return chrome.permissions.contains({ origins: [origin] });
     },
     async requestFetchAccess(href) {
       if (await this.canFetchUrl(href)) return true;
-      const origin = originHostPermission(href);
-      if (!origin) return false;
-      return chrome.permissions.request({ origins: [origin] });
+      const request = fetchPermissionRequest(href);
+      if (!request) return false;
+      return chrome.permissions.request({ origins: [...request.origins] });
     },
   };
 }

@@ -46,6 +46,8 @@ export type AppState = {
   images: Record<string, string>;
   /** True when thumbnails setting is on and optional permissions are granted. */
   thumbnailsActive: boolean;
+  /** True when Image-from-URL setting is on and optional host access is granted. */
+  imageUrlFetchActive: boolean;
 };
 
 export type ViewModel =
@@ -68,6 +70,8 @@ export type ViewModel =
       layout: LayoutSettings;
       /** Capture thumbnail is available in the picture menu. */
       thumbnailsActive: boolean;
+      /** Image from URL is available in the picture menu. */
+      imageUrlFetchActive: boolean;
     };
 
 function folderNode(tree: readonly BookmarkNode[], id: string | null): BookmarkNode | null {
@@ -147,5 +151,6 @@ export function present(state: AppState): ViewModel {
     saving: state.saving,
     layout: state.layout,
     thumbnailsActive: state.thumbnailsActive,
+    imageUrlFetchActive: state.imageUrlFetchActive,
   };
 }
