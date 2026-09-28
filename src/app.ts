@@ -16,10 +16,12 @@ import type { BookmarksApi } from "./browser.ts";
 import { confirmDialog } from "./dialog.ts";
 import { fileToDataUrl, type ImagesApi } from "./images.ts";
 import {
+  clampColumns,
+  clampTileSize,
   DEFAULT_LAYOUT,
+  type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
-import { openChromeSettingsPage } from "./open-settings.ts";
 import { render } from "./view.ts";
 
 export type AppPorts = {
@@ -27,7 +29,6 @@ export type AppPorts = {
   settings: SettingsApi;
   images: ImagesApi;
   banner?: string | null;
-  openSettings?: () => void;
 };
 
 export function start(host: HTMLElement, ports: AppPorts): () => void {
@@ -97,14 +98,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       clearImage: (id) => {
         void clearImage(id);
       },
-      openSettings: () => {
-        if (ports.openSettings) {
-          ports.openSettings();
-          return;
-        }
-        if (typeof chrome !== "undefined" && chrome.runtime) {
-          void openChromeSettingsPage();
-        }
+      setLayout: (layout) => {
+        void saveLayout(layout);
       },
     });
 
@@ -235,6 +230,22 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       await reload();
     } catch (error) {
       state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const saveLayout = async (layout: LayoutSettings) => {
+    const next = {
+      columns: clampColumns(layout.columns),
+      tileSize: clampTileSize(layout.tileSize),
+      reverseOrder: Boolean(layout.reverseOrder),
+    };
+    state.layout = next;
+    draw();
+    try {
+      await ports.settings.setLayout(next);
+    } catch (error) {
       state.error = errorText(error);
       draw();
     }

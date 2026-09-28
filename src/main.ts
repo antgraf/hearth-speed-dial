@@ -1,6 +1,5 @@
 import { start } from "./app.ts";
 import { chromeBookmarks, chromeImages, chromeSettings } from "./browser.ts";
-import { openChromeSettingsPage } from "./open-settings.ts";
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
@@ -15,9 +14,6 @@ if (bookmarksReady && storageReady) {
     bookmarks: chromeBookmarks(),
     settings: chromeSettings(),
     images: chromeImages(),
-    openSettings: () => {
-      void openChromeSettingsPage();
-    },
   });
 } else if (import.meta.env.DEV) {
   const { previewBanner, previewPorts } = await import("./preview.ts");
@@ -25,9 +21,6 @@ if (bookmarksReady && storageReady) {
   start(host, {
     ...ports,
     banner: previewBanner,
-    openSettings: () => {
-      window.location.assign("./settings.html");
-    },
   });
 } else {
   host.textContent = "Open Hearth from a Chrome new tab after loading the extension.";
