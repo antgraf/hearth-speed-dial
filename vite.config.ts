@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
@@ -26,6 +26,11 @@ function copyExtensionFiles(): Plugin {
       mkdirSync(dist, { recursive: true });
       cpSync(resolve(projectRoot, "manifest.json"), resolve(dist, "manifest.json"));
       cpSync(resolve(projectRoot, "icons"), resolve(dist, "icons"), { recursive: true });
+      for (const required of ["settings.html", "index.html", "add.html", "background.js", "manifest.json"]) {
+        if (!existsSync(resolve(dist, required))) {
+          throw new Error(`Extension build missing required dist/${required}`);
+        }
+      }
     },
   };
 }
