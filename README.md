@@ -25,6 +25,8 @@ npm install
 npm run build
 ```
 
+Or from the repo root: `./build.sh` (runs `npm install` if `node_modules` is missing, then the production build into `dist`).
+
 1. Open `chrome://extensions`.
 2. Turn on Developer mode.
 3. Choose **Load unpacked**.
