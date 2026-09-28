@@ -7,12 +7,14 @@ import {
   fetchPermissionRequest,
   imageUrlFetchPermissionRemove,
   imageUrlFetchPermissionRequest,
+  intersectGrantedPermissions,
   isRequestCoveredByOptionalManifest,
   MANIFEST_OPTIONAL_HOST_PERMISSIONS,
   MANIFEST_OPTIONAL_PERMISSIONS,
   OPTIONAL_FETCH_HOST_PERMISSIONS,
   originHostPermission,
   OPTIONAL_TABS_PERMISSION,
+  permissionRemovePieces,
   THUMBNAIL_HOST_PERMISSION,
   thumbnailPermissionRemove,
   thumbnailPermissionRequest,
@@ -137,5 +139,44 @@ test("isRequestCoveredByOptionalManifest rejects undeclared API and host pattern
       ["<all_urls>"],
     ),
     false,
+  );
+});
+
+test("permissionRemovePieces splits toggle revokes into one grant per call", () => {
+  assert.deepEqual(permissionRemovePieces(thumbnailPermissionRemove()), [
+    { permissions: ["tabs"] },
+    { origins: ["<all_urls>"] },
+  ]);
+  assert.deepEqual(permissionRemovePieces(imageUrlFetchPermissionRemove()), [
+    { origins: ["http://*/*"] },
+    { origins: ["https://*/*"] },
+  ]);
+});
+
+test("intersectGrantedPermissions keeps only overlapping optional grants", () => {
+  assert.deepEqual(
+    intersectGrantedPermissions(
+      {
+        permissions: ["tabs", "storage"],
+        origins: ["<all_urls>", "http://*/*", "https://example.com/*"],
+      },
+      thumbnailPermissionRemove(),
+    ),
+    { permissions: ["tabs"], origins: ["<all_urls>"] },
+  );
+  assert.deepEqual(
+    intersectGrantedPermissions(
+      { permissions: ["tabs"], origins: ["http://*/*", "https://*/*", "<all_urls>"] },
+      imageUrlFetchPermissionRemove(),
+    ),
+    { permissions: [], origins: ["http://*/*", "https://*/*"] },
+  );
+  // URL-fetch revoke must not pull in thumbnail <all_urls>.
+  assert.deepEqual(
+    intersectGrantedPermissions(
+      { permissions: ["tabs"], origins: ["<all_urls>"] },
+      imageUrlFetchPermissionRemove(),
+    ),
+    { permissions: [], origins: [] },
   );
 });

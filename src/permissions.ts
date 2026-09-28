@@ -74,6 +74,38 @@ export function imageUrlFetchPermissionRemove(): ImageUrlFetchPermissionRequest 
   return imageUrlFetchPermissionRequest();
 }
 
+/**
+ * Split a remove payload into one-permission / one-origin calls.
+ * Chrome is more reliable revoking optional grants piecemeal than in one batch
+ * (a single failing member can leave the rest still granted).
+ */
+export function permissionRemovePieces(payload: PermissionRequestPayload): PermissionRequestPayload[] {
+  const pieces: PermissionRequestPayload[] = [];
+  for (const permission of payload.permissions ?? []) {
+    pieces.push({ permissions: [permission] });
+  }
+  for (const origin of payload.origins ?? []) {
+    pieces.push({ origins: [origin] });
+  }
+  return pieces;
+}
+
+/**
+ * Intersection of currently granted permissions with the optional grants a
+ * Settings toggle is responsible for removing.
+ */
+export function intersectGrantedPermissions(
+  granted: PermissionRequestPayload,
+  target: PermissionRequestPayload,
+): PermissionRequestPayload {
+  const grantedPermissions = new Set(granted.permissions ?? []);
+  const grantedOrigins = new Set(granted.origins ?? []);
+  return {
+    permissions: (target.permissions ?? []).filter((permission) => grantedPermissions.has(permission)),
+    origins: (target.origins ?? []).filter((origin) => grantedOrigins.has(origin)),
+  };
+}
+
 /** Match pattern for chrome.permissions host access to one origin. */
 export function originHostPermission(href: string): string | null {
   try {
@@ -133,8 +165,8 @@ export type PermissionsApi = {
   /** Prompt for tabs + <all_urls>. Returns false if the user denies or Chrome rejects. */
   requestThumbnailAccess(): Promise<boolean>;
   /**
-   * Drop tabs + <all_urls> granted for thumbnails.
-   * Does not remove http/https scheme wildcards used by Image-from-URL.
+   * Drop tabs + <all_urls> granted for thumbnails so the next enable prompts
+   * again. Does not remove http/https scheme wildcards used by Image-from-URL.
    */
   removeThumbnailAccess(): Promise<void>;
   /**
@@ -142,11 +174,15 @@ export type PermissionsApi = {
    * wildcards, or <all_urls> already granted via thumbnails.
    */
   hasImageUrlFetchAccess(): Promise<boolean>;
-  /** Prompt for http/https scheme wildcards. Returns false if denied or rejected. */
+  /**
+   * Prompt for http/https scheme wildcards (or no-op if <all_urls> already
+   * covers fetch). Returns false if denied or rejected.
+   */
   requestImageUrlFetchAccess(): Promise<boolean>;
   /**
-   * Drop the http/https scheme wildcards granted for Image-from-URL.
-   * Does not remove tabs or <all_urls> used by thumbnails.
+   * Drop the http/https scheme wildcards granted for Image-from-URL so the
+   * next enable prompts again. Does not remove tabs or <all_urls> used by
+   * thumbnails.
    */
   removeImageUrlFetchAccess(): Promise<void>;
   /** True when the extension may fetch `href` (wildcards, origin, or <all_urls>). */

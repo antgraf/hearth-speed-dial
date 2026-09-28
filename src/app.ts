@@ -388,6 +388,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         return next;
       }
       state.thumbnailsActive = true;
+      state.error = null;
     } else if (!next.thumbnailsEnabled) {
       if (previous.thumbnailsEnabled) {
         try {
@@ -422,6 +423,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         return next;
       }
       state.imageUrlFetchActive = true;
+      state.error = null;
     } else if (!next.imageUrlFetchEnabled) {
       if (previous.imageUrlFetchEnabled) {
         try {

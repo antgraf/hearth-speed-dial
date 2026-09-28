@@ -12,12 +12,15 @@ import {
   fetchPermissionRequest,
   imageUrlFetchPermissionRemove,
   imageUrlFetchPermissionRequest,
+  intersectGrantedPermissions,
   originHostPermission,
+  permissionRemovePieces,
   THUMBNAIL_HOST_PERMISSION,
   thumbnailPermissionDeniedMessage,
   thumbnailPermissionRemove,
   thumbnailPermissionRequest,
   type CaptureApi,
+  type PermissionRequestPayload,
   type PermissionsApi,
 } from "./permissions.ts";
 import {
@@ -167,6 +170,50 @@ export function chromeImages(): ImagesApi {
   };
 }
 
+async function readGrantedPermissions(): Promise<PermissionRequestPayload> {
+  try {
+    const granted = await chrome.permissions.getAll();
+    return {
+      permissions: granted.permissions ? [...granted.permissions] : [],
+      origins: granted.origins ? [...granted.origins] : [],
+    };
+  } catch {
+    return { permissions: [], origins: [] };
+  }
+}
+
+async function removePermissionPiece(piece: PermissionRequestPayload): Promise<void> {
+  const permissions = piece.permissions?.length ? [...piece.permissions] : undefined;
+  const origins = piece.origins?.length ? [...piece.origins] : undefined;
+  if (!permissions && !origins) return;
+  try {
+    // Cast: our payloads are manifest-declared optional strings; @types/chrome
+    // wants ManifestPermission for the permissions field only.
+    await chrome.permissions.remove({
+      ...(permissions ? { permissions: permissions as chrome.runtime.ManifestPermission[] } : {}),
+      ...(origins ? { origins } : {}),
+    });
+  } catch {
+    // Best-effort; caller verifies with contains/getAll.
+  }
+}
+
+/**
+ * Revoke optional grants for one Settings toggle.
+ * Uses getAll ∩ target, then also tries each target piece directly, so a
+ * mismatched getAll listing still clears http(s) / tabs / <all_urls>.
+ */
+async function revokeOptionalGrants(target: PermissionRequestPayload): Promise<void> {
+  const granted = await readGrantedPermissions();
+  const overlap = intersectGrantedPermissions(granted, target);
+  for (const piece of permissionRemovePieces(overlap)) {
+    await removePermissionPiece(piece);
+  }
+  for (const piece of permissionRemovePieces(target)) {
+    await removePermissionPiece(piece);
+  }
+}
+
 export function chromePermissions(): PermissionsApi {
   return {
     async hasThumbnailAccess() {
@@ -181,6 +228,8 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async requestThumbnailAccess() {
+      // Always call request (no contains short-circuit) so a successful revoke
+      // on toggle-off is followed by a real prompt on the next toggle-on.
       const request = thumbnailPermissionRequest();
       try {
         return await chrome.permissions.request({
@@ -194,15 +243,7 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async removeThumbnailAccess() {
-      const request = thumbnailPermissionRemove();
-      try {
-        await chrome.permissions.remove({
-          permissions: [...request.permissions],
-          origins: [...request.origins],
-        });
-      } catch {
-        // Best-effort revoke.
-      }
+      await revokeOptionalGrants(thumbnailPermissionRemove());
     },
     async hasImageUrlFetchAccess() {
       try {
@@ -215,7 +256,16 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async requestImageUrlFetchAccess() {
-      if (await this.hasImageUrlFetchAccess()) return true;
+      // <all_urls> from thumbnails already covers fetch — no second host prompt.
+      try {
+        if (await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] })) {
+          return true;
+        }
+      } catch {
+        // Fall through to request the scheme wildcards.
+      }
+      // Always request http/https wildcards (do not short-circuit on contains for
+      // those patterns). After toggle-off revoke, the next enable must prompt.
       const request = imageUrlFetchPermissionRequest();
       try {
         return await chrome.permissions.request({ origins: [...request.origins] });
@@ -224,12 +274,7 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async removeImageUrlFetchAccess() {
-      const request = imageUrlFetchPermissionRemove();
-      try {
-        await chrome.permissions.remove({ origins: [...request.origins] });
-      } catch {
-        // Best-effort revoke.
-      }
+      await revokeOptionalGrants(imageUrlFetchPermissionRemove());
     },
     async canFetchUrl(href) {
       if (await this.hasImageUrlFetchAccess()) return Boolean(originHostPermission(href));
