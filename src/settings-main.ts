@@ -1,6 +1,7 @@
 import { startSettings } from "./settings-app.ts";
-import { chromePermissions, chromeSettings } from "./browser.ts";
+import { chromeBookmarks, chromePermissions, chromeSettings } from "./browser.ts";
 import { previewSettings } from "./settings.ts";
+import { previewPorts } from "./preview.ts";
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
@@ -10,9 +11,16 @@ if (!(host instanceof HTMLElement)) {
 const storageReady = typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
 
 if (storageReady) {
-  startSettings(host, chromeSettings(), null, chromePermissions());
+  startSettings(host, chromeSettings(), null, chromePermissions(), chromeBookmarks());
 } else if (import.meta.env.DEV) {
-  startSettings(host, previewSettings(), "Preview mode — settings save in this browser’s localStorage.");
+  const ports = previewPorts();
+  startSettings(
+    host,
+    previewSettings(),
+    "Preview mode — settings save in this browser’s localStorage.",
+    ports.permissions,
+    ports.bookmarks,
+  );
 } else {
   host.textContent = "Open Hearth settings from the extension after loading it in Chrome.";
 }

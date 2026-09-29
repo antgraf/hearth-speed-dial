@@ -204,8 +204,10 @@ export type CaptureApi = {
   /**
    * Open `pageUrl` in a temporary window, capture the visible tab as a JPEG
    * data URL, then close the window.
+   * `loadTimeoutMs` caps how long to wait for the tab to reach complete
+   * (defaults to the layout preference / previous fixed 45s).
    */
-  capturePage(pageUrl: string): Promise<string>;
+  capturePage(pageUrl: string, loadTimeoutMs?: number): Promise<string>;
 };
 
 export function thumbnailPermissionDeniedMessage(): string {

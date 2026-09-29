@@ -16,6 +16,11 @@ export type LayoutSettings = {
    * access). If those grants are missing, the UI treats the feature as off.
    */
   imageUrlFetchEnabled: boolean;
+  /**
+   * How long thumbnail capture waits for the page to finish loading before
+   * giving up (seconds). Default matches the previous fixed fast timeout.
+   */
+  thumbnailWaitSeconds: number;
 };
 
 /** Width of each dial face; height follows TILE_ASPECT (16:9). */
@@ -25,6 +30,7 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
   reverseOrder: false,
   thumbnailsEnabled: false,
   imageUrlFetchEnabled: false,
+  thumbnailWaitSeconds: 45,
 };
 
 /** Dial face width ÷ height. */
@@ -34,11 +40,19 @@ export const LAYOUT_LIMITS = {
   columns: { min: 2, max: 8 },
   /** Width in CSS pixels of the 16:9 dial face. */
   tileSize: { min: 96, max: 576 },
+  /** Seconds to wait for the capture tab to reach complete. */
+  thumbnailWaitSeconds: { min: 5, max: 120, step: 5 },
 } as const;
 
 export type SettingsApi = {
   getOpenFolderId(): Promise<string | null>;
   setOpenFolderId(id: string): Promise<void>;
+  /**
+   * Optional folder opened on each new window / initial new-tab load.
+   * Null means recall last open folder (`openFolderId`) instead.
+   */
+  getDefaultFolderId(): Promise<string | null>;
+  setDefaultFolderId(id: string | null): Promise<void>;
   getLayout(): Promise<LayoutSettings>;
   setLayout(layout: LayoutSettings): Promise<void>;
 };
@@ -59,6 +73,16 @@ export function clampTileSize(value: number): number {
   );
 }
 
+export function clampThumbnailWaitSeconds(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_LAYOUT.thumbnailWaitSeconds;
+  const step = LAYOUT_LIMITS.thumbnailWaitSeconds.step;
+  const rounded = Math.round(value / step) * step;
+  return Math.min(
+    LAYOUT_LIMITS.thumbnailWaitSeconds.max,
+    Math.max(LAYOUT_LIMITS.thumbnailWaitSeconds.min, rounded),
+  );
+}
+
 export function readColumns(value: unknown): number {
   const parsed = asNumber(value);
   return parsed === null ? DEFAULT_LAYOUT.columns : clampColumns(parsed);
@@ -67,6 +91,11 @@ export function readColumns(value: unknown): number {
 export function readTileSize(value: unknown): number {
   const parsed = asNumber(value);
   return parsed === null ? DEFAULT_LAYOUT.tileSize : clampTileSize(parsed);
+}
+
+export function readThumbnailWaitSeconds(value: unknown): number {
+  const parsed = asNumber(value);
+  return parsed === null ? DEFAULT_LAYOUT.thumbnailWaitSeconds : clampThumbnailWaitSeconds(parsed);
 }
 
 export function readReverseOrder(value: unknown): boolean {
@@ -98,6 +127,7 @@ export function readLayout(value: unknown): LayoutSettings {
     reverseOrder?: unknown;
     thumbnailsEnabled?: unknown;
     imageUrlFetchEnabled?: unknown;
+    thumbnailWaitSeconds?: unknown;
   };
   return {
     columns: readColumns(record.columns),
@@ -105,15 +135,47 @@ export function readLayout(value: unknown): LayoutSettings {
     reverseOrder: readReverseOrder(record.reverseOrder),
     thumbnailsEnabled: readThumbnailsEnabled(record.thumbnailsEnabled),
     imageUrlFetchEnabled: readImageUrlFetchEnabled(record.imageUrlFetchEnabled),
+    thumbnailWaitSeconds: readThumbnailWaitSeconds(record.thumbnailWaitSeconds),
   };
 }
 
 export function readOpenFolderId(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
+  // Legacy installs may have used rootFolderId for the last-open folder.
   const record = value as { openFolderId?: unknown; rootFolderId?: unknown };
   if (typeof record.openFolderId === "string" && record.openFolderId.length > 0) return record.openFolderId;
   if (typeof record.rootFolderId === "string" && record.rootFolderId.length > 0) return record.rootFolderId;
   return null;
+}
+
+export function readDefaultFolderId(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as { defaultFolderId?: unknown };
+  if (typeof record.defaultFolderId === "string" && record.defaultFolderId.length > 0) {
+    return record.defaultFolderId;
+  }
+  return null;
+}
+
+/**
+ * Apply min/max/step before value on a range input.
+ * Chromium defaults max to 100; assigning value first clamps it, and after max
+ * is raised the thumb sits near the default midpoint instead of the stored size.
+ */
+export function bindRangeInput(
+  input: HTMLInputElement,
+  options: { min: number; max: number; step: number | string; value: number },
+): void {
+  input.type = "range";
+  input.min = String(options.min);
+  input.max = String(options.max);
+  input.step = String(options.step);
+  input.value = String(options.value);
+}
+
+/** Re-apply range value after the control is in the tree (Chromium thumb sync). */
+export function syncRangeInputValue(input: HTMLInputElement, value: number): void {
+  input.value = String(value);
 }
 
 function asNumber(value: unknown): number | null {
@@ -147,6 +209,12 @@ export function previewSettings(): SettingsApi {
     async setOpenFolderId(id) {
       writeStored({ openFolderId: id });
     },
+    async getDefaultFolderId() {
+      return readDefaultFolderId(readStored());
+    },
+    async setDefaultFolderId(id) {
+      writeStored({ defaultFolderId: id });
+    },
     async getLayout() {
       return readLayout(readStored());
     },
@@ -157,6 +225,7 @@ export function previewSettings(): SettingsApi {
         reverseOrder: Boolean(layout.reverseOrder),
         thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
         imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
+        thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
       });
     },
   };

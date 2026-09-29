@@ -12,6 +12,7 @@ import {
   chromeIndexBefore,
   classify,
   dialFolderOptions,
+  dialOpenFolderOptions,
   dialItems,
   folderName,
   isUnderAncestor,
@@ -207,6 +208,16 @@ test("dialFolderOptions lists nested folders and skips the chrome root", () => {
     { id: "10", title: "News", depth: 1 },
     { id: "2", title: "Other bookmarks", depth: 0 },
     { id: "20", title: "Hearth", depth: 1 },
+  ]);
+});
+
+test("dialOpenFolderOptions includes the chrome root for default-folder picking", () => {
+  assert.deepEqual(dialOpenFolderOptions(tree), [
+    { id: "0", title: "Bookmarks", depth: 0 },
+    { id: "1", title: "Bookmarks bar", depth: 1 },
+    { id: "10", title: "News", depth: 2 },
+    { id: "2", title: "Other bookmarks", depth: 1 },
+    { id: "20", title: "Hearth", depth: 2 },
   ]);
 });
 

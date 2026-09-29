@@ -25,7 +25,10 @@ import {
 } from "./permissions.ts";
 import {
   clampColumns,
+  clampThumbnailWaitSeconds,
   clampTileSize,
+  DEFAULT_LAYOUT,
+  readDefaultFolderId,
   readLayout,
   readOpenFolderId,
   type LayoutSettings,
@@ -123,6 +126,13 @@ export function chromeSettings(): SettingsApi {
     async setOpenFolderId(id) {
       await patchSettings({ openFolderId: id });
     },
+    async getDefaultFolderId() {
+      const stored = await chrome.storage.local.get("settings");
+      return readDefaultFolderId(stored.settings);
+    },
+    async setDefaultFolderId(id) {
+      await patchSettings({ defaultFolderId: id });
+    },
     async getLayout() {
       const stored = await chrome.storage.local.get("settings");
       return readLayout(stored.settings);
@@ -134,6 +144,7 @@ export function chromeSettings(): SettingsApi {
         reverseOrder: Boolean(layout.reverseOrder),
         thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
         imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
+        thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
       });
     },
   };
@@ -296,19 +307,24 @@ export function chromePermissions(): PermissionsApi {
   };
 }
 
-const CAPTURE_LOAD_TIMEOUT_MS = 45_000;
+const DEFAULT_CAPTURE_LOAD_TIMEOUT_MS = DEFAULT_LAYOUT.thumbnailWaitSeconds * 1000;
 
 export function chromeCapture(): CaptureApi {
   return {
-    async capturePage(pageUrl) {
+    async capturePage(pageUrl, loadTimeoutMs = DEFAULT_CAPTURE_LOAD_TIMEOUT_MS) {
       const permissions = chromePermissions();
       if (!(await permissions.hasThumbnailAccess())) {
         throw new Error(thumbnailPermissionDeniedMessage());
       }
 
+      const timeoutMs =
+        Number.isFinite(loadTimeoutMs) && loadTimeoutMs > 0
+          ? loadTimeoutMs
+          : DEFAULT_CAPTURE_LOAD_TIMEOUT_MS;
+
       const windowId = await openCaptureWindow(pageUrl);
       try {
-        await waitForWindowTabComplete(windowId);
+        await waitForWindowTabComplete(windowId, timeoutMs);
         const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
           format: "jpeg",
           quality: 72,
@@ -345,12 +361,12 @@ async function openCaptureWindow(pageUrl: string): Promise<number> {
   return windowId;
 }
 
-function waitForWindowTabComplete(windowId: number): Promise<void> {
+function waitForWindowTabComplete(windowId: number, loadTimeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {
       finish(() => reject(new Error("That page took too long to load for a thumbnail.")));
-    }, CAPTURE_LOAD_TIMEOUT_MS);
+    }, loadTimeoutMs);
 
     const finish = (action: () => void) => {
       if (settled) return;

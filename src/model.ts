@@ -123,6 +123,19 @@ export function dialFolderOptions(roots: readonly BookmarkNode[]): FolderOption[
   return options;
 }
 
+/**
+ * Folders the dial can open, including the Chrome bookmarks root.
+ * Used for the optional default-folder Settings picker.
+ */
+export function dialOpenFolderOptions(roots: readonly BookmarkNode[]): FolderOption[] {
+  const root = bookmarkRoot(roots);
+  if (!root) return dialFolderOptions(roots);
+  return [{ id: root.id, title: folderLabel(root), depth: 0 }, ...dialFolderOptions(roots).map((option) => ({
+    ...option,
+    depth: option.depth + 1,
+  }))];
+}
+
 export type AddPageFields = {
   url: string;
   title: string;

@@ -26,6 +26,7 @@ import {
 } from "./permissions.ts";
 import {
   clampColumns,
+  clampThumbnailWaitSeconds,
   clampTileSize,
   DEFAULT_LAYOUT,
   type LayoutSettings,
@@ -49,6 +50,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     error: null,
     tree: [],
     currentId: null,
+    defaultFolderId: null,
     form: null,
     saving: false,
     layout: { ...DEFAULT_LAYOUT },
@@ -57,6 +59,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     imageUrlFetchActive: false,
   };
   let request = 0;
+  /** Last-open folder from storage; used once if the default folder is missing. */
+  let bootOpenFolderId: string | null = null;
 
   const draw = () =>
     render(host, present(state), {
@@ -118,6 +122,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         void clearImage(id);
       },
       setLayout: (layout) => saveLayout(layout),
+      setDefaultFolderId: (id) => saveDefaultFolderId(id),
     });
 
   const syncThumbnailActive = async (preferEnabled: boolean): Promise<boolean> => {
@@ -283,7 +288,10 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     state.error = null;
     draw();
     try {
-      const dataUrl = await ports.capture.capturePage(pageUrl);
+      const dataUrl = await ports.capture.capturePage(
+        pageUrl,
+        state.layout.thumbnailWaitSeconds * 1000,
+      );
       await ports.images.setImage(id, dataUrl);
       state.images = { ...state.images, [id]: dataUrl };
       state.saving = false;
@@ -369,6 +377,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       reverseOrder: Boolean(layout.reverseOrder),
       thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
       imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
+      thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
     };
 
     if (next.thumbnailsEnabled && !previous.thumbnailsEnabled) {
@@ -459,6 +468,16 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     return next;
   };
 
+  const saveDefaultFolderId = async (id: string | null): Promise<void> => {
+    state.defaultFolderId = id;
+    try {
+      await ports.settings.setDefaultFolderId(id);
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
   const saveForm = async (input: { title: string; url: string }) => {
     if (state.saving || !state.form) return;
     if (state.form.mode === "create") await saveCreate(input);
@@ -535,7 +554,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.status = "ready";
       state.error = null;
       state.saving = false;
-      const opened = resolveFolder(state);
+      const opened = resolveFolder(state, bootOpenFolderId);
+      bootOpenFolderId = null;
       state.currentId = opened;
       if (opened && opened !== previousId) void ports.settings.setOpenFolderId(opened);
       try {
@@ -568,7 +588,12 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
 
   void (async () => {
     try {
-      state.currentId = await ports.settings.getOpenFolderId();
+      const defaultFolderId = await ports.settings.getDefaultFolderId();
+      const openFolderId = await ports.settings.getOpenFolderId();
+      state.defaultFolderId = defaultFolderId;
+      bootOpenFolderId = openFolderId;
+      // Set default folder wins for new window / initial new-tab open; otherwise last open.
+      state.currentId = defaultFolderId ?? openFolderId;
       const layout = await ports.settings.getLayout();
       state.layout = layout;
       const thumbnailsActive = await syncThumbnailActive(layout.thumbnailsEnabled);
@@ -607,12 +632,18 @@ function collectDescendantIds(node: BookmarkNode): string[] {
   return ids;
 }
 
-function resolveFolder(state: AppState): string | null {
+function resolveFolder(state: AppState, fallbackId: string | null = null): string | null {
   const root = bookmarkRoot(state.tree);
   if (!root) return null;
-  const current = state.currentId ? nodeIndex(state.tree).get(state.currentId) : undefined;
-  if (current && classify(current) === "folder" && isInside(state.tree, root.id, current.id)) return current.id;
-  return root.id;
+  const usable = (id: string | null): string | null => {
+    if (!id) return null;
+    const current = nodeIndex(state.tree).get(id);
+    if (current && classify(current) === "folder" && isInside(state.tree, root.id, current.id)) {
+      return current.id;
+    }
+    return null;
+  };
+  return usable(state.currentId) ?? usable(fallbackId) ?? root.id;
 }
 
 function isInside(tree: readonly BookmarkNode[], rootId: string, id: string): boolean {

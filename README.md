@@ -9,7 +9,7 @@ The extension has no account and no service of its own. The product scope is [do
 Hearth asks for three permissions at install:
 
 - **Bookmarks**, so it can show your bookmark folders and, when you ask, add, rename, delete, or move a folder or bookmark. The dial list stays in Chrome bookmarks.
-- **Storage**, so it can remember the folder you had open, your grid layout (columns, 16:9 dial face width up to 576px, whether last bookmarks show first, and the thumbnail / URL-image opt-ins), and any dial pictures you assign. Those values stay in the browser profile (they do not sync with bookmarks). Layout controls open from the new-tab gear (in-page Settings overlay); `settings.html` is also listed as the extension options page.
+- **Storage**, so it can remember the folder you had open (or an optional default folder for new windows), your grid layout (columns, 16:9 dial face width up to 576px, whether last bookmarks show first, thumbnail wait time, and the thumbnail / URL-image opt-ins), and any dial pictures you assign. Those values stay in the browser profile (they do not sync with bookmarks). Layout controls open from the new-tab gear (in-page Settings overlay); `settings.html` is also listed as the extension options page.
 - **Context menus**, so you can right-click a page or link and choose **Add to Hearth…**. You pick the destination folder in a small extension window; the new-tab’s open folder is not used by default.
 
 Optional permissions (not requested at install or on first new-tab open):

@@ -36,6 +36,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     error: null,
     tree,
     currentId: null,
+    defaultFolderId: null,
     form: null,
     saving: false,
     layout: { ...DEFAULT_LAYOUT },
@@ -111,12 +112,15 @@ test("the grid carries layout settings for the dial", () => {
     reverseOrder: false,
     thumbnailsEnabled: false,
     imageUrlFetchEnabled: false,
+    thumbnailWaitSeconds: 45,
   };
   const screen = present(state({ layout }));
   if (screen.name !== "grid") throw new Error("expected the grid");
   assert.deepEqual(screen.layout, layout);
   assert.equal(screen.thumbnailsActive, false);
   assert.equal(screen.imageUrlFetchActive, false);
+  assert.equal(screen.defaultFolderId, null);
+  assert.ok(screen.defaultFolderOptions.some((option) => option.id === "0"));
 });
 
 test("reverseOrder shows last bookmarks first without changing empty copy", () => {

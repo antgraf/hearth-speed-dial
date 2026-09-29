@@ -4,6 +4,7 @@ import {
   breadcrumb,
   classify,
   dialItems,
+  dialOpenFolderOptions,
   displayTitle,
   folderLabel,
   nodeIndex,
@@ -11,6 +12,7 @@ import {
   type BookmarkNode,
   type Crumb,
   type DialItem,
+  type FolderOption,
 } from "./model.ts";
 import type { LayoutSettings } from "./settings.ts";
 
@@ -39,6 +41,8 @@ export type AppState = {
   error: string | null;
   tree: BookmarkNode[];
   currentId: string | null;
+  /** Optional default folder for new windows; null = recall last open. */
+  defaultFolderId: string | null;
   form: DialForm | null;
   saving: boolean;
   layout: LayoutSettings;
@@ -68,6 +72,10 @@ export type ViewModel =
       form: DialForm | null;
       saving: boolean;
       layout: LayoutSettings;
+      /** Optional default folder for new windows; null = last open. */
+      defaultFolderId: string | null;
+      /** Bookmark folders offered in the default-folder Settings picker. */
+      defaultFolderOptions: FolderOption[];
       /** Capture thumbnail is available in the picture menu. */
       thumbnailsActive: boolean;
       /** Image from URL is available in the picture menu. */
@@ -150,6 +158,8 @@ export function present(state: AppState): ViewModel {
     form: state.form,
     saving: state.saving,
     layout: state.layout,
+    defaultFolderId: state.defaultFolderId,
+    defaultFolderOptions: dialOpenFolderOptions(state.tree),
     thumbnailsActive: state.thumbnailsActive,
     imageUrlFetchActive: state.imageUrlFetchActive,
   };
