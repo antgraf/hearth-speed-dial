@@ -29,6 +29,7 @@ import {
   clampThumbnailWaitSeconds,
   clampTileSize,
   DEFAULT_LAYOUT,
+  thumbnailWaitMs,
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
@@ -290,7 +291,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     try {
       const dataUrl = await ports.capture.capturePage(
         pageUrl,
-        state.layout.thumbnailWaitSeconds * 1000,
+        thumbnailWaitMs(state.layout.thumbnailWaitSeconds),
       );
       await ports.images.setImage(id, dataUrl);
       state.images = { ...state.images, [id]: dataUrl };

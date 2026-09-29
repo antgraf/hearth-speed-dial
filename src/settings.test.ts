@@ -17,6 +17,7 @@ import {
   readThumbnailsEnabled,
   readTileSize,
   TILE_ASPECT,
+  thumbnailWaitMs,
 } from "./settings.ts";
 
 test("defaults match the layout constants", () => {
@@ -25,7 +26,7 @@ test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.reverseOrder, false);
   assert.equal(DEFAULT_LAYOUT.thumbnailsEnabled, false);
   assert.equal(DEFAULT_LAYOUT.imageUrlFetchEnabled, false);
-  assert.equal(DEFAULT_LAYOUT.thumbnailWaitSeconds, 45);
+  assert.equal(DEFAULT_LAYOUT.thumbnailWaitSeconds, 2);
   assert.equal(TILE_ASPECT, 16 / 9);
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);
@@ -44,14 +45,16 @@ test("columns and tile size clamp to the allowed ranges", () => {
   assert.equal(clampTileSize(Number.POSITIVE_INFINITY), DEFAULT_LAYOUT.tileSize);
 });
 
-test("thumbnail wait clamps to 5–120 in steps of 5", () => {
-  assert.equal(clampThumbnailWaitSeconds(3), 5);
-  assert.equal(clampThumbnailWaitSeconds(200), 120);
-  assert.equal(clampThumbnailWaitSeconds(47), 45);
-  assert.equal(clampThumbnailWaitSeconds(48), 50);
+test("thumbnail wait clamps to 1–15 in steps of 1", () => {
+  assert.equal(clampThumbnailWaitSeconds(0), 1);
+  assert.equal(clampThumbnailWaitSeconds(200), 15);
+  assert.equal(clampThumbnailWaitSeconds(45), 15); // legacy 5–120 values clamp down
+  assert.equal(clampThumbnailWaitSeconds(7.4), 7);
   assert.equal(clampThumbnailWaitSeconds(Number.NaN), DEFAULT_LAYOUT.thumbnailWaitSeconds);
-  assert.equal(readThumbnailWaitSeconds("60"), 60);
-  assert.equal(readThumbnailWaitSeconds(null), 45);
+  assert.equal(readThumbnailWaitSeconds("10"), 10);
+  assert.equal(readThumbnailWaitSeconds(null), 2);
+  assert.equal(thumbnailWaitMs(2), 2000);
+  assert.equal(thumbnailWaitMs(99), 15_000);
 });
 
 test("parsers accept numbers and numeric strings", () => {
@@ -109,7 +112,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
     reverseOrder: false,
     thumbnailsEnabled: false,
     imageUrlFetchEnabled: false,
-    thumbnailWaitSeconds: 45,
+    thumbnailWaitSeconds: 2,
   });
   assert.deepEqual(
     readLayout({
@@ -118,7 +121,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
       reverseOrder: true,
       thumbnailsEnabled: true,
       imageUrlFetchEnabled: true,
-      thumbnailWaitSeconds: 90,
+      thumbnailWaitSeconds: 10,
     }),
     {
       columns: LAYOUT_LIMITS.columns.max,
@@ -126,7 +129,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
       reverseOrder: true,
       thumbnailsEnabled: true,
       imageUrlFetchEnabled: true,
-      thumbnailWaitSeconds: 90,
+      thumbnailWaitSeconds: 10,
     },
   );
   assert.deepEqual(
@@ -136,7 +139,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
       reverseOrder: "true",
       thumbnailsEnabled: "1",
       imageUrlFetchEnabled: "1",
-      thumbnailWaitSeconds: "30",
+      thumbnailWaitSeconds: "8",
     }),
     {
       columns: 4,
@@ -144,7 +147,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
       reverseOrder: true,
       thumbnailsEnabled: true,
       imageUrlFetchEnabled: true,
-      thumbnailWaitSeconds: 30,
+      thumbnailWaitSeconds: 8,
     },
   );
   // Legacy square-era values below the new floor clamp up.

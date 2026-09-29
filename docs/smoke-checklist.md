@@ -26,7 +26,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 
 - [ ] In the Settings overlay: change **Columns** and **Tile size** (16:9 faces, size up to 576); layout updates on the open new tab.
 - [ ] Close and reopen Settings: **Tile size** slider sits at the saved width (not the middle/default).
-- [ ] **Thumbnail wait** defaults to 45s (range 5–120); raising it still allows capture on slow pages.
+- [ ] **Thumbnail wait** defaults to 2s (range 1–15); raising it delays the screenshot so slow pages can paint.
 - [ ] **Default folder for new windows** unset → new tab recalls last open; set to a folder → new tab / new window opens there; navigating still updates last-open; missing folder falls back gracefully.
 - [ ] Toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.
 

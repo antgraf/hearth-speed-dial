@@ -112,7 +112,7 @@ test("the grid carries layout settings for the dial", () => {
     reverseOrder: false,
     thumbnailsEnabled: false,
     imageUrlFetchEnabled: false,
-    thumbnailWaitSeconds: 45,
+    thumbnailWaitSeconds: 2,
   };
   const screen = present(state({ layout }));
   if (screen.name !== "grid") throw new Error("expected the grid");

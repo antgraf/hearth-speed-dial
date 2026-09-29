@@ -175,7 +175,7 @@ export function startSettings(
     const waitHelp = document.createElement("span");
     waitHelp.className = "settings-help";
     waitHelp.textContent =
-      "How long capture waits for a page to finish loading (5–120s, default 45). Raise this for slow sites.";
+      "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
     form.append(waitHelp);
 
     const defaultFolder = document.createElement("select");

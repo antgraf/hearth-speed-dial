@@ -31,6 +31,7 @@ import {
   readDefaultFolderId,
   readLayout,
   readOpenFolderId,
+  thumbnailWaitMs,
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
@@ -307,24 +308,25 @@ export function chromePermissions(): PermissionsApi {
   };
 }
 
-const DEFAULT_CAPTURE_LOAD_TIMEOUT_MS = DEFAULT_LAYOUT.thumbnailWaitSeconds * 1000;
+const DEFAULT_CAPTURE_WAIT_MS = thumbnailWaitMs(DEFAULT_LAYOUT.thumbnailWaitSeconds);
 
 export function chromeCapture(): CaptureApi {
   return {
-    async capturePage(pageUrl, loadTimeoutMs = DEFAULT_CAPTURE_LOAD_TIMEOUT_MS) {
+    async capturePage(pageUrl, waitMs = DEFAULT_CAPTURE_WAIT_MS) {
       const permissions = chromePermissions();
       if (!(await permissions.hasThumbnailAccess())) {
         throw new Error(thumbnailPermissionDeniedMessage());
       }
 
-      const timeoutMs =
-        Number.isFinite(loadTimeoutMs) && loadTimeoutMs > 0
-          ? loadTimeoutMs
-          : DEFAULT_CAPTURE_LOAD_TIMEOUT_MS;
+      const delayMs =
+        Number.isFinite(waitMs) && waitMs > 0 ? waitMs : DEFAULT_CAPTURE_WAIT_MS;
 
       const windowId = await openCaptureWindow(pageUrl);
       try {
-        await waitForWindowTabComplete(windowId, timeoutMs);
+        // Always wait the configured duration from open. Waiting only for
+        // tabs.onUpdated "complete" (previous behavior) finished in ~1–2s on
+        // typical pages and ignored the Settings value for anything larger.
+        await delay(delayMs);
         const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
           format: "jpeg",
           quality: 72,
@@ -361,42 +363,8 @@ async function openCaptureWindow(pageUrl: string): Promise<number> {
   return windowId;
 }
 
-function waitForWindowTabComplete(windowId: number, loadTimeoutMs: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      finish(() => reject(new Error("That page took too long to load for a thumbnail.")));
-    }, loadTimeoutMs);
-
-    const finish = (action: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      action();
-    };
-
-    const onUpdated = (
-      _tabId: number,
-      changeInfo: { status?: string },
-      tab: chrome.tabs.Tab,
-    ) => {
-      if (tab.windowId !== windowId) return;
-      if (changeInfo.status === "complete") {
-        finish(() => {
-          // Brief settle so late paints / redirects finish before capture.
-          setTimeout(() => resolve(), 400);
-        });
-      }
-    };
-
-    chrome.tabs.onUpdated.addListener(onUpdated);
-
-    void chrome.tabs.query({ windowId, active: true }).then((tabs) => {
-      const tab = tabs[0];
-      if (tab?.status === "complete") {
-        finish(() => setTimeout(() => resolve(), 400));
-      }
-    });
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
   });
 }

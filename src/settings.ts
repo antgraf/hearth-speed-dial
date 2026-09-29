@@ -17,8 +17,9 @@ export type LayoutSettings = {
    */
   imageUrlFetchEnabled: boolean;
   /**
-   * How long thumbnail capture waits for the page to finish loading before
-   * giving up (seconds). Default matches the previous fixed fast timeout.
+   * How long thumbnail capture waits after opening the page before taking the
+   * screenshot (seconds). Lets late paints finish; default matches the prior
+   * observed fast capture timing.
    */
   thumbnailWaitSeconds: number;
 };
@@ -30,7 +31,7 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
   reverseOrder: false,
   thumbnailsEnabled: false,
   imageUrlFetchEnabled: false,
-  thumbnailWaitSeconds: 45,
+  thumbnailWaitSeconds: 2,
 };
 
 /** Dial face width ÷ height. */
@@ -40,8 +41,8 @@ export const LAYOUT_LIMITS = {
   columns: { min: 2, max: 8 },
   /** Width in CSS pixels of the 16:9 dial face. */
   tileSize: { min: 96, max: 576 },
-  /** Seconds to wait for the capture tab to reach complete. */
-  thumbnailWaitSeconds: { min: 5, max: 120, step: 5 },
+  /** Seconds to wait after opening the capture tab before screenshot. */
+  thumbnailWaitSeconds: { min: 1, max: 15, step: 1 },
 } as const;
 
 export type SettingsApi = {
@@ -81,6 +82,11 @@ export function clampThumbnailWaitSeconds(value: number): number {
     LAYOUT_LIMITS.thumbnailWaitSeconds.max,
     Math.max(LAYOUT_LIMITS.thumbnailWaitSeconds.min, rounded),
   );
+}
+
+/** Milliseconds to wait after opening a capture window before screenshot. */
+export function thumbnailWaitMs(seconds: number): number {
+  return clampThumbnailWaitSeconds(seconds) * 1000;
 }
 
 export function readColumns(value: unknown): number {
