@@ -482,6 +482,17 @@ h1 {
   width: 4.5rem;
 }
 
+.settings-dialog-form select {
+  width: 100%;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  font: inherit;
+}
+
 .settings-dialog-form input[type="range"] {
   width: 100%;
   accent-color: var(--ember);
@@ -587,6 +598,16 @@ h1 {
 
 .settings-form input[type="number"] {
   width: 4.5rem;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-form select {
+  width: min(280px, 100%);
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 10px;

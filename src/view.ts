@@ -1,7 +1,17 @@
 import type { CreateKind, ViewModel } from "./present.ts";
 import { openDialog, type DialogHandle } from "./dialog.ts";
-import { chromeBeforeIdFromDisplayDrop, openableUrl, type DialItem } from "./model.ts";
-import { LAYOUT_LIMITS, type LayoutSettings } from "./settings.ts";
+import {
+  chromeBeforeIdFromDisplayDrop,
+  openableUrl,
+  type DialItem,
+  type FolderOption,
+} from "./model.ts";
+import {
+  bindRangeInput,
+  LAYOUT_LIMITS,
+  syncRangeInputValue,
+  type LayoutSettings,
+} from "./settings.ts";
 
 export type ViewActions = {
   openFolder(id: string): void;
@@ -19,6 +29,8 @@ export type ViewActions = {
   clearImage(id: string): void;
   /** Persist layout; may clear opt-in flags if optional permission is denied. */
   setLayout(layout: LayoutSettings): void | Promise<LayoutSettings>;
+  /** Persist optional default folder for new windows; null clears it. */
+  setDefaultFolderId(id: string | null): void | Promise<void>;
 };
 
 type MenuTarget = {
@@ -109,7 +121,9 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     nav.append(button);
   });
   header.append(nav);
-  header.append(settingsGear(view.layout, actions));
+  header.append(
+    settingsGear(view.layout, view.defaultFolderId, view.defaultFolderOptions, actions),
+  );
   section.append(header);
 
   if (view.error) section.append(alertLine(view.error));
@@ -178,7 +192,12 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   return section;
 }
 
-function settingsGear(layout: LayoutSettings, actions: ViewActions): HTMLButtonElement {
+function settingsGear(
+  layout: LayoutSettings,
+  defaultFolderId: string | null,
+  defaultFolderOptions: readonly FolderOption[],
+  actions: ViewActions,
+): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "settings-gear";
@@ -188,7 +207,7 @@ function settingsGear(layout: LayoutSettings, actions: ViewActions): HTMLButtonE
   button.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    openSettingsDialog(layout, actions, button);
+    openSettingsDialog(layout, defaultFolderId, defaultFolderOptions, actions, button);
   });
   return button;
 }
@@ -205,12 +224,14 @@ function closeSettingsDialog(opts?: { silent?: boolean }): void {
 
 function openSettingsDialog(
   layout: LayoutSettings,
+  defaultFolderId: string | null,
+  defaultFolderOptions: readonly FolderOption[],
   actions: ViewActions,
   returnFocus: HTMLElement,
 ): void {
   if (settingsOpen && settingsDialog) {
     const focusables = settingsDialog.panel.querySelectorAll<HTMLElement>(
-      "button:not([disabled]), input:not([disabled])",
+      "button:not([disabled]), input:not([disabled]), select:not([disabled])",
     );
     focusables[0]?.focus();
     return;
@@ -292,18 +313,69 @@ function openSettingsDialog(
   body.append(settingsField("Columns", columns));
 
   const tileSize = document.createElement("input");
-  tileSize.type = "range";
   tileSize.name = "tileSize";
-  tileSize.min = String(LAYOUT_LIMITS.tileSize.min);
-  tileSize.max = String(LAYOUT_LIMITS.tileSize.max);
-  tileSize.step = "1";
-  tileSize.value = String(layout.tileSize);
+  bindRangeInput(tileSize, {
+    min: LAYOUT_LIMITS.tileSize.min,
+    max: LAYOUT_LIMITS.tileSize.max,
+    step: 1,
+    value: layout.tileSize,
+  });
   tileSize.setAttribute("aria-label", "Tile size");
   body.append(settingsField("Tile size", tileSize));
+  // Re-apply after the control is in the tree so Chromium positions the thumb
+  // against the intended min/max instead of the default midpoint.
+  syncRangeInputValue(tileSize, layout.tileSize);
   const tileHelp = document.createElement("span");
   tileHelp.className = "settings-help";
   tileHelp.textContent = "Width of each dial face (96–576px). Faces use a 16:9 aspect ratio.";
   body.append(tileHelp);
+
+  const thumbnailWait = document.createElement("input");
+  thumbnailWait.type = "number";
+  thumbnailWait.name = "thumbnailWaitSeconds";
+  thumbnailWait.min = String(LAYOUT_LIMITS.thumbnailWaitSeconds.min);
+  thumbnailWait.max = String(LAYOUT_LIMITS.thumbnailWaitSeconds.max);
+  thumbnailWait.step = String(LAYOUT_LIMITS.thumbnailWaitSeconds.step);
+  thumbnailWait.value = String(layout.thumbnailWaitSeconds);
+  thumbnailWait.setAttribute("aria-label", "Thumbnail wait (seconds)");
+  body.append(settingsField("Thumbnail wait (seconds)", thumbnailWait));
+  const waitHelp = document.createElement("span");
+  waitHelp.className = "settings-help";
+  waitHelp.textContent =
+    "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
+  body.append(waitHelp);
+
+  const defaultFolder = document.createElement("select");
+  defaultFolder.name = "defaultFolderId";
+  defaultFolder.setAttribute("aria-label", "Default folder for new windows");
+  const unsetOption = document.createElement("option");
+  unsetOption.value = "";
+  unsetOption.textContent = "Last open folder (default)";
+  defaultFolder.append(unsetOption);
+  const knownIds = new Set(defaultFolderOptions.map((option) => option.id));
+  for (const option of defaultFolderOptions) {
+    const entry = document.createElement("option");
+    entry.value = option.id;
+    entry.textContent = `${"\u00A0".repeat(option.depth * 2)}${option.title}`;
+    defaultFolder.append(entry);
+  }
+  if (defaultFolderId && knownIds.has(defaultFolderId)) {
+    defaultFolder.value = defaultFolderId;
+  } else if (defaultFolderId && !knownIds.has(defaultFolderId)) {
+    const missing = document.createElement("option");
+    missing.value = defaultFolderId;
+    missing.textContent = "Missing folder (will fall back)";
+    defaultFolder.append(missing);
+    defaultFolder.value = defaultFolderId;
+  } else {
+    defaultFolder.value = "";
+  }
+  body.append(settingsFieldSelect("Default folder for new windows", defaultFolder));
+  const folderHelp = document.createElement("span");
+  folderHelp.className = "settings-help";
+  folderHelp.textContent =
+    "Unset keeps recalling the last folder you had open. Set a folder and each new window / new tab starts there; navigating still updates last-open for when this is unset.";
+  body.append(folderHelp);
 
   const readLayout = (): LayoutSettings => ({
     columns: Number(columns.value),
@@ -311,6 +383,7 @@ function openSettingsDialog(
     reverseOrder: reverse.checked,
     thumbnailsEnabled: thumbnails.checked,
     imageUrlFetchEnabled: imageUrlFetch.checked,
+    thumbnailWaitSeconds: Number(thumbnailWait.value),
   });
 
   const applyLayout = () => {
@@ -321,7 +394,8 @@ function openSettingsDialog(
         thumbnails.checked = applied.thumbnailsEnabled;
         imageUrlFetch.checked = applied.imageUrlFetchEnabled;
         columns.value = String(applied.columns);
-        tileSize.value = String(applied.tileSize);
+        syncRangeInputValue(tileSize, applied.tileSize);
+        thumbnailWait.value = String(applied.thumbnailWaitSeconds);
       })
       .catch(() => {
         // Permission API rejections are handled inside setLayout / chromePermissions.
@@ -329,14 +403,22 @@ function openSettingsDialog(
       });
   };
 
+  const applyDefaultFolder = () => {
+    const value = defaultFolder.value.trim();
+    void Promise.resolve(actions.setDefaultFolderId(value.length > 0 ? value : null));
+  };
+
   columns.addEventListener("change", applyLayout);
   tileSize.addEventListener("change", applyLayout);
+  thumbnailWait.addEventListener("change", applyLayout);
   reverse.addEventListener("change", applyLayout);
   thumbnails.addEventListener("change", applyLayout);
   imageUrlFetch.addEventListener("change", applyLayout);
+  defaultFolder.addEventListener("change", applyDefaultFolder);
   body.addEventListener("submit", (event) => {
     event.preventDefault();
     applyLayout();
+    applyDefaultFolder();
     closeSettingsDialog();
   });
 
@@ -365,6 +447,14 @@ function openSettingsDialog(
 }
 
 function settingsField(labelText: string, control: HTMLInputElement): HTMLLabelElement {
+  const label = document.createElement("label");
+  const caption = document.createElement("span");
+  caption.textContent = labelText;
+  label.append(caption, control);
+  return label;
+}
+
+function settingsFieldSelect(labelText: string, control: HTMLSelectElement): HTMLLabelElement {
   const label = document.createElement("label");
   const caption = document.createElement("span");
   caption.textContent = labelText;

@@ -1,8 +1,13 @@
+import type { BookmarksApi } from "./browser.ts";
+import { dialOpenFolderOptions, type FolderOption } from "./model.ts";
 import {
+  bindRangeInput,
   clampColumns,
+  clampThumbnailWaitSeconds,
   clampTileSize,
   DEFAULT_LAYOUT,
   LAYOUT_LIMITS,
+  syncRangeInputValue,
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
@@ -17,8 +22,11 @@ export function startSettings(
   settings: SettingsApi,
   banner?: string | null,
   permissions?: PermissionsApi,
+  bookmarks?: BookmarksApi,
 ): void {
   let layout: LayoutSettings = { ...DEFAULT_LAYOUT };
+  let defaultFolderId: string | null = null;
+  let folderOptions: FolderOption[] = [];
   let saving = false;
   let error: string | null = null;
   let savedNote: string | null = null;
@@ -137,20 +145,71 @@ export function startSettings(
     form.append(labeled("Columns", columns));
 
     const tileSize = document.createElement("input");
-    tileSize.type = "range";
     tileSize.name = "tileSize";
-    tileSize.min = String(LAYOUT_LIMITS.tileSize.min);
-    tileSize.max = String(LAYOUT_LIMITS.tileSize.max);
-    tileSize.step = "1";
-    tileSize.value = String(layout.tileSize);
+    bindRangeInput(tileSize, {
+      min: LAYOUT_LIMITS.tileSize.min,
+      max: LAYOUT_LIMITS.tileSize.max,
+      step: 1,
+      value: layout.tileSize,
+    });
     tileSize.disabled = saving;
     tileSize.setAttribute("aria-label", "Tile size");
     form.append(labeled("Tile size", tileSize));
+    syncRangeInputValue(tileSize, layout.tileSize);
     const tileHelp = document.createElement("span");
     tileHelp.className = "settings-help";
     tileHelp.textContent =
       "Width of each dial face (96–576px). Faces use a 16:9 aspect ratio.";
     form.append(tileHelp);
+
+    const thumbnailWait = document.createElement("input");
+    thumbnailWait.type = "number";
+    thumbnailWait.name = "thumbnailWaitSeconds";
+    thumbnailWait.min = String(LAYOUT_LIMITS.thumbnailWaitSeconds.min);
+    thumbnailWait.max = String(LAYOUT_LIMITS.thumbnailWaitSeconds.max);
+    thumbnailWait.step = String(LAYOUT_LIMITS.thumbnailWaitSeconds.step);
+    thumbnailWait.value = String(layout.thumbnailWaitSeconds);
+    thumbnailWait.disabled = saving;
+    thumbnailWait.setAttribute("aria-label", "Thumbnail wait (seconds)");
+    form.append(labeled("Thumbnail wait (seconds)", thumbnailWait));
+    const waitHelp = document.createElement("span");
+    waitHelp.className = "settings-help";
+    waitHelp.textContent =
+      "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
+    form.append(waitHelp);
+
+    const defaultFolder = document.createElement("select");
+    defaultFolder.name = "defaultFolderId";
+    defaultFolder.disabled = saving || folderOptions.length === 0;
+    defaultFolder.setAttribute("aria-label", "Default folder for new windows");
+    const unsetOption = document.createElement("option");
+    unsetOption.value = "";
+    unsetOption.textContent = "Last open folder (default)";
+    defaultFolder.append(unsetOption);
+    const knownIds = new Set(folderOptions.map((option) => option.id));
+    for (const option of folderOptions) {
+      const entry = document.createElement("option");
+      entry.value = option.id;
+      entry.textContent = `${"\u00A0".repeat(option.depth * 2)}${option.title}`;
+      defaultFolder.append(entry);
+    }
+    if (defaultFolderId && knownIds.has(defaultFolderId)) {
+      defaultFolder.value = defaultFolderId;
+    } else if (defaultFolderId && !knownIds.has(defaultFolderId)) {
+      const missing = document.createElement("option");
+      missing.value = defaultFolderId;
+      missing.textContent = "Missing folder (will fall back)";
+      defaultFolder.append(missing);
+      defaultFolder.value = defaultFolderId;
+    } else {
+      defaultFolder.value = "";
+    }
+    form.append(labeledSelect("Default folder for new windows", defaultFolder));
+    const folderHelp = document.createElement("span");
+    folderHelp.className = "settings-help";
+    folderHelp.textContent =
+      "Unset keeps recalling the last folder you had open. Set a folder and each new window / new tab starts there; navigating still updates last-open for when this is unset.";
+    form.append(folderHelp);
 
     const submit = document.createElement("button");
     submit.type = "submit";
@@ -190,7 +249,10 @@ export function startSettings(
       reverseOrder: data.get("reverseOrder") === "on",
       thumbnailsEnabled: data.get("thumbnailsEnabled") === "on",
       imageUrlFetchEnabled: data.get("imageUrlFetchEnabled") === "on",
+      thumbnailWaitSeconds: clampThumbnailWaitSeconds(Number(data.get("thumbnailWaitSeconds"))),
     };
+    const nextDefaultRaw = String(data.get("defaultFolderId") ?? "").trim();
+    const nextDefault = nextDefaultRaw.length > 0 ? nextDefaultRaw : null;
     let denial: string | null = null;
 
     if (next.thumbnailsEnabled && !previous.thumbnailsEnabled && permissions) {
@@ -249,9 +311,11 @@ export function startSettings(
     error = denial;
     savedNote = null;
     layout = next;
+    defaultFolderId = nextDefault;
     draw();
     try {
       await settings.setLayout(next);
+      await settings.setDefaultFolderId(nextDefault);
       saving = false;
       if (!denial) savedNote = "Saved. Open a new tab to see layout changes.";
       draw();
@@ -265,6 +329,14 @@ export function startSettings(
   void (async () => {
     try {
       layout = await settings.getLayout();
+      defaultFolderId = await settings.getDefaultFolderId();
+      if (bookmarks) {
+        try {
+          folderOptions = dialOpenFolderOptions(await bookmarks.getTree());
+        } catch {
+          folderOptions = [];
+        }
+      }
       let changed = false;
       if (layout.thumbnailsEnabled && permissions) {
         const granted = await permissions.hasThumbnailAccess();
@@ -289,6 +361,14 @@ export function startSettings(
 }
 
 function labeled(labelText: string, control: HTMLInputElement): HTMLLabelElement {
+  const label = document.createElement("label");
+  const caption = document.createElement("span");
+  caption.textContent = labelText;
+  label.append(caption, control);
+  return label;
+}
+
+function labeledSelect(labelText: string, control: HTMLSelectElement): HTMLLabelElement {
   const label = document.createElement("label");
   const caption = document.createElement("span");
   caption.textContent = labelText;
