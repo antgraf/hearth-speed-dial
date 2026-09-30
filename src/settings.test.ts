@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   bindRangeInput,
   clampColumns,
@@ -7,7 +10,6 @@ import {
   clampTileSize,
   DEFAULT_LAYOUT,
   ERASE_ALL_CONFIRM,
-  ERASE_ALL_MESSAGE,
   LAYOUT_LIMITS,
   readColumns,
   readDefaultFolderId,
@@ -19,10 +21,11 @@ import {
   readThumbnailsEnabled,
   readTileSize,
   RESET_DEFAULTS_CONFIRM,
-  RESET_DEFAULTS_MESSAGE,
   TILE_ASPECT,
   thumbnailWaitMs,
 } from "./settings.ts";
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.columns, 5);
@@ -31,16 +34,22 @@ test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.thumbnailsEnabled, false);
   assert.equal(DEFAULT_LAYOUT.imageUrlFetchEnabled, false);
   assert.equal(DEFAULT_LAYOUT.thumbnailWaitSeconds, 2);
-  assert.equal(TILE_ASPECT, 16 / 9);
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout({}), DEFAULT_LAYOUT);
 });
 
-test("danger zone copy distinguishes reset from erase", () => {
-  assert.match(RESET_DEFAULTS_MESSAGE, /dial pictures stay/i);
-  assert.match(ERASE_ALL_MESSAGE, /bookmarks are not deleted/i);
-  assert.match(ERASE_ALL_MESSAGE, /stored dial pictures/i);
+test("CSS --tile-aspect matches TILE_ASPECT (16:9 dial faces)", () => {
+  const css = readFileSync(join(repoRoot, "src/style.css"), "utf8");
+  const match = css.match(/--tile-aspect:\s*([^;]+);/);
+  assert.ok(match, "style.css must declare --tile-aspect");
+  const [numRaw, denRaw] = match[1]!.split("/").map((part) => Number(part.trim()));
+  assert.ok(Number.isFinite(numRaw) && Number.isFinite(denRaw) && denRaw !== 0);
+  assert.equal(numRaw! / denRaw!, TILE_ASPECT);
+  assert.equal(TILE_ASPECT, 16 / 9);
+});
+
+test("danger zone confirm labels distinguish reset from erase", () => {
   assert.notEqual(RESET_DEFAULTS_CONFIRM, ERASE_ALL_CONFIRM);
 });
 

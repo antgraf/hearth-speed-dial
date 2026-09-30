@@ -25,7 +25,7 @@ import {
   type CreateKind,
 } from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
-import { confirmDialog } from "./dialog.ts";
+import { confirmDialog, type ConfirmDialogOptions } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
 import { isRefreshAllThumbnailsMessage } from "./messages.ts";
 import {
@@ -37,16 +37,14 @@ import {
   type PermissionsApi,
 } from "./permissions.ts";
 import {
-  clampColumns,
-  clampThumbnailWaitSeconds,
-  clampTileSize,
   DEFAULT_LAYOUT,
   thumbnailWaitMs,
   type DangerZoneResult,
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
-import { render } from "./view.ts";
+import { applyLayoutChange, revokeOptionalFeaturePermissions } from "./toggles.ts";
+import { render as defaultRender, type ViewActions } from "./view.ts";
 
 export type AppPorts = {
   bookmarks: BookmarksApi;
@@ -55,9 +53,21 @@ export type AppPorts = {
   permissions: PermissionsApi;
   capture: CaptureApi;
   banner?: string | null;
+  /**
+   * DOM render seam for tests. Defaults to `view.render`.
+   * Production callers omit this.
+   */
+  render?: (host: HTMLElement, view: ReturnType<typeof present>, actions: ViewActions) => void;
+  /**
+   * Confirm-dialog seam for tests. Defaults to `confirmDialog`.
+   * Production callers omit this.
+   */
+  confirm?: (options: ConfirmDialogOptions) => Promise<boolean>;
 };
 
 export function start(host: HTMLElement, ports: AppPorts): () => void {
+  const drawView = ports.render ?? defaultRender;
+  const confirm = ports.confirm ?? confirmDialog;
   const state: AppState = {
     banner: ports.banner ?? null,
     status: "loading",
@@ -77,7 +87,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   let bootOpenFolderId: string | null = null;
 
   const draw = () =>
-    render(host, present(state), {
+    drawView(host, present(state), {
       openFolder: (id) => {
         void showFolder(id);
       },
@@ -184,7 +194,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     const node = nodeIndex(state.tree).get(id);
     if (!canDeleteNode(node) || !node) return;
     const kind = classify(node);
-    const confirmed = await confirmDialog({
+    const confirmed = await confirm({
       title: kind === "folder" ? "Delete folder" : "Delete bookmark",
       message: deleteConfirmMessage(node),
       confirmLabel: "Delete",
@@ -342,7 +352,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       return;
     }
     if (!(await ensureThumbnailCaptureReady())) return;
-    const confirmed = await confirmDialog({
+    const confirmed = await confirm({
       title: REFRESH_ALL_THUMBNAILS_TITLE,
       message: refreshAllThumbnailsConfirmMessage(targets.length),
       confirmLabel: REFRESH_ALL_THUMBNAILS_CONFIRM,
@@ -437,101 +447,19 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
 
   const saveLayout = async (layout: LayoutSettings): Promise<LayoutSettings> => {
     const previous = state.layout;
-    let next = {
-      columns: clampColumns(layout.columns),
-      tileSize: clampTileSize(layout.tileSize),
-      reverseOrder: Boolean(layout.reverseOrder),
-      thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
-      imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
-      thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
-    };
-
-    if (next.thumbnailsEnabled && !previous.thumbnailsEnabled) {
-      const granted = await ports.permissions.requestThumbnailAccess();
-      if (!granted) {
-        next = { ...next, thumbnailsEnabled: false };
-        state.layout = next;
-        state.thumbnailsActive = false;
-        state.error = thumbnailPermissionDeniedMessage();
-        draw();
-        try {
-          await ports.settings.setLayout(next);
-        } catch (error) {
-          state.error = errorText(error);
-          draw();
-        }
-        return next;
-      }
-      state.thumbnailsActive = true;
-      state.error = null;
-    } else if (!next.thumbnailsEnabled) {
-      if (previous.thumbnailsEnabled) {
-        // URL fetch may have been riding on <all_urls>. Ensure it owns
-        // http/https wildcards before dropping thumbnail grants (same click).
-        if (next.imageUrlFetchEnabled) {
-          const urlKept = await ports.permissions.requestImageUrlFetchAccess();
-          state.imageUrlFetchActive = urlKept;
-          if (!urlKept) {
-            next = { ...next, imageUrlFetchEnabled: false };
-          }
-        }
-        try {
-          await ports.permissions.removeThumbnailAccess();
-        } catch {
-          // Best-effort; setting still turns off.
-        }
-      }
-      state.thumbnailsActive = false;
-    } else {
-      await syncThumbnailActive(true);
-      if (!state.thumbnailsActive) {
-        next = { ...next, thumbnailsEnabled: false };
-        state.error = thumbnailPermissionDeniedMessage();
-      }
-    }
-
-    if (next.imageUrlFetchEnabled && !previous.imageUrlFetchEnabled) {
-      const granted = await ports.permissions.requestImageUrlFetchAccess();
-      if (!granted) {
-        next = { ...next, imageUrlFetchEnabled: false };
-        state.layout = next;
-        state.imageUrlFetchActive = false;
-        state.error = imageUrlPermissionDeniedMessage();
-        draw();
-        try {
-          await ports.settings.setLayout(next);
-        } catch (error) {
-          state.error = errorText(error);
-          draw();
-        }
-        return next;
-      }
-      state.imageUrlFetchActive = true;
-      state.error = null;
-    } else if (!next.imageUrlFetchEnabled) {
-      if (previous.imageUrlFetchEnabled) {
-        try {
-          await ports.permissions.removeImageUrlFetchAccess();
-        } catch {
-          // Best-effort; setting still turns off.
-        }
-      }
-      state.imageUrlFetchActive = false;
-    } else {
-      // Still on — sync active flag only. Do not clear the URL toggle or show
-      // a denial banner here (thumbnail revoke must not look like a URL deny).
-      await syncImageUrlFetchActive(true);
-    }
-
-    state.layout = next;
+    const result = await applyLayoutChange(previous, layout, ports.permissions);
+    state.layout = result.next;
+    state.thumbnailsActive = result.thumbnailsActive;
+    state.imageUrlFetchActive = result.imageUrlFetchActive;
+    state.error = result.error;
     draw();
     try {
-      await ports.settings.setLayout(next);
+      await ports.settings.setLayout(result.next);
     } catch (error) {
       state.error = errorText(error);
       draw();
     }
-    return next;
+    return result.next;
   };
 
   const saveDefaultFolderId = async (id: string | null): Promise<void> => {
@@ -544,26 +472,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     }
   };
 
-  const revokeOptionalPermissions = async (layout: LayoutSettings): Promise<void> => {
-    if (layout.imageUrlFetchEnabled) {
-      try {
-        await ports.permissions.removeImageUrlFetchAccess();
-      } catch {
-        // Best-effort; defaults still apply.
-      }
-    }
-    if (layout.thumbnailsEnabled) {
-      try {
-        await ports.permissions.removeThumbnailAccess();
-      } catch {
-        // Best-effort; defaults still apply.
-      }
-    }
-  };
-
   const resetToDefaults = async (): Promise<DangerZoneResult> => {
     const previous = state.layout;
-    await revokeOptionalPermissions(previous);
+    await revokeOptionalFeaturePermissions(previous, ports.permissions);
     const layout = { ...DEFAULT_LAYOUT };
     state.layout = layout;
     state.defaultFolderId = null;
@@ -582,7 +493,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
 
   const eraseAllData = async (): Promise<DangerZoneResult> => {
     const previous = state.layout;
-    await revokeOptionalPermissions(previous);
+    await revokeOptionalFeaturePermissions(previous, ports.permissions);
     const layout = { ...DEFAULT_LAYOUT };
     state.layout = layout;
     state.defaultFolderId = null;

@@ -21,6 +21,11 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/webp",
 ] as const;
 
+/** `input.accept` value for the dial picture file picker (matches ALLOWED_IMAGE_TYPES). */
+export function imagePickerAccept(): string {
+  return ALLOWED_IMAGE_TYPES.join(",");
+}
+
 export type ImagesApi = {
   /** All stored dial images keyed by bookmark id. */
   getAll(): Promise<Record<string, string>>;

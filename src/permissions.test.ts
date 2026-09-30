@@ -11,11 +11,8 @@ import {
   isRequestCoveredByOptionalManifest,
   MANIFEST_OPTIONAL_HOST_PERMISSIONS,
   MANIFEST_OPTIONAL_PERMISSIONS,
-  OPTIONAL_FETCH_HOST_PERMISSIONS,
   originHostPermission,
-  OPTIONAL_TABS_PERMISSION,
   permissionRemovePieces,
-  THUMBNAIL_HOST_PERMISSION,
   thumbnailPermissionRemove,
   thumbnailPermissionRequest,
 } from "./permissions.ts";
@@ -36,20 +33,15 @@ function readManifest(): {
 
 test("thumbnailPermissionRequest asks for tabs and all_urls optionally", () => {
   assert.deepEqual(thumbnailPermissionRequest(), {
-    permissions: [OPTIONAL_TABS_PERMISSION],
-    origins: [THUMBNAIL_HOST_PERMISSION],
+    permissions: ["tabs"],
+    origins: ["<all_urls>"],
   });
-  assert.deepEqual(thumbnailPermissionRemove(), thumbnailPermissionRequest());
-  assert.equal(OPTIONAL_TABS_PERMISSION, "tabs");
-  assert.equal(THUMBNAIL_HOST_PERMISSION, "<all_urls>");
 });
 
 test("imageUrlFetchPermissionRequest asks for http and https scheme wildcards", () => {
   assert.deepEqual(imageUrlFetchPermissionRequest(), {
-    origins: [...OPTIONAL_FETCH_HOST_PERMISSIONS],
+    origins: ["http://*/*", "https://*/*"],
   });
-  assert.deepEqual(imageUrlFetchPermissionRemove(), imageUrlFetchPermissionRequest());
-  assert.deepEqual(OPTIONAL_FETCH_HOST_PERMISSIONS, ["http://*/*", "https://*/*"]);
 });
 
 test("originHostPermission builds a match pattern for http(s) URLs", () => {

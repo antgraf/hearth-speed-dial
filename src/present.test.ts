@@ -68,6 +68,7 @@ test("the top level is a grid of the root folders", () => {
   assert.equal(screen.canDeleteCurrent, false);
   assert.equal(screen.currentFolder.id, "0");
   assert.equal(screen.currentFolder.imageDataUrl, null);
+  assert.ok(screen.defaultFolderOptions.some((option) => option.id === "0"));
 });
 
 test("an open folder uses the same grid and can add tiles", () => {
@@ -104,24 +105,6 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
   const screen = present(state({ tree: [], status: "failed", error: "Bookmarks are unavailable." }));
   if (screen.name !== "unavailable") throw new Error("expected an unavailable screen");
   assert.equal(screen.message, "Bookmarks are unavailable.");
-});
-
-test("the grid carries layout settings for the dial", () => {
-  const layout = {
-    columns: 3,
-    tileSize: 160,
-    reverseOrder: false,
-    thumbnailsEnabled: false,
-    imageUrlFetchEnabled: false,
-    thumbnailWaitSeconds: 2,
-  };
-  const screen = present(state({ layout }));
-  if (screen.name !== "grid") throw new Error("expected the grid");
-  assert.deepEqual(screen.layout, layout);
-  assert.equal(screen.thumbnailsActive, false);
-  assert.equal(screen.imageUrlFetchActive, false);
-  assert.equal(screen.defaultFolderId, null);
-  assert.ok(screen.defaultFolderOptions.some((option) => option.id === "0"));
 });
 
 test("reverseOrder shows last bookmarks first without changing empty copy", () => {

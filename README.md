@@ -41,7 +41,7 @@ Or from the repo root: `.\build.ps1` (or `pwsh ./build.ps1`). Runs `npm install`
 
 After a rebuild, use **Reload** on the extension card so Chrome picks up `dist` changes.
 
-`npm test`, `npm run typecheck`, and `npm run lint` check the project. `npm run dev` opens a preview that uses sample bookmarks. That sample is left out of the built extension.
+`npm test`, `npm run typecheck`, and `npm run lint` check the project. `npm run test:coverage` prints V8 coverage for modules the tests import (not whole-project until controllers have tests). `npm run dev` opens a preview that uses sample bookmarks. That sample is left out of the built extension.
 
 Manual Chrome checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 

@@ -7,12 +7,13 @@ import {
   dialImageStorageKeys,
   fetchImageAsDataUrl,
   IMAGE_KEY_PREFIX,
+  imagePickerAccept,
   imageSourceUrl,
   imageStorageKey,
   imageUrlInvalidMessage,
   isAllowedImageType,
   isImageDataUrl,
-  MAX_IMAGE_BYTES,
+  ALLOWED_IMAGE_TYPES,
   mimeFromContentType,
   orphanImageKeys,
   readImageDataUrl,
@@ -36,12 +37,13 @@ test("image data URLs accept common local image types", () => {
   assert.equal(readImageDataUrl(null), null);
 });
 
-test("allowed MIME types match the file picker", () => {
+test("allowed MIME types match the file picker accept string", () => {
   assert.equal(isAllowedImageType("image/png"), true);
   assert.equal(isAllowedImageType("IMAGE/JPEG"), true);
   assert.equal(isAllowedImageType("image/svg+xml"), false);
   assert.equal(isAllowedImageType(""), false);
-  assert.ok(MAX_IMAGE_BYTES > 0);
+  assert.equal(imagePickerAccept(), ALLOWED_IMAGE_TYPES.join(","));
+  assert.equal(imagePickerAccept(), "image/jpeg,image/png,image/gif,image/webp");
 });
 
 test("collectImages keeps only valid dial picture entries", () => {

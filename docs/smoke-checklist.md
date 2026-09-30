@@ -1,6 +1,6 @@
 # Chrome load-unpacked smoke checklist
 
-Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) and **Load unpacked** → select the repo’s `dist` folder. Expect always-on permissions: **bookmarks**, **storage**, **contextMenus** only. Optional **tabs** / **site access** appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
+Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) and **Load unpacked** → select the repo’s `dist` folder. Expect always-on permissions: **bookmarks**, **storage**, **contextMenus**, **activeTab**. Optional **tabs** / **site access** appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
 
 ## New tab grid
 
