@@ -251,6 +251,30 @@ h1 {
   min-width: 0;
 }
 
+.tile-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.tile-favicon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border-radius: 2px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.tile-title-row .title {
+  min-width: 0;
+  text-align: start;
+}
+
 .tile-meta-row {
   position: relative;
   display: block;

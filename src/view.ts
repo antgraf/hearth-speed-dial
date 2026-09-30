@@ -6,6 +6,7 @@ import {
   imagePickerAccept,
   type ImageStorageUsage,
 } from "./images.ts";
+import { chromeFaviconSrc } from "./favicon.ts";
 import {
   chromeBeforeIdFromDisplayDrop,
   folderDropZone,
@@ -642,9 +643,14 @@ function tileCaption(
 ): HTMLElement {
   const caption = document.createElement("div");
   caption.className = "tile-caption";
+  const titleRow = document.createElement("div");
+  titleRow.className = "tile-title-row";
+  const favicon = titleFavicon(item);
+  if (favicon) titleRow.append(favicon);
   const title = document.createElement("span");
   title.className = "title";
   title.textContent = item.title;
+  titleRow.append(title);
   const metaRow = document.createElement("div");
   metaRow.className = "tile-meta-row";
   const meta = document.createElement("span");
@@ -656,8 +662,25 @@ function tileCaption(
       openActionMenu(item, actions, button, thumbnailsActive, imageUrlFetchActive);
     }),
   );
-  caption.append(title, metaRow);
+  caption.append(titleRow, metaRow);
   return caption;
+}
+
+/** Small profile-cache favicon beside the title; monogram remains the dial face. */
+function titleFavicon(item: DialItem): HTMLImageElement | null {
+  if (item.kind !== "link" || !item.url) return null;
+  const src = chromeFaviconSrc(item.url);
+  if (!src) return null;
+  const icon = document.createElement("img");
+  icon.className = "tile-favicon";
+  icon.src = src;
+  icon.alt = "";
+  icon.draggable = false;
+  icon.decoding = "async";
+  icon.addEventListener("error", () => {
+    icon.remove();
+  });
+  return icon;
 }
 
 function openActionMenu(
@@ -1212,13 +1235,16 @@ function createMark(): HTMLSpanElement {
 function createCaption(): HTMLElement {
   const caption = document.createElement("div");
   caption.className = "tile-caption";
+  const titleRow = document.createElement("div");
+  titleRow.className = "tile-title-row";
   const title = document.createElement("span");
   title.className = "title";
   title.textContent = "New";
+  titleRow.append(title);
   const meta = document.createElement("span");
   meta.className = "meta";
   meta.textContent = "Folder or bookmark";
-  caption.append(title, meta);
+  caption.append(titleRow, meta);
   return caption;
 }
 

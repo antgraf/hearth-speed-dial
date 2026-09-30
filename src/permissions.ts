@@ -1,9 +1,10 @@
 /**
  * Optional Chrome permissions for dial image URL fetch and thumbnail capture.
  *
- * Default install stays bookmarks + storage + unlimitedStorage + contextMenus
- * (+ activeTab). unlimitedStorage lifts the ~10 MB shared local quota for dial
- * art only — no network, no sync of blobs.
+ * Default install stays bookmarks + storage + unlimitedStorage + favicon +
+ * contextMenus (+ activeTab). unlimitedStorage lifts the ~10 MB shared local
+ * quota for dial art only — no network, no sync of blobs. favicon reads
+ * Chrome’s profile favicon cache for title-strip icons (no network / no CDN).
  * Thumbnails request tabs + <all_urls> when the user enables the setting.
  * Image-from-URL requests http/https scheme wildcards when that Settings
  * toggle is enabled (origin-scoped fetch stays available as a fallback).
