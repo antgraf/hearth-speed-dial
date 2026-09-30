@@ -13,21 +13,31 @@ import {
   MANIFEST_OPTIONAL_PERMISSIONS,
   originHostPermission,
   permissionRemovePieces,
+  imageUrlUnavailableMessage,
   thumbnailPermissionRemove,
   thumbnailPermissionRequest,
+  thumbnailUnavailableMessage,
 } from "./permissions.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function readManifest(): {
+  manifest_version: number;
   optional_permissions: string[];
   optional_host_permissions: string[];
   permissions: string[];
+  chrome_url_overrides?: { newtab?: string };
+  options_page?: string;
+  background?: { service_worker?: string; type?: string };
 } {
   return JSON.parse(readFileSync(join(repoRoot, "manifest.json"), "utf8")) as {
+    manifest_version: number;
     optional_permissions: string[];
     optional_host_permissions: string[];
     permissions: string[];
+    chrome_url_overrides?: { newtab?: string };
+    options_page?: string;
+    background?: { service_worker?: string; type?: string };
   };
 }
 
@@ -68,6 +78,15 @@ test("manifest optional lists match helpers and stay out of always-on permission
   for (const host of MANIFEST_OPTIONAL_HOST_PERMISSIONS) {
     assert.equal(optionalApi.has(host), false);
   }
+});
+
+test("manifest pins MV3 new-tab, options, and service worker entry", () => {
+  const manifest = readManifest();
+  assert.equal(manifest.manifest_version, 3);
+  assert.equal(manifest.chrome_url_overrides?.newtab, "index.html");
+  assert.equal(manifest.options_page, "settings.html");
+  assert.equal(manifest.background?.service_worker, "background.js");
+  assert.equal(manifest.background?.type, "module");
 });
 
 test("toggle and fetch request payloads are covered by optional manifest declarations", () => {
@@ -143,6 +162,11 @@ test("permissionRemovePieces splits toggle revokes into one grant per call", () 
     { origins: ["http://*/*"] },
     { origins: ["https://*/*"] },
   ]);
+});
+
+test("unavailable-feature messages point users back to Settings", () => {
+  assert.match(thumbnailUnavailableMessage(), /Generate dial thumbnails/i);
+  assert.match(imageUrlUnavailableMessage(), /Assign pictures from URLs/i);
 });
 
 test("intersectGrantedPermissions keeps only overlapping optional grants", () => {

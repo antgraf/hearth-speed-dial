@@ -69,6 +69,8 @@ test("monogram uses the first character", () => {
 
 test("site and openable urls ignore a javascript bookmark", () => {
   assert.equal(siteLabel("https://www.example.com/path"), "example.com");
+  assert.equal(siteLabel("not a url"), "");
+  assert.equal(siteLabel(""), "");
   assert.equal(openableUrl("https://www.example.com/path"), "https://www.example.com/path");
   assert.equal(openableUrl("javascript:alert(1)"), null);
   assert.equal(openableUrl("not a url"), null);

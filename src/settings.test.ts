@@ -22,6 +22,7 @@ import {
   readTileSize,
   RESET_DEFAULTS_CONFIRM,
   TILE_ASPECT,
+  syncRangeInputValue,
   thumbnailWaitMs,
 } from "./settings.ts";
 
@@ -256,4 +257,8 @@ test("bindRangeInput sets min/max/step before value", () => {
   assert.deepEqual(order, ["min:96", "max:576", "step:1", "value:400"]);
   assert.equal(input.type, "range");
   assert.equal(input.value, "400");
+
+  syncRangeInputValue(input, 176);
+  assert.equal(input.value, "176");
+  assert.ok(order.includes("value:176"));
 });
