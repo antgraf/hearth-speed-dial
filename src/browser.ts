@@ -14,6 +14,7 @@ import {
   imageUrlFetchPermissionRemove,
   imageUrlFetchPermissionRequest,
   intersectGrantedPermissions,
+  isRequestCoveredByOptionalManifest,
   originHostPermission,
   permissionRemovePieces,
   THUMBNAIL_HOST_PERMISSION,
@@ -266,6 +267,7 @@ export function chromePermissions(): PermissionsApi {
       // a dialog appears only on first grant or after the user revokes in
       // chrome://extensions.
       const request = thumbnailPermissionRequest();
+      if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
         return await chrome.permissions.request({
           permissions: [...request.permissions],
@@ -296,6 +298,7 @@ export function chromePermissions(): PermissionsApi {
       // survives thumbnails revoke of <all_urls>. Silent when already covered
       // (<all_urls> or Chrome’s prior-Allow memory after remove).
       const request = imageUrlFetchPermissionRequest();
+      if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
         return await chrome.permissions.request({ origins: [...request.origins] });
       } catch {
@@ -320,6 +323,7 @@ export function chromePermissions(): PermissionsApi {
       if (await this.canFetchUrl(href)) return true;
       const request = fetchPermissionRequest(href);
       if (!request) return false;
+      if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
         return await chrome.permissions.request({ origins: [...request.origins] });
       } catch {

@@ -8,7 +8,8 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/model.test.ts src/present.test.ts src/settings.test.ts src/images.test.ts src/permissions.test.ts src/dialog.test.ts src/open-settings.test.ts src/messages.test.ts",
+    "test": "node --experimental-strip-types --test --test-reporter=spec src/**/*.test.ts",
+    "test:coverage": "node --experimental-strip-types --test --experimental-test-coverage --test-reporter=spec src/**/*.test.ts",
     "icons": "node scripts/draw-icons.mjs"
   },
   "engines": {

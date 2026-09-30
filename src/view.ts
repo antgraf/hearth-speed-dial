@@ -1,5 +1,6 @@
 import type { CreateKind, ViewModel } from "./present.ts";
 import { confirmDialog, openDialog, type DialogHandle } from "./dialog.ts";
+import { imagePickerAccept } from "./images.ts";
 import {
   chromeBeforeIdFromDisplayDrop,
   openableUrl,
@@ -901,7 +902,7 @@ function openCreateMenu(actions: ViewActions, anchor: HTMLElement): void {
 function pickImageFile(item: MenuTarget, actions: ViewActions): void {
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "image/jpeg,image/png,image/gif,image/webp";
+  input.accept = imagePickerAccept();
   input.hidden = true;
   document.body.append(input);
   input.addEventListener("change", () => {

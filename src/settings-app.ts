@@ -4,9 +4,6 @@ import { dialOpenFolderOptions, type FolderOption } from "./model.ts";
 import type { ImagesApi } from "./images.ts";
 import {
   bindRangeInput,
-  clampColumns,
-  clampThumbnailWaitSeconds,
-  clampTileSize,
   DEFAULT_LAYOUT,
   ERASE_ALL_CONFIRM,
   ERASE_ALL_MESSAGE,
@@ -19,11 +16,8 @@ import {
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
-import {
-  imageUrlPermissionDeniedMessage,
-  thumbnailPermissionDeniedMessage,
-  type PermissionsApi,
-} from "./permissions.ts";
+import type { PermissionsApi } from "./permissions.ts";
+import { applyLayoutChange, revokeOptionalFeaturePermissions } from "./toggles.ts";
 
 export function startSettings(
   host: HTMLElement,
@@ -261,24 +255,6 @@ export function startSettings(
     frame.append(form);
   };
 
-  const revokeOptionalPermissions = async (previous: LayoutSettings): Promise<void> => {
-    if (!permissions) return;
-    if (previous.imageUrlFetchEnabled) {
-      try {
-        await permissions.removeImageUrlFetchAccess();
-      } catch {
-        // Best-effort; defaults still apply.
-      }
-    }
-    if (previous.thumbnailsEnabled) {
-      try {
-        await permissions.removeThumbnailAccess();
-      } catch {
-        // Best-effort; defaults still apply.
-      }
-    }
-  };
-
   const resetToDefaults = async (returnFocus: HTMLElement) => {
     if (saving) return;
     const confirmed = await confirmDialog({
@@ -294,7 +270,7 @@ export function startSettings(
     savedNote = null;
     draw();
     try {
-      await revokeOptionalPermissions(layout);
+      await revokeOptionalFeaturePermissions(layout, permissions ?? null);
       layout = await settings.resetToDefaults();
       defaultFolderId = null;
       saving = false;
@@ -326,7 +302,7 @@ export function startSettings(
     savedNote = null;
     draw();
     try {
-      await revokeOptionalPermissions(layout);
+      await revokeOptionalFeaturePermissions(layout, permissions ?? null);
       await settings.clearAll();
       if (images) await images.clearAll();
       layout = { ...DEFAULT_LAYOUT };
@@ -344,103 +320,50 @@ export function startSettings(
     }
   };
 
-  const persistDenied = async (next: LayoutSettings, message: string) => {
-    error = message;
-    savedNote = null;
-    layout = next;
-    draw();
-    try {
-      await settings.setLayout(next);
-    } catch (caught) {
-      error =
-        caught instanceof Error && caught.message.trim()
-          ? caught.message
-          : "Could not save settings.";
-      draw();
-    }
-  };
-
   const save = async () => {
     if (saving) return;
     const form = host.querySelector("form");
     if (!(form instanceof HTMLFormElement)) return;
     const data = new FormData(form);
     const previous = layout;
-    let next: LayoutSettings = {
-      columns: clampColumns(Number(data.get("columns"))),
-      tileSize: clampTileSize(Number(data.get("tileSize"))),
+    const requested: LayoutSettings = {
+      columns: Number(data.get("columns")),
+      tileSize: Number(data.get("tileSize")),
       reverseOrder: data.get("reverseOrder") === "on",
       thumbnailsEnabled: data.get("thumbnailsEnabled") === "on",
       imageUrlFetchEnabled: data.get("imageUrlFetchEnabled") === "on",
-      thumbnailWaitSeconds: clampThumbnailWaitSeconds(Number(data.get("thumbnailWaitSeconds"))),
+      thumbnailWaitSeconds: Number(data.get("thumbnailWaitSeconds")),
     };
     const nextDefaultRaw = String(data.get("defaultFolderId") ?? "").trim();
     const nextDefault = nextDefaultRaw.length > 0 ? nextDefaultRaw : null;
-    let denial: string | null = null;
 
-    if (next.thumbnailsEnabled && !previous.thumbnailsEnabled && permissions) {
-      const granted = await permissions.requestThumbnailAccess();
-      if (!granted) {
-        next = { ...next, thumbnailsEnabled: false };
-        await persistDenied(next, thumbnailPermissionDeniedMessage());
-        return;
-      }
-    }
+    const result = await applyLayoutChange(previous, requested, permissions ?? null);
+    layout = result.next;
+    error = result.error;
+    savedNote = null;
 
-    if (!next.thumbnailsEnabled && previous.thumbnailsEnabled && permissions) {
-      // Keep URL-fetch independent: own http/https before dropping <all_urls>.
-      if (next.imageUrlFetchEnabled) {
-        const urlKept = await permissions.requestImageUrlFetchAccess();
-        if (!urlKept) {
-          next = { ...next, imageUrlFetchEnabled: false };
-        }
-      }
+    if (result.earlyDenial) {
+      draw();
       try {
-        await permissions.removeThumbnailAccess();
-      } catch {
-        // Best-effort; setting still turns off.
+        await settings.setLayout(result.next);
+      } catch (caught) {
+        error =
+          caught instanceof Error && caught.message.trim()
+            ? caught.message
+            : "Could not save settings.";
+        draw();
       }
+      return;
     }
-
-    if (next.thumbnailsEnabled && permissions) {
-      const stillGranted = await permissions.hasThumbnailAccess();
-      if (!stillGranted) {
-        next = { ...next, thumbnailsEnabled: false };
-        denial = thumbnailPermissionDeniedMessage();
-      }
-    }
-
-    if (next.imageUrlFetchEnabled && !previous.imageUrlFetchEnabled && permissions) {
-      const granted = await permissions.requestImageUrlFetchAccess();
-      if (!granted) {
-        next = { ...next, imageUrlFetchEnabled: false };
-        await persistDenied(next, imageUrlPermissionDeniedMessage());
-        return;
-      }
-    }
-
-    if (!next.imageUrlFetchEnabled && previous.imageUrlFetchEnabled && permissions) {
-      try {
-        await permissions.removeImageUrlFetchAccess();
-      } catch {
-        // Best-effort; setting still turns off.
-      }
-    }
-
-    // Do not demote imageUrlFetchEnabled here when <all_urls> was revoked with
-    // thumbnails — that path is handled above. Denial banner only on enable deny.
 
     saving = true;
-    error = denial;
-    savedNote = null;
-    layout = next;
     defaultFolderId = nextDefault;
     draw();
     try {
-      await settings.setLayout(next);
+      await settings.setLayout(result.next);
       await settings.setDefaultFolderId(nextDefault);
       saving = false;
-      if (!denial) savedNote = "Saved. Open a new tab to see layout changes.";
+      if (!result.error) savedNote = "Saved. Open a new tab to see layout changes.";
       draw();
     } catch (caught) {
       saving = false;
