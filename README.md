@@ -10,7 +10,7 @@ Hearth asks for these permissions at install:
 
 - **Bookmarks**, so it can show your bookmark folders and, when you ask, add, rename, delete, or move a folder or bookmark. The dial list stays in Chrome bookmarks.
 - **Storage**, so it can remember the folder you had open (or an optional default folder for new windows), your grid layout (columns, 16:9 dial face width up to 576px, whether last bookmarks show first, thumbnail wait time, and the thumbnail / URL-image opt-ins), and any dial pictures you assign. Those values stay in the browser profile (they do not sync with bookmarks). Layout controls open from the new-tab gear (in-page Settings overlay); `settings.html` is also listed as the extension options page.
-- **Context menus**, so you can right-click a page or link and choose **Add to Hearth…**. You pick the destination folder in a small extension window; the new-tab’s open folder is not used by default.
+- **Context menus**, so you can right-click a normal web page or link and choose **Add to Hearth…**, or right-click the Hearth dial page and choose **Refresh All Thumbnails**. You pick the destination folder in a small extension window; the new-tab’s open folder is not used by default for Add.
 - **Active tab**, only for the clicked tab after that context-menu gesture, so **Add to Hearth…** can prefill the dial name from the page title (not just the domain). It does not grant lasting host access.
 
 Optional permissions (not requested at install or on first new-tab open):

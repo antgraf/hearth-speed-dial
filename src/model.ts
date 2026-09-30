@@ -397,6 +397,31 @@ export function dialItems(folder: BookmarkNode | undefined): DialItem[] {
   return items;
 }
 
+export type RefreshableThumbnailTarget = {
+  id: string;
+  url: string;
+};
+
+/**
+ * Direct http(s) bookmark children of the open dial folder that can be
+ * thumbnail-captured. Nested folder contents and folder tiles are skipped —
+ * refresh is scoped to the currently open folder only.
+ */
+export function refreshableThumbnailTargets(
+  folder: BookmarkNode | undefined,
+): RefreshableThumbnailTarget[] {
+  if (!folder?.children) return [];
+  const targets: RefreshableThumbnailTarget[] = [];
+  for (const child of folder.children) {
+    if (classify(child) !== "link" || !child.url) continue;
+    const pageUrl = openableUrl(child.url);
+    if (!pageUrl || pageUrl.startsWith("file:")) continue;
+    if (!pageUrl.startsWith("http:") && !pageUrl.startsWith("https:")) continue;
+    targets.push({ id: child.id, url: pageUrl });
+  }
+  return targets;
+}
+
 /** Display-order helper: last bookmarks first when `reverseOrder` is on. Does not mutate the tree. */
 export function orderDialItems<T>(items: readonly T[], reverseOrder: boolean): T[] {
   return reverseOrder ? items.slice().reverse() : [...items];

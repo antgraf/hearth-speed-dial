@@ -118,6 +118,16 @@ export function deleteConfirmMessage(node: BookmarkNode): string {
   return `Delete empty folder “${title}”?`;
 }
 
+export const REFRESH_ALL_THUMBNAILS_TITLE = "Refresh All Thumbnails";
+export const REFRESH_ALL_THUMBNAILS_CONFIRM = "Refresh";
+
+/** Confirm copy before batch-recapturing dial pictures in the open folder. */
+export function refreshAllThumbnailsConfirmMessage(count: number): string {
+  const n = Math.max(0, Math.floor(count));
+  const noun = n === 1 ? "bookmark" : "bookmarks";
+  return `Recapture thumbnails for ${n} ${noun} in this folder? Existing dial pictures for those bookmarks will be replaced. Nested folders are not included.`;
+}
+
 export function present(state: AppState): ViewModel {
   if (state.status === "loading") return { name: "loading", banner: state.banner };
 
