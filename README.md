@@ -10,6 +10,7 @@ Hearth asks for these permissions at install:
 
 - **Bookmarks**, so it can show your bookmark folders and, when you ask, add, rename, delete, or move a folder or bookmark. The dial list stays in Chrome bookmarks.
 - **Storage**, so it can remember the folder you had open (or an optional default folder for new windows), your grid layout (columns, 16:9 dial face width up to 576px, whether last bookmarks show first, thumbnail wait time, and the thumbnail / URL-image opt-ins), and any dial pictures you assign. Those values stay in the browser profile (they do not sync with bookmarks). Layout controls open from the new-tab gear (in-page Settings overlay); `settings.html` is also listed as the extension options page.
+- **Unlimited storage**, so dial pictures are not capped by Chrome’s default ~10 MB shared `storage.local` quota. Pictures still stay in this browser profile only (no network, no sync of image blobs). Settings shows how much local space dial pictures use; if a write still fails (full disk), Hearth shows an error instead of a silent miss.
 - **Context menus**, so you can right-click a normal web page or link and choose **Add to Hearth…**, or right-click the Hearth dial page and choose **Refresh All Thumbnails**. You pick the destination folder in a small extension window; the new-tab’s open folder is not used by default for Add.
 - **Active tab**, only for the clicked tab after that context-menu gesture, so **Add to Hearth…** can prefill the dial name from the page title (not just the domain). It does not grant lasting host access.
 
@@ -18,7 +19,7 @@ Optional permissions (not requested at install or on first new-tab open):
 - **Tabs** and **site access (`<all_urls>`)** — only when you turn on **Generate dial thumbnails** in Settings. That lets Hearth open a page briefly, capture a screenshot, store it locally as a dial picture, and close the temporary window.
 - **Host access (`http://*/*`, `https://*/*`)** — only when you turn on **Assign pictures from URLs** in Settings. That lets Hearth download an image once from a link and store it as a local data URL. Turning the toggle off drops those grants. If thumbnails already granted `<all_urls>`, URL fetch can use that access while its own toggle is on.
 
-Dial pictures are JPEG, PNG, GIF, or WebP (about 1.5 MB each), stored as data URLs under the default `chrome.storage.local` quota (~10 MB total for settings and images). Hearth does not request `unlimitedStorage`. Capture and URL assign use the same local image store as file attach.
+Dial pictures are JPEG, PNG, GIF, or WebP (about 1.5 MB each), stored as data URLs in `chrome.storage.local` with install-time `unlimitedStorage` so picture count is not artificially capped by the default shared quota. Capture and URL assign use the same local image store as file attach.
 
 The extension does not add an account, analytics, or a server of its own.
 
@@ -51,7 +52,7 @@ Manual Chrome checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 
 | Path | Role |
 | --- | --- |
-| `manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `contextMenus`, `activeTab`; optional: `tabs`, `<all_urls>`, `http://*/*`, `https://*/*`) |
+| `manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `unlimitedStorage`, `contextMenus`, `activeTab`; optional: `tabs`, `<all_urls>`, `http://*/*`, `https://*/*`) |
 | `icons/` | Extension icons (16 / 32 / 48 / 128) |
 | `index.html` | New-tab page (`chrome_url_overrides.newtab`) |
 | `settings.html` | Extension options / settings page (`manifest.json` `options_page`) |

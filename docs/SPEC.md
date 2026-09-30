@@ -25,19 +25,19 @@ Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab pa
 - **Assign pictures from URLs** is a separate Settings toggle, also **off by default**. Enabling it requests optional http/https host access. On grant, **Picture… → Image from URL…** is unlocked. Turning the toggle off calls `chrome.permissions.remove` for those http/https grants (not `tabs` / `<all_urls>` used by thumbnails), so active access drops while the setting is off. Chrome usually restores a previously allowed optional grant on the next enable **without** showing the dialog again; to force a new prompt, revoke site access under `chrome://extensions` → Hearth. Deny or revoke degrades gracefully like thumbnails. Optional permissions are **not** requested at install or on first new-tab open.
 - No account, no analytics, and no request to a service run for this extension.
 
-Default install permissions stay narrow: `bookmarks`, `storage`, `contextMenus`, and `activeTab` (temporary tab title for **Add to Hearth…** after the context-menu gesture). Host access and `tabs` are **optional** (see Permissions).
+Default install permissions stay narrow: `bookmarks`, `storage`, `unlimitedStorage` (local dial pictures only — lifts the default ~10 MB shared quota; no network, no sync of blobs), `contextMenus`, and `activeTab` (temporary tab title for **Add to Hearth…** after the context-menu gesture). Host access and `tabs` are **optional** (see Permissions).
 
-Out of scope for now: Firefox; refresh one dial; `unlimitedStorage` (revisit only if local images outgrow the default quota); favicon-as-fallback (monogram / folder icon remain the defaults).
+Out of scope for now: Firefox; refresh one dial; favicon-as-fallback (monogram / folder icon remain the defaults).
 
 ## Permissions
 
 | Kind | Permissions | When |
 | --- | --- | --- |
-| Always on | `bookmarks`, `storage`, `contextMenus`, `activeTab` | Install (`activeTab` only unlocks the clicked tab for the gesture — used to prefill the dial name from the page title) |
+| Always on | `bookmarks`, `storage`, `unlimitedStorage`, `contextMenus`, `activeTab` | Install (`unlimitedStorage` is local dial art only — no network / no blob sync; `activeTab` only unlocks the clicked tab for the gesture — used to prefill the dial name from the page title) |
 | Optional | `tabs` + host `<all_urls>` | Only when the user enables **Generate dial thumbnails** in Settings |
 | Optional | Host `http://*/*` + `https://*/*` | Only when the user enables **Assign pictures from URLs** in Settings. Manifest `optional_host_permissions` lists those scheme wildcards (plus `<all_urls>` for thumbnails). Turning the toggle off removes those http/https grants from the **active** set. |
 
-**Choice:** The two opt-ins are independent. Thumbnails keep `tabs` + `<all_urls>`; URL fetch uses the http/https scheme wildcards. If thumbnails already granted `<all_urls>`, URL fetch can use that host access when its own toggle is on (no second host prompt). Turning URL fetch off does **not** revoke thumbnail `<all_urls>` / `tabs`. Toggle-off `permissions.remove` drops active capability; Chrome’s optional-permission “granted” memory means a later `permissions.request` for the same grant typically returns true without a dialog (documented Chrome behavior). Always-on install permissions stay narrow.
+**Choice:** The two opt-ins are independent. Thumbnails keep `tabs` + `<all_urls>`; URL fetch uses the http/https scheme wildcards. If thumbnails already granted `<all_urls>`, URL fetch can use that host access when its own toggle is on (no second host prompt). Turning URL fetch off does **not** revoke thumbnail `<all_urls>` / `tabs`. Toggle-off `permissions.remove` drops active capability; Chrome’s optional-permission “granted” memory means a later `permissions.request` for the same grant typically returns true without a dialog (documented Chrome behavior). Always-on install permissions stay narrow aside from `unlimitedStorage` for local dial pictures. Settings shows a simple dial-picture storage usage line; assign/capture write failures (full disk / remaining Chromium limits) surface an honest error instead of failing silently.
 
 ## Hard requirements this spec is aiming at
 

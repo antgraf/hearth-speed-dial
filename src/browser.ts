@@ -4,7 +4,9 @@ import {
   dataUrlByteLength,
   dialImageStorageKeys,
   imageStorageKey,
+  imageStorageWriteFailedMessage,
   MAX_IMAGE_BYTES,
+  meaningfulStorageQuotaBytes,
   orphanImageKeys,
   readImageDataUrl,
   type ImagesApi,
@@ -186,7 +188,11 @@ export function chromeImages(): ImagesApi {
     async setImage(bookmarkId, dataUrl) {
       const valid = readImageDataUrl(dataUrl);
       if (!valid) throw new Error("That file could not be stored as an image.");
-      await chrome.storage.local.set({ [imageStorageKey(bookmarkId)]: valid });
+      try {
+        await chrome.storage.local.set({ [imageStorageKey(bookmarkId)]: valid });
+      } catch (error) {
+        throw new Error(imageStorageWriteFailedMessage(error), { cause: error });
+      }
     },
     async clearImage(bookmarkId) {
       await chrome.storage.local.remove(imageStorageKey(bookmarkId));
@@ -201,7 +207,41 @@ export function chromeImages(): ImagesApi {
       const keys = dialImageStorageKeys(Object.keys(stored));
       if (keys.length > 0) await chrome.storage.local.remove(keys);
     },
+    async getUsage() {
+      const stored = await chrome.storage.local.get(null);
+      const keys = dialImageStorageKeys(Object.keys(stored));
+      let bytesUsed = 0;
+      if (keys.length > 0) {
+        try {
+          bytesUsed = await chrome.storage.local.getBytesInUse(keys);
+        } catch {
+          // Fall back to data-URL string lengths if getBytesInUse is unavailable.
+          const images = collectImages(stored as Record<string, unknown>);
+          for (const dataUrl of Object.values(images)) bytesUsed += dataUrl.length;
+        }
+      }
+      // Chrome often still exposes QUOTA_BYTES as ~10 MB even when
+      // unlimitedStorage is granted; trust the permission, not the constant.
+      if (await hasUnlimitedStorageGrant()) {
+        return { bytesUsed, bytesQuota: null };
+      }
+      return {
+        bytesUsed,
+        bytesQuota: meaningfulStorageQuotaBytes(chrome.storage.local.QUOTA_BYTES),
+      };
+    },
   };
+}
+
+/** True when install-time or optional unlimitedStorage is active for this load. */
+async function hasUnlimitedStorageGrant(): Promise<boolean> {
+  try {
+    const declared = chrome.runtime.getManifest().permissions ?? [];
+    if (declared.includes("unlimitedStorage")) return true;
+    return await chrome.permissions.contains({ permissions: ["unlimitedStorage"] });
+  } catch {
+    return false;
+  }
 }
 
 async function readGrantedPermissions(): Promise<PermissionRequestPayload> {

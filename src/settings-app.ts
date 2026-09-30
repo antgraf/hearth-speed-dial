@@ -1,7 +1,12 @@
 import type { BookmarksApi } from "./browser.ts";
 import { confirmDialog } from "./dialog.ts";
 import { dialOpenFolderOptions, type FolderOption } from "./model.ts";
-import type { ImagesApi } from "./images.ts";
+import {
+  dialStorageUsageLabel,
+  formatDialStorageUsage,
+  type ImageStorageUsage,
+  type ImagesApi,
+} from "./images.ts";
 import {
   bindRangeInput,
   DEFAULT_LAYOUT,
@@ -33,6 +38,8 @@ export function startSettings(
   let saving = false;
   let error: string | null = null;
   let savedNote: string | null = null;
+  let storageUsage: ImageStorageUsage | null = null;
+  let storageUsageError = false;
 
   const draw = () => {
     host.replaceChildren();
@@ -209,6 +216,12 @@ export function startSettings(
     waitHelp.textContent =
       "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
     picturesCategory.append(waitHelp);
+    if (images) {
+      let valueText = "Measuring…";
+      if (storageUsageError) valueText = "Storage usage is unavailable right now.";
+      else if (storageUsage) valueText = formatDialStorageUsage(storageUsage);
+      picturesCategory.append(dialStorageUsageRow(valueText));
+    }
     form.append(picturesCategory);
 
     // Danger Zone must always remain last if new settings categories are added.
@@ -253,6 +266,21 @@ export function startSettings(
     form.append(actions);
 
     frame.append(form);
+  };
+
+  const refreshStorageUsage = async () => {
+    if (!images) {
+      storageUsage = null;
+      storageUsageError = false;
+      return;
+    }
+    try {
+      storageUsage = await images.getUsage();
+      storageUsageError = false;
+    } catch {
+      storageUsage = null;
+      storageUsageError = true;
+    }
   };
 
   const resetToDefaults = async (returnFocus: HTMLElement) => {
@@ -307,6 +335,7 @@ export function startSettings(
       if (images) await images.clearAll();
       layout = { ...DEFAULT_LAYOUT };
       defaultFolderId = null;
+      await refreshStorageUsage();
       saving = false;
       savedNote = "All Hearth data erased. Open a new tab to see the dial.";
       draw();
@@ -399,6 +428,7 @@ export function startSettings(
         }
       }
       if (changed) void settings.setLayout(layout);
+      await refreshStorageUsage();
     } catch (caught) {
       error = caught instanceof Error && caught.message.trim() ? caught.message : "Could not load settings.";
     }
@@ -414,6 +444,20 @@ function category(title: string): HTMLElement {
   heading.textContent = title;
   section.append(heading);
   return section;
+}
+
+/** Labeled readout so dial-picture storage is visible, not another muted help line. */
+function dialStorageUsageRow(valueText: string): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "settings-storage-usage";
+  const title = document.createElement("span");
+  title.className = "settings-storage-usage-title";
+  title.textContent = dialStorageUsageLabel();
+  const value = document.createElement("span");
+  value.className = "settings-storage-usage-value";
+  value.textContent = valueText;
+  root.append(title, value);
+  return root;
 }
 
 function switchControl(
