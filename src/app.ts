@@ -44,6 +44,7 @@ import {
   type SettingsApi,
 } from "./settings.ts";
 import { applyLayoutChange, revokeOptionalFeaturePermissions } from "./toggles.ts";
+import { applyThemeToDocument } from "./theme.ts";
 import { render as defaultRender, type ViewActions } from "./view.ts";
 
 export type AppPorts = {
@@ -77,16 +78,27 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     defaultFolderId: null,
     form: null,
     saving: false,
-    layout: { ...DEFAULT_LAYOUT },
+    layout: { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } },
     images: {},
+    themeBackground: null,
     thumbnailsActive: false,
     imageUrlFetchActive: false,
   };
   let request = 0;
   /** Last-open folder from storage; used once if the default folder is missing. */
   let bootOpenFolderId: string | null = null;
+  let colorSchemeMedia: MediaQueryList | null = null;
+  let onColorSchemeChange: (() => void) | null = null;
 
-  const draw = () =>
+  const applyTheme = () => {
+    if (typeof document === "undefined") return;
+    applyThemeToDocument(document.documentElement, state.layout.theme, {
+      backgroundImage: state.themeBackground,
+    });
+  };
+
+  const draw = () => {
+    applyTheme();
     drawView(host, present(state), {
       openFolder: (id) => {
         void showFolder(id);
@@ -150,11 +162,13 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       },
       setLayout: (layout) => saveLayout(layout),
       setDefaultFolderId: (id) => saveDefaultFolderId(id),
+      setThemeBackground: (file) => saveThemeBackground(file),
       resetToDefaults: () => resetToDefaults(),
       eraseAllData: () => eraseAllData(),
       getImageStorageUsage: () => ports.images.getUsage(),
+      getThemeBackground: () => Promise.resolve(state.themeBackground),
     });
-
+  };
   const syncThumbnailActive = async (preferEnabled: boolean): Promise<boolean> => {
     if (!preferEnabled) {
       state.thumbnailsActive = false;
@@ -473,12 +487,31 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     }
   };
 
+  const saveThemeBackground = async (file: File | null): Promise<void> => {
+    try {
+      if (file == null) {
+        state.themeBackground = null;
+        await ports.settings.setThemeBackground(null);
+      } else {
+        const dataUrl = await fileToDataUrl(file);
+        state.themeBackground = dataUrl;
+        await ports.settings.setThemeBackground(dataUrl);
+      }
+      state.error = null;
+      draw();
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
   const resetToDefaults = async (): Promise<DangerZoneResult> => {
     const previous = state.layout;
     await revokeOptionalFeaturePermissions(previous, ports.permissions);
-    const layout = { ...DEFAULT_LAYOUT };
+    const layout = { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } };
     state.layout = layout;
     state.defaultFolderId = null;
+    state.themeBackground = null;
     state.thumbnailsActive = false;
     state.imageUrlFetchActive = false;
     state.error = null;
@@ -495,10 +528,11 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   const eraseAllData = async (): Promise<DangerZoneResult> => {
     const previous = state.layout;
     await revokeOptionalFeaturePermissions(previous, ports.permissions);
-    const layout = { ...DEFAULT_LAYOUT };
+    const layout = { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } };
     state.layout = layout;
     state.defaultFolderId = null;
     state.images = {};
+    state.themeBackground = null;
     state.thumbnailsActive = false;
     state.imageUrlFetchActive = false;
     state.error = null;
@@ -645,6 +679,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.currentId = defaultFolderId ?? openFolderId;
       const layout = await ports.settings.getLayout();
       state.layout = layout;
+      state.themeBackground = await ports.settings.getThemeBackground();
       const thumbnailsActive = await syncThumbnailActive(layout.thumbnailsEnabled);
       const imageUrlFetchActive = await syncImageUrlFetchActive(layout.imageUrlFetchEnabled);
       let nextLayout = layout;
@@ -659,6 +694,14 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         state.layout = nextLayout;
         void ports.settings.setLayout(state.layout);
       }
+      applyTheme();
+      if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+        colorSchemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+        onColorSchemeChange = () => {
+          if (state.layout.theme.mode === "auto") applyTheme();
+        };
+        colorSchemeMedia.addEventListener("change", onColorSchemeChange);
+      }
     } catch (error) {
       state.error = errorText(error);
     }
@@ -667,6 +710,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
 
   return () => {
     unsubscribe();
+    if (colorSchemeMedia && onColorSchemeChange) {
+      colorSchemeMedia.removeEventListener("change", onColorSchemeChange);
+    }
     if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
       chrome.runtime.onMessage.removeListener(onRuntimeMessage);
     }

@@ -27,6 +27,8 @@ import {
   type DangerZoneResult,
   type LayoutSettings,
 } from "./settings.ts";
+import { applyThemeToDocument } from "./theme.ts";
+import { buildThemeCategory } from "./theme-settings.ts";
 
 export type ViewActions = {
   openFolder(id: string): void;
@@ -48,6 +50,10 @@ export type ViewActions = {
   setLayout(layout: LayoutSettings): void | Promise<LayoutSettings>;
   /** Persist optional default folder for new windows; null clears it. */
   setDefaultFolderId(id: string | null): void | Promise<void>;
+  /** Persist or clear the local theme wallpaper. */
+  setThemeBackground(file: File | null): void | Promise<void>;
+  /** Current local wallpaper data URL (for Settings UI state). */
+  getThemeBackground(): Promise<string | null>;
   /** Restore settings defaults (keeps dial pictures). */
   resetToDefaults(): void | Promise<DangerZoneResult>;
   /** Clear extension settings + dial pictures (never bookmarks). */
@@ -343,6 +349,39 @@ function openSettingsDialog(
   displayCategory.append(folderHelp);
   body.append(displayCategory);
 
+  let themeBackground: string | null = null;
+  const themeControls = buildThemeCategory({
+    theme: layout.theme,
+    hasBackground: false,
+    idPrefix: "overlay-theme",
+    onThemeChange: () => {
+      applyLayout();
+    },
+    onBackgroundFile: (file) => {
+      void Promise.resolve(actions.setThemeBackground(file))
+        .then(async () => {
+          themeBackground = await Promise.resolve(actions.getThemeBackground());
+          themeControls.setHasBackground(Boolean(themeBackground));
+          applyThemeToDocument(document.documentElement, themeControls.readTheme(), {
+            backgroundImage: themeBackground,
+          });
+        })
+        .catch(() => {
+          // Errors surface via the dial banner on redraw.
+        });
+    },
+  });
+  body.append(themeControls.root);
+  void Promise.resolve(actions.getThemeBackground())
+    .then((dataUrl) => {
+      themeBackground = dataUrl;
+      if (!themeControls.root.isConnected) return;
+      themeControls.setHasBackground(Boolean(dataUrl));
+    })
+    .catch(() => {
+      // Keep Theme UI usable without wallpaper status.
+    });
+
   const picturesCategory = settingsCategory("Pictures");
 
   const thumbnails = document.createElement("input");
@@ -431,6 +470,7 @@ function openSettingsDialog(
     thumbnailsEnabled: thumbnails.checked,
     imageUrlFetchEnabled: imageUrlFetch.checked,
     thumbnailWaitSeconds: Number(thumbnailWait.value),
+    theme: themeControls.readTheme(),
   });
 
   const syncForm = (result: DangerZoneResult) => {
@@ -441,10 +481,20 @@ function openSettingsDialog(
     syncRangeInputValue(tileSize, result.layout.tileSize);
     syncRangeInputValue(thumbnailWait, result.layout.thumbnailWaitSeconds);
     defaultFolder.value = result.defaultFolderId ?? "";
+    themeControls.syncTheme(result.layout.theme);
+    themeBackground = null;
+    themeControls.setHasBackground(false);
+    applyThemeToDocument(document.documentElement, result.layout.theme, {
+      backgroundImage: null,
+    });
   };
 
   const applyLayout = () => {
-    void Promise.resolve(actions.setLayout(readLayout()))
+    const next = readLayout();
+    applyThemeToDocument(document.documentElement, next.theme, {
+      backgroundImage: themeBackground,
+    });
+    void Promise.resolve(actions.setLayout(next))
       .then((applied) => {
         if (!applied) return;
         reverse.checked = applied.reverseOrder;
@@ -453,6 +503,7 @@ function openSettingsDialog(
         syncRangeInputValue(columns, applied.columns);
         syncRangeInputValue(tileSize, applied.tileSize);
         syncRangeInputValue(thumbnailWait, applied.thumbnailWaitSeconds);
+        themeControls.syncTheme(applied.theme);
       })
       .catch(() => {
         // Permission API rejections are handled inside setLayout / chromePermissions.

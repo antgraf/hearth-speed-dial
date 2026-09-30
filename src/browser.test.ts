@@ -6,6 +6,7 @@ import {
   imageStorageWriteFailedMessage,
 } from "./images.ts";
 import { DEFAULT_LAYOUT } from "./settings.ts";
+import { THEME_BACKGROUND_KEY } from "./theme.ts";
 
 type StorageBag = Record<string, unknown>;
 
@@ -164,7 +165,9 @@ test("P1-4 chromeSettings.resetToDefaults preserves openFolderId", async () => {
       openFolderId: "stay-open",
       defaultFolderId: "was-default",
       rootFolderId: "legacy-ignored-when-open-set",
+      theme: { mode: "light", accent: "moss" },
     },
+    [THEME_BACKGROUND_KEY]: "data:image/png;base64,aa==",
   });
   installChrome(fake);
   const api = chromeSettings();
@@ -181,12 +184,15 @@ test("P1-4 chromeSettings.resetToDefaults preserves openFolderId", async () => {
   assert.equal(stored.thumbnailsEnabled, DEFAULT_LAYOUT.thumbnailsEnabled);
   assert.equal(stored.imageUrlFetchEnabled, DEFAULT_LAYOUT.imageUrlFetchEnabled);
   assert.equal(stored.thumbnailWaitSeconds, DEFAULT_LAYOUT.thumbnailWaitSeconds);
+  assert.deepEqual(stored.theme, DEFAULT_LAYOUT.theme);
+  assert.equal(THEME_BACKGROUND_KEY in fake.storage.local.store, false);
 });
 
-test("P1-4 chromeSettings.clearAll drops the whole settings key", async () => {
+test("P1-4 chromeSettings.clearAll drops settings and theme wallpaper", async () => {
   const fake = fakeChrome({
     settings: { openFolderId: "1", columns: 4 },
     [`${IMAGE_KEY_PREFIX}11`]: "data:image/png;base64,aa==",
+    [THEME_BACKGROUND_KEY]: "data:image/png;base64,bb==",
   });
   installChrome(fake);
   const api = chromeSettings();
@@ -194,8 +200,20 @@ test("P1-4 chromeSettings.clearAll drops the whole settings key", async () => {
   await api.clearAll();
 
   assert.equal("settings" in fake.storage.local.store, false);
+  assert.equal(THEME_BACKGROUND_KEY in fake.storage.local.store, false);
   assert.equal(fake.storage.local.store[`${IMAGE_KEY_PREFIX}11`], "data:image/png;base64,aa==");
-  assert.ok(fake.storage.local.calls.some((c) => c === "remove:settings"));
+  assert.ok(fake.storage.local.calls.some((c) => c.includes("settings")));
+});
+
+test("chromeSettings theme background get/set stores a local data URL", async () => {
+  const fake = fakeChrome({ settings: {} });
+  installChrome(fake);
+  const api = chromeSettings();
+  assert.equal(await api.getThemeBackground(), null);
+  await api.setThemeBackground("data:image/png;base64,aa==");
+  assert.equal(await api.getThemeBackground(), "data:image/png;base64,aa==");
+  await api.setThemeBackground(null);
+  assert.equal(await api.getThemeBackground(), null);
 });
 
 test("P1-4 chromeImages.clearAll removes only hearth.image.* keys", async () => {

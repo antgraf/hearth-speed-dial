@@ -16,6 +16,48 @@
   --columns: 5;
   --tile-size: 176px;
   --tile-aspect: 16 / 9;
+  --theme-bg-image: none;
+  --theme-bg-opacity: 0;
+  --theme-bg-size: cover;
+  --theme-bg-position: center center;
+}
+
+:root[data-hearth-theme="light"] {
+  color-scheme: light;
+  --bg: #e7e0d6;
+  --raise: #f7f1e8;
+  --line: #cbbfaf;
+  --text: #2c241e;
+  --muted: #6f6156;
+  --mark: #4a372e;
+  --mark-bg: #d8ccc0;
+  --folder-bg: #d6ceb8;
+  --note: #5a4c40;
+  --ember-ink: #fff8f2;
+}
+
+:root[data-hearth-accent="ember"] {
+  --ember: #d4784a;
+  --focus: #e7a07a;
+  --brass: #e0b15a;
+}
+
+:root[data-hearth-accent="brass"] {
+  --ember: #c9953a;
+  --focus: #e0b15a;
+  --brass: #d4a84a;
+}
+
+:root[data-hearth-accent="clay"] {
+  --ember: #c45a4a;
+  --focus: #d99080;
+  --brass: #d4a070;
+}
+
+:root[data-hearth-accent="moss"] {
+  --ember: #7f8f4e;
+  --focus: #a3b06a;
+  --brass: #c4b06a;
 }
 
 * {
@@ -34,6 +76,26 @@ body {
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.4;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: transparent;
+  background-image: var(--theme-bg-image);
+  background-size: var(--theme-bg-size);
+  background-position: var(--theme-bg-position);
+  background-repeat: no-repeat;
+  opacity: var(--theme-bg-opacity);
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 button,
@@ -607,6 +669,93 @@ h1 {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.4;
+}
+
+.settings-accent-row,
+.settings-theme-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-accent-option,
+.settings-theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-accent-option:has(input:checked),
+.settings-theme-chip:has(input:checked) {
+  border-color: var(--ember);
+  box-shadow: inset 0 0 0 1px var(--ember);
+}
+
+.settings-accent-option input,
+.settings-theme-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-accent-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  flex: 0 0 auto;
+}
+
+.settings-accent-swatch[data-accent="ember"] {
+  background: #d4784a;
+}
+
+.settings-accent-swatch[data-accent="brass"] {
+  background: #c9953a;
+}
+
+.settings-accent-swatch[data-accent="clay"] {
+  background: #c45a4a;
+}
+
+.settings-accent-swatch[data-accent="moss"] {
+  background: #7f8f4e;
+}
+
+.settings-theme-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-theme-actions .quiet,
+.settings-theme-actions .primary {
+  margin: 0;
+}
+
+.settings-theme-actions input[type="color"] {
+  width: 42px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--raise);
+  cursor: pointer;
+}
+
+.settings-theme-status {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .settings-dialog-form .settings-switch .settings-help {

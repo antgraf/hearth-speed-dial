@@ -39,6 +39,12 @@ import {
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
+import {
+  DEFAULT_THEME,
+  normalizeTheme,
+  readThemeBackgroundDataUrl,
+  THEME_BACKGROUND_KEY,
+} from "./theme.ts";
 
 export type BookmarkUpdate = {
   title?: string;
@@ -150,7 +156,25 @@ export function chromeSettings(): SettingsApi {
         thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
         imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
         thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
+        theme: normalizeTheme(layout.theme),
       });
+    },
+    async getThemeBackground() {
+      const stored = await chrome.storage.local.get(THEME_BACKGROUND_KEY);
+      return readThemeBackgroundDataUrl(stored[THEME_BACKGROUND_KEY]);
+    },
+    async setThemeBackground(dataUrl) {
+      if (dataUrl == null) {
+        await chrome.storage.local.remove(THEME_BACKGROUND_KEY);
+        return;
+      }
+      const valid = readThemeBackgroundDataUrl(dataUrl);
+      if (!valid) throw new Error("That file could not be stored as a background image.");
+      try {
+        await chrome.storage.local.set({ [THEME_BACKGROUND_KEY]: valid });
+      } catch (error) {
+        throw new Error(imageStorageWriteFailedMessage(error), { cause: error });
+      }
     },
     async resetToDefaults() {
       await patchSettings({
@@ -160,12 +184,14 @@ export function chromeSettings(): SettingsApi {
         thumbnailsEnabled: DEFAULT_LAYOUT.thumbnailsEnabled,
         imageUrlFetchEnabled: DEFAULT_LAYOUT.imageUrlFetchEnabled,
         thumbnailWaitSeconds: DEFAULT_LAYOUT.thumbnailWaitSeconds,
+        theme: { ...DEFAULT_THEME },
         defaultFolderId: null,
       });
-      return { ...DEFAULT_LAYOUT };
+      await chrome.storage.local.remove(THEME_BACKGROUND_KEY);
+      return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_THEME } };
     },
     async clearAll() {
-      await chrome.storage.local.remove("settings");
+      await chrome.storage.local.remove(["settings", THEME_BACKGROUND_KEY]);
     },
   };
 }

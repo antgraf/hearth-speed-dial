@@ -35,6 +35,8 @@ test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.thumbnailsEnabled, false);
   assert.equal(DEFAULT_LAYOUT.imageUrlFetchEnabled, false);
   assert.equal(DEFAULT_LAYOUT.thumbnailWaitSeconds, 2);
+  assert.equal(DEFAULT_LAYOUT.theme.mode, "dark");
+  assert.equal(DEFAULT_LAYOUT.theme.accent, "ember");
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout({}), DEFAULT_LAYOUT);
@@ -130,7 +132,7 @@ test("readImageUrlFetchEnabled defaults off and accepts common encodings", () =>
   assert.equal(readImageUrlFetchEnabled("maybe"), false);
 });
 
-test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags", () => {
+test("readLayout pulls columns, tileSize, reverseOrder, wait, opt-in flags, and theme", () => {
   assert.deepEqual(readLayout({ columns: 3, tileSize: 128, openFolderId: "1" }), {
     columns: 3,
     tileSize: 128,
@@ -138,6 +140,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
     thumbnailsEnabled: false,
     imageUrlFetchEnabled: false,
     thumbnailWaitSeconds: 2,
+    theme: DEFAULT_LAYOUT.theme,
   });
   assert.deepEqual(
     readLayout({
@@ -147,6 +150,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
       thumbnailsEnabled: true,
       imageUrlFetchEnabled: true,
       thumbnailWaitSeconds: 10,
+      theme: { mode: "light", accent: "moss", backgroundOpacity: 80 },
     }),
     {
       columns: LAYOUT_LIMITS.columns.max,
@@ -155,6 +159,14 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
       thumbnailsEnabled: true,
       imageUrlFetchEnabled: true,
       thumbnailWaitSeconds: 10,
+      theme: {
+        mode: "light",
+        accent: "moss",
+        backgroundColor: null,
+        backgroundFit: "cover",
+        backgroundPosition: "center",
+        backgroundOpacity: 80,
+      },
     },
   );
   assert.deepEqual(
@@ -173,6 +185,7 @@ test("readLayout pulls columns, tileSize, reverseOrder, wait, and opt-in flags",
       thumbnailsEnabled: true,
       imageUrlFetchEnabled: true,
       thumbnailWaitSeconds: 8,
+      theme: DEFAULT_LAYOUT.theme,
     },
   );
   // Legacy square-era values below the new floor clamp up.

@@ -38,11 +38,15 @@ function fakeSettings(): SettingsApi {
     },
     async setDefaultFolderId() {},
     async getLayout() {
-      return { ...DEFAULT_LAYOUT };
+      return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } };
     },
     async setLayout() {},
+    async getThemeBackground() {
+      return null;
+    },
+    async setThemeBackground() {},
     async resetToDefaults() {
-      return { ...DEFAULT_LAYOUT };
+      return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } };
     },
     async clearAll() {},
   };
@@ -120,4 +124,18 @@ test("settings Pictures shows a labeled Dial picture storage readout", async () 
     host.querySelector(".settings-category")?.textContent?.includes("Pictures") ||
       [...host.querySelectorAll(".settings-category-title")].some((el) => el.textContent === "Pictures"),
   );
+});
+
+test("settings Theme category exposes mode, accent, and local wallpaper controls", async () => {
+  const host = kit.document.createElement("div");
+  kit.document.body.replaceChildren(host);
+  startSettings(host, fakeSettings(), null, undefined, fakeBookmarks(), fakeImages());
+  await settle();
+
+  const titles = [...host.querySelectorAll(".settings-category-title")].map((el) => el.textContent);
+  assert.ok(titles.includes("Theme"));
+  assert.ok(host.querySelector('select[name="themeMode"]'));
+  assert.ok(host.querySelector('input[name="page-theme-accent"]'));
+  assert.ok(host.querySelector('input[name="themeBackgroundColor"]'));
+  assert.match(host.textContent ?? "", /Choose local image/);
 });

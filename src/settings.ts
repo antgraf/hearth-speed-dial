@@ -1,3 +1,12 @@
+import {
+  DEFAULT_THEME,
+  normalizeTheme,
+  readTheme,
+  readThemeBackgroundDataUrl,
+  THEME_BACKGROUND_KEY,
+  type ThemeSettings,
+} from "./theme.ts";
+
 const STORAGE_KEY = "hearth.settings";
 
 export type LayoutSettings = {
@@ -22,6 +31,8 @@ export type LayoutSettings = {
    * observed fast capture timing.
    */
   thumbnailWaitSeconds: number;
+  /** Appearance mode, accent palette, and local background prefs. */
+  theme: ThemeSettings;
 };
 
 /** Width of each dial face; height follows TILE_ASPECT (16:9). */
@@ -32,6 +43,7 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
   thumbnailsEnabled: false,
   imageUrlFetchEnabled: false,
   thumbnailWaitSeconds: 2,
+  theme: { ...DEFAULT_THEME },
 };
 
 /** Dial face width ÷ height. */
@@ -56,14 +68,20 @@ export type SettingsApi = {
   setDefaultFolderId(id: string | null): Promise<void>;
   getLayout(): Promise<LayoutSettings>;
   setLayout(layout: LayoutSettings): Promise<void>;
+  /** Optional local wallpaper data URL (or null when none). */
+  getThemeBackground(): Promise<string | null>;
+  /** Persist or clear the local wallpaper (data URL / null). */
+  setThemeBackground(dataUrl: string | null): Promise<void>;
   /**
-   * Restore layout + default-folder prefs to product defaults.
-   * Preserves last-open folder (`openFolderId`). Does not touch dial images.
+   * Restore layout + theme + default-folder prefs to product defaults.
+   * Preserves last-open folder (`openFolderId`). Clears the theme wallpaper.
+   * Does not touch dial images.
    */
   resetToDefaults(): Promise<LayoutSettings>;
   /**
-   * Remove the entire settings blob (layout, default folder, last-open).
-   * Does not touch dial image keys — pair with ImagesApi.clearAll for Erase.
+   * Remove the entire settings blob (layout, theme, default folder, last-open)
+   * and the theme wallpaper key. Does not touch dial image keys — pair with
+   * ImagesApi.clearAll for Erase.
    */
   clearAll(): Promise<void>;
 };
@@ -76,12 +94,12 @@ export type DangerZoneResult = {
 
 export const RESET_DEFAULTS_TITLE = "Reset to defaults?";
 export const RESET_DEFAULTS_MESSAGE =
-  "Restore layout, display, and picture preferences to product defaults. Your bookmarks and dial pictures stay.";
+  "Restore layout, display, theme, and picture preferences to product defaults. Your bookmarks and dial pictures stay.";
 export const RESET_DEFAULTS_CONFIRM = "Reset";
 
 export const ERASE_ALL_TITLE = "Erase all data?";
 export const ERASE_ALL_MESSAGE =
-  "Permanently clear all Hearth settings and stored dial pictures in this browser profile. Your Chrome bookmarks are not deleted.";
+  "Permanently clear all Hearth settings, theme wallpaper, and stored dial pictures in this browser profile. Your Chrome bookmarks are not deleted.";
 export const ERASE_ALL_CONFIRM = "Erase all data";
 
 export function clampColumns(value: number): number {
@@ -152,7 +170,9 @@ export function readImageUrlFetchEnabled(value: unknown): boolean {
 }
 
 export function readLayout(value: unknown): LayoutSettings {
-  if (!value || typeof value !== "object") return { ...DEFAULT_LAYOUT };
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_THEME } };
+  }
   const record = value as {
     columns?: unknown;
     tileSize?: unknown;
@@ -160,6 +180,7 @@ export function readLayout(value: unknown): LayoutSettings {
     thumbnailsEnabled?: unknown;
     imageUrlFetchEnabled?: unknown;
     thumbnailWaitSeconds?: unknown;
+    theme?: unknown;
   };
   return {
     columns: readColumns(record.columns),
@@ -168,6 +189,7 @@ export function readLayout(value: unknown): LayoutSettings {
     thumbnailsEnabled: readThumbnailsEnabled(record.thumbnailsEnabled),
     imageUrlFetchEnabled: readImageUrlFetchEnabled(record.imageUrlFetchEnabled),
     thumbnailWaitSeconds: readThumbnailWaitSeconds(record.thumbnailWaitSeconds),
+    theme: readTheme(record.theme),
   };
 }
 
@@ -258,7 +280,24 @@ export function previewSettings(): SettingsApi {
         thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
         imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
         thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
+        theme: normalizeTheme(layout.theme),
       });
+    },
+    async getThemeBackground() {
+      try {
+        return readThemeBackgroundDataUrl(localStorage.getItem(THEME_BACKGROUND_KEY));
+      } catch {
+        return null;
+      }
+    },
+    async setThemeBackground(dataUrl) {
+      if (dataUrl == null) {
+        localStorage.removeItem(THEME_BACKGROUND_KEY);
+        return;
+      }
+      const valid = readThemeBackgroundDataUrl(dataUrl);
+      if (!valid) throw new Error("That file could not be stored as a background image.");
+      localStorage.setItem(THEME_BACKGROUND_KEY, valid);
     },
     async resetToDefaults() {
       writeStored({
@@ -268,12 +307,15 @@ export function previewSettings(): SettingsApi {
         thumbnailsEnabled: DEFAULT_LAYOUT.thumbnailsEnabled,
         imageUrlFetchEnabled: DEFAULT_LAYOUT.imageUrlFetchEnabled,
         thumbnailWaitSeconds: DEFAULT_LAYOUT.thumbnailWaitSeconds,
+        theme: { ...DEFAULT_THEME },
         defaultFolderId: null,
       });
-      return { ...DEFAULT_LAYOUT };
+      localStorage.removeItem(THEME_BACKGROUND_KEY);
+      return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_THEME } };
     },
     async clearAll() {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(THEME_BACKGROUND_KEY);
     },
   };
 }
