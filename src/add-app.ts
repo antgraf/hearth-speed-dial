@@ -1,16 +1,19 @@
 import type { BookmarksApi } from "./browser.ts";
 import {
   acceptsChildren,
-  dialFolderOptions,
+  dialFolderTree,
+  flattenFolderTree,
   folderName,
   nodeIndex,
   parseAddPageFields,
   type BookmarkNode,
-  type FolderOption,
+  type FolderTreeNode,
 } from "./model.ts";
+import type { SettingsApi } from "./settings.ts";
 
 export type AddPorts = {
   bookmarks: BookmarksApi;
+  settings: SettingsApi;
   search: string;
   close: () => void;
 };
@@ -20,7 +23,9 @@ type AddState = {
   error: string | null;
   url: string;
   title: string;
-  folders: FolderOption[];
+  folderTree: FolderTreeNode[];
+  /** Folder ids with children that are expanded in the picker. */
+  expandedIds: ReadonlySet<string>;
   parentId: string | null;
   saving: boolean;
   done: boolean;
@@ -33,14 +38,16 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
     error: parsed ? null : "This page cannot be added as a dial.",
     url: parsed?.url ?? "",
     title: parsed?.title ?? "",
-    folders: [],
+    folderTree: [],
+    expandedIds: new Set(),
     parentId: null,
     saving: false,
     done: false,
   };
   /** Autofocus the name field once when the form becomes ready; restore focus after redraws. */
   let titleFocused = false;
-  let restoreFocus: "title" | "folder" | null = null;
+  let restoreFocus: "title" | "folder" | "toggle" | null = null;
+  let restoreToggleId: string | null = null;
 
   const draw = () => {
     renderAdd(host, state, {
@@ -60,6 +67,16 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
         restoreFocus = "folder";
         draw();
       },
+      toggleFolder: (id) => {
+        if (state.saving || state.done) return;
+        const next = new Set(state.expandedIds);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        state.expandedIds = next;
+        restoreFocus = "toggle";
+        restoreToggleId = id;
+        draw();
+      },
       submit: () => {
         void save();
       },
@@ -69,14 +86,25 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
     }, {
       focusTitle: !titleFocused && state.status === "ready" && !state.saving && !state.done,
       restoreFocus,
+      restoreToggleId,
       onTitleFocused: () => {
         titleFocused = true;
         restoreFocus = null;
+        restoreToggleId = null;
       },
       onFocusRestored: () => {
         restoreFocus = null;
+        restoreToggleId = null;
       },
     });
+  };
+
+  const applyTree = (tree: BookmarkNode[], defaultFolderId: string | null) => {
+    state.folderTree = dialFolderTree(tree, defaultFolderId);
+    state.expandedIds = new Set();
+    if (state.parentId && !flattenFolderTree(state.folderTree).some((f) => f.id === state.parentId)) {
+      state.parentId = null;
+    }
   };
 
   const load = async () => {
@@ -85,11 +113,14 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
       return;
     }
     try {
-      const tree = await ports.bookmarks.getTree();
-      state.folders = dialFolderOptions(tree);
+      const [tree, defaultFolderId] = await Promise.all([
+        ports.bookmarks.getTree(),
+        ports.settings.getDefaultFolderId(),
+      ]);
+      applyTree(tree, defaultFolderId);
       state.status = "ready";
       state.error = null;
-      if (state.folders.length === 0) {
+      if (state.folderTree.length === 0) {
         state.error = "No bookmark folders are available yet.";
       }
     } catch {
@@ -113,8 +144,12 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
       return;
     }
     let tree: BookmarkNode[];
+    let defaultFolderId: string | null;
     try {
-      tree = await ports.bookmarks.getTree();
+      [tree, defaultFolderId] = await Promise.all([
+        ports.bookmarks.getTree(),
+        ports.settings.getDefaultFolderId(),
+      ]);
     } catch {
       state.error = "Could not load bookmark folders.";
       draw();
@@ -123,7 +158,7 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
     const parent = nodeIndex(tree).get(state.parentId);
     if (!parent || !acceptsChildren(parent)) {
       state.error = "Choose a folder inside Bookmarks.";
-      state.folders = dialFolderOptions(tree);
+      applyTree(tree, defaultFolderId);
       state.parentId = null;
       draw();
       return;
@@ -151,13 +186,15 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
 type AddHandlers = {
   setTitle: (title: string) => void;
   chooseFolder: (id: string) => void;
+  toggleFolder: (id: string) => void;
   submit: () => void;
   cancel: () => void;
 };
 
 type AddFocus = {
   focusTitle: boolean;
-  restoreFocus: "title" | "folder" | null;
+  restoreFocus: "title" | "folder" | "toggle" | null;
+  restoreToggleId: string | null;
   onTitleFocused: () => void;
   onFocusRestored: () => void;
 };
@@ -228,30 +265,16 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
   legend.textContent = "Folder";
   folderField.append(legend);
 
-  if (state.folders.length === 0) {
+  if (state.folderTree.length === 0) {
     const empty = el("p", "quiet");
     empty.textContent = "No folders available.";
     folderField.append(empty);
   } else {
-    const list = el("div", "folder-list");
-    list.setAttribute("role", "radiogroup");
+    const list = el("div", "folder-tree");
+    list.setAttribute("role", "tree");
     list.setAttribute("aria-label", "Destination folder");
-    for (const folder of state.folders) {
-      const option = el("label", "folder-option");
-      option.style.setProperty("--depth", String(folder.depth));
-      const radio = document.createElement("input");
-      radio.type = "radio";
-      radio.name = "parentId";
-      radio.value = folder.id;
-      radio.checked = state.parentId === folder.id;
-      radio.disabled = state.saving || state.done;
-      radio.addEventListener("change", () => {
-        if (radio.checked) handlers.chooseFolder(folder.id);
-      });
-      const name = el("span");
-      name.textContent = folder.title;
-      option.append(radio, name);
-      list.append(option);
+    for (const node of state.folderTree) {
+      list.append(renderFolderTreeNode(node, state, handlers));
     }
     folderField.append(list);
   }
@@ -264,7 +287,7 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
   submit.type = "submit";
   submit.className = "primary";
   submit.textContent = state.saving ? "Adding…" : "Add bookmark";
-  submit.disabled = state.saving || state.done || !state.parentId || state.folders.length === 0;
+  submit.disabled = state.saving || state.done || !state.parentId || state.folderTree.length === 0;
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "quiet";
@@ -285,7 +308,71 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
     const selected = form.querySelector(`input[name="parentId"][value="${CSS.escape(state.parentId)}"]`);
     if (selected instanceof HTMLInputElement) selected.focus();
     focus.onFocusRestored();
+  } else if (focus.restoreFocus === "toggle" && focus.restoreToggleId) {
+    const toggle = form.querySelector(`button[data-folder-toggle="${CSS.escape(focus.restoreToggleId)}"]`);
+    if (toggle instanceof HTMLButtonElement) toggle.focus();
+    focus.onFocusRestored();
   }
+}
+
+function renderFolderTreeNode(
+  node: FolderTreeNode,
+  state: AddState,
+  handlers: AddHandlers,
+): HTMLElement {
+  const item = el("div", "folder-tree-node");
+  item.setAttribute("role", "treeitem");
+  item.setAttribute("aria-selected", state.parentId === node.id ? "true" : "false");
+  const hasChildren = node.children.length > 0;
+  const expanded = hasChildren && state.expandedIds.has(node.id);
+  if (hasChildren) item.setAttribute("aria-expanded", expanded ? "true" : "false");
+
+  const row = el("div", "folder-tree-row");
+  if (hasChildren) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "folder-tree-toggle";
+    toggle.dataset.folderToggle = node.id;
+    toggle.setAttribute("aria-label", expanded ? `Collapse ${node.title}` : `Expand ${node.title}`);
+    toggle.textContent = expanded ? "▾" : "▸";
+    toggle.disabled = state.saving || state.done;
+    toggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      handlers.toggleFolder(node.id);
+    });
+    row.append(toggle);
+  } else {
+    const spacer = el("span", "folder-tree-spacer");
+    spacer.setAttribute("aria-hidden", "true");
+    row.append(spacer);
+  }
+
+  const option = el("label", "folder-option");
+  const radio = document.createElement("input");
+  radio.type = "radio";
+  radio.name = "parentId";
+  radio.value = node.id;
+  radio.checked = state.parentId === node.id;
+  radio.disabled = state.saving || state.done;
+  radio.addEventListener("change", () => {
+    if (radio.checked) handlers.chooseFolder(node.id);
+  });
+  const name = el("span");
+  name.textContent = node.title;
+  option.append(radio, name);
+  row.append(option);
+  item.append(row);
+
+  if (hasChildren && expanded) {
+    const group = el("div", "folder-tree-children");
+    group.setAttribute("role", "group");
+    for (const child of node.children) {
+      group.append(renderFolderTreeNode(child, state, handlers));
+    }
+    item.append(group);
+  }
+
+  return item;
 }
 
 function cancelButton(handlers: AddHandlers): HTMLButtonElement {

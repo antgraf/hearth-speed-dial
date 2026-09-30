@@ -104,23 +104,88 @@ export type FolderOption = {
   depth: number;
 };
 
+export type FolderTreeNode = {
+  id: string;
+  title: string;
+  children: FolderTreeNode[];
+};
+
+/** Nested folder children that can receive a new dial (skips non-folder nodes). */
+function dialFolderTreeChildren(node: BookmarkNode): FolderTreeNode[] {
+  const out: FolderTreeNode[] = [];
+  for (const child of node.children ?? []) {
+    if (classify(child) !== "folder") continue;
+    if (acceptsChildren(child)) {
+      out.push({
+        id: child.id,
+        title: folderLabel(child),
+        children: dialFolderTreeChildren(child),
+      });
+    } else {
+      out.push(...dialFolderTreeChildren(child));
+    }
+  }
+  return out;
+}
+
+/**
+ * Folder tree for the Add-to-Hearth picker.
+ * When `scopeId` names a known folder, only that folder (if it can accept children)
+ * and its descendants are listed. Invalid/missing scope falls back to the full tree.
+ * The Chrome bookmarks root is never selectable; its children become top-level entries.
+ */
+export function dialFolderTree(
+  roots: readonly BookmarkNode[],
+  scopeId?: string | null,
+): FolderTreeNode[] {
+  if (scopeId) {
+    const scope = nodeIndex(roots).get(scopeId);
+    if (scope && classify(scope) === "folder") {
+      if (acceptsChildren(scope)) {
+        return [
+          {
+            id: scope.id,
+            title: folderLabel(scope),
+            children: dialFolderTreeChildren(scope),
+          },
+        ];
+      }
+      return dialFolderTreeChildren(scope);
+    }
+  }
+
+  const out: FolderTreeNode[] = [];
+  for (const root of roots) {
+    if (classify(root) !== "folder") continue;
+    if (acceptsChildren(root)) {
+      out.push({
+        id: root.id,
+        title: folderLabel(root),
+        children: dialFolderTreeChildren(root),
+      });
+    } else {
+      out.push(...dialFolderTreeChildren(root));
+    }
+  }
+  return out;
+}
+
+/** Depth-first flatten of a folder tree (same shape as dialFolderOptions). */
+export function flattenFolderTree(
+  tree: readonly FolderTreeNode[],
+  depth = 0,
+): FolderOption[] {
+  const options: FolderOption[] = [];
+  for (const node of tree) {
+    options.push({ id: node.id, title: node.title, depth });
+    options.push(...flattenFolderTree(node.children, depth + 1));
+  }
+  return options;
+}
+
 /** Folders that can receive a new dial, depth-first, excluding the Chrome root. */
 export function dialFolderOptions(roots: readonly BookmarkNode[]): FolderOption[] {
-  const options: FolderOption[] = [];
-  const walk = (nodes: readonly BookmarkNode[], depth: number) => {
-    for (const node of nodes) {
-      if (classify(node) !== "folder") continue;
-      if (acceptsChildren(node)) {
-        options.push({ id: node.id, title: folderLabel(node), depth });
-      }
-      if (node.children?.length) {
-        const nextDepth = acceptsChildren(node) ? depth + 1 : depth;
-        walk(node.children, nextDepth);
-      }
-    }
-  };
-  walk(roots, 0);
-  return options;
+  return flattenFolderTree(dialFolderTree(roots));
 }
 
 /**
@@ -157,11 +222,15 @@ export function parseAddPageFields(search: string): AddPageFields | null {
 /**
  * Build the add-page query string from a context-menu click.
  * Returns null when there is no openable page or link URL.
+ *
+ * Title preference: for a page, use the tab title; for a link, use selection text
+ * when present (never the hosting page title). Domain fallback happens in parse.
  */
 export function addPageQuery(info: {
   linkUrl?: string;
   pageUrl?: string;
   selectionText?: string;
+  tabTitle?: string;
 }): string | null {
   const rawUrl = info.linkUrl || info.pageUrl;
   if (!rawUrl) return null;
@@ -169,7 +238,9 @@ export function addPageQuery(info: {
   if (!url) return null;
   const params = new URLSearchParams();
   params.set("url", url);
-  const title = info.selectionText?.trim();
+  const selection = info.selectionText?.trim();
+  const tabTitle = info.tabTitle?.trim();
+  const title = info.linkUrl ? selection : tabTitle || selection;
   if (title) params.set("title", title);
   return params.toString();
 }
