@@ -793,11 +793,15 @@ div.tile-main {
 }
 
 .add-form {
+  /* Column + wrap from .composer would spill fields into side columns when
+     the folder tree grows — keep a single vertical stack and scroll the tree. */
   flex: 1 1 auto;
   min-height: 0;
   flex-direction: column;
+  flex-wrap: nowrap;
   align-items: stretch;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
   margin-top: 12px;
   padding: 12px;
   overflow: hidden;
@@ -805,6 +809,17 @@ div.tile-main {
 
 .add-form > label {
   flex: 0 0 auto;
+  width: 100%;
+  gap: 4px;
+}
+
+/* Folder radios must stay horizontal; .composer label uses column. */
+.add-form .folder-option {
+  flex: 1 1 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: auto;
 }
 
 .folder-picker {
@@ -812,6 +827,7 @@ div.tile-main {
   padding: 0;
   border: 0;
   min-width: 0;
+  width: 100%;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -888,6 +904,7 @@ div.tile-main {
 
 .folder-option {
   display: flex;
+  flex-direction: row;
   flex: 1 1 auto;
   align-items: center;
   gap: 8px;
@@ -898,6 +915,12 @@ div.tile-main {
   color: var(--text);
   font-size: 14px;
   cursor: pointer;
+}
+
+.folder-option > input {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
 }
 
 .folder-option span {
@@ -921,5 +944,6 @@ div.tile-main {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  width: 100%;
   margin-top: 2px;
 }
