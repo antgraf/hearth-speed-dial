@@ -480,6 +480,55 @@ h1 {
   text-transform: uppercase;
 }
 
+.settings-danger-zone {
+  padding: 12px;
+  border: 1px solid rgba(196, 90, 74, 0.32);
+  border-radius: 12px;
+  background: rgba(196, 90, 74, 0.07);
+}
+
+.settings-danger-zone .settings-category-title {
+  color: #d99080;
+  border-bottom-color: rgba(196, 90, 74, 0.28);
+}
+
+.settings-danger-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.settings-danger-reset,
+.settings-danger-erase {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  text-align: center;
+  font: inherit;
+}
+
+.settings-danger-reset:hover,
+.settings-danger-reset:focus-visible,
+.settings-danger-erase:hover,
+.settings-danger-erase:focus-visible {
+  border-color: rgba(196, 90, 74, 0.55);
+}
+
+.settings-danger-erase {
+  border-color: rgba(196, 90, 74, 0.45);
+  color: #f0b4a4;
+}
+
+.settings-danger-reset:disabled,
+.settings-danger-erase:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
 .settings-dialog-form .settings-switch {
   display: flex;
   flex-direction: row;
@@ -621,6 +670,12 @@ h1 {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.settings-form .settings-danger-zone .settings-category-title,
+.settings-dialog-form .settings-danger-zone .settings-category-title {
+  color: #d99080;
+  border-bottom-color: rgba(196, 90, 74, 0.28);
 }
 
 .settings-form label {

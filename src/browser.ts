@@ -2,6 +2,7 @@ import type { BookmarkNode } from "./model.ts";
 import {
   collectImages,
   dataUrlByteLength,
+  dialImageStorageKeys,
   imageStorageKey,
   MAX_IMAGE_BYTES,
   orphanImageKeys,
@@ -148,6 +149,21 @@ export function chromeSettings(): SettingsApi {
         thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
       });
     },
+    async resetToDefaults() {
+      await patchSettings({
+        columns: DEFAULT_LAYOUT.columns,
+        tileSize: DEFAULT_LAYOUT.tileSize,
+        reverseOrder: DEFAULT_LAYOUT.reverseOrder,
+        thumbnailsEnabled: DEFAULT_LAYOUT.thumbnailsEnabled,
+        imageUrlFetchEnabled: DEFAULT_LAYOUT.imageUrlFetchEnabled,
+        thumbnailWaitSeconds: DEFAULT_LAYOUT.thumbnailWaitSeconds,
+        defaultFolderId: null,
+      });
+      return { ...DEFAULT_LAYOUT };
+    },
+    async clearAll() {
+      await chrome.storage.local.remove("settings");
+    },
   };
 }
 
@@ -178,6 +194,11 @@ export function chromeImages(): ImagesApi {
       const stored = await chrome.storage.local.get(null);
       const orphans = orphanImageKeys(Object.keys(stored), existingIds);
       if (orphans.length > 0) await chrome.storage.local.remove(orphans);
+    },
+    async clearAll() {
+      const stored = await chrome.storage.local.get(null);
+      const keys = dialImageStorageKeys(Object.keys(stored));
+      if (keys.length > 0) await chrome.storage.local.remove(keys);
     },
   };
 }

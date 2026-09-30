@@ -28,6 +28,8 @@ export type ImagesApi = {
   clearImage(bookmarkId: string): Promise<void>;
   /** Best-effort: drop stored images whose bookmark ids are gone. */
   clearMissing(existingIds: ReadonlySet<string>): Promise<void>;
+  /** Remove every dial picture from extension storage. */
+  clearAll(): Promise<void>;
 };
 
 export function imageStorageKey(bookmarkId: string): string {
@@ -82,6 +84,15 @@ export function orphanImageKeys(
     if (id && !existingIds.has(id)) orphans.push(key);
   }
   return orphans;
+}
+
+/** All dial-image storage keys in a flat chrome.storage.local key list. */
+export function dialImageStorageKeys(storedKeys: readonly string[]): string[] {
+  const keys: string[] = [];
+  for (const key of storedKeys) {
+    if (bookmarkIdFromImageKey(key)) keys.push(key);
+  }
+  return keys;
 }
 
 export function imageTooLargeMessage(): string {
@@ -238,6 +249,9 @@ export function previewImages(): ImagesApi {
         }
       }
       if (changed) writePreviewMap(map);
+    },
+    async clearAll() {
+      writePreviewMap({});
     },
   };
 }

@@ -30,6 +30,7 @@ import {
   clampTileSize,
   DEFAULT_LAYOUT,
   thumbnailWaitMs,
+  type DangerZoneResult,
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
@@ -124,6 +125,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       },
       setLayout: (layout) => saveLayout(layout),
       setDefaultFolderId: (id) => saveDefaultFolderId(id),
+      resetToDefaults: () => resetToDefaults(),
+      eraseAllData: () => eraseAllData(),
     });
 
   const syncThumbnailActive = async (preferEnabled: boolean): Promise<boolean> => {
@@ -477,6 +480,63 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.error = errorText(error);
       draw();
     }
+  };
+
+  const revokeOptionalPermissions = async (layout: LayoutSettings): Promise<void> => {
+    if (layout.imageUrlFetchEnabled) {
+      try {
+        await ports.permissions.removeImageUrlFetchAccess();
+      } catch {
+        // Best-effort; defaults still apply.
+      }
+    }
+    if (layout.thumbnailsEnabled) {
+      try {
+        await ports.permissions.removeThumbnailAccess();
+      } catch {
+        // Best-effort; defaults still apply.
+      }
+    }
+  };
+
+  const resetToDefaults = async (): Promise<DangerZoneResult> => {
+    const previous = state.layout;
+    await revokeOptionalPermissions(previous);
+    const layout = { ...DEFAULT_LAYOUT };
+    state.layout = layout;
+    state.defaultFolderId = null;
+    state.thumbnailsActive = false;
+    state.imageUrlFetchActive = false;
+    state.error = null;
+    draw();
+    try {
+      await ports.settings.resetToDefaults();
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+    return { layout, defaultFolderId: null };
+  };
+
+  const eraseAllData = async (): Promise<DangerZoneResult> => {
+    const previous = state.layout;
+    await revokeOptionalPermissions(previous);
+    const layout = { ...DEFAULT_LAYOUT };
+    state.layout = layout;
+    state.defaultFolderId = null;
+    state.images = {};
+    state.thumbnailsActive = false;
+    state.imageUrlFetchActive = false;
+    state.error = null;
+    draw();
+    try {
+      await ports.settings.clearAll();
+      await ports.images.clearAll();
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+    return { layout, defaultFolderId: null };
   };
 
   const saveForm = async (input: { title: string; url: string }) => {

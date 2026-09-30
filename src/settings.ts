@@ -56,7 +56,33 @@ export type SettingsApi = {
   setDefaultFolderId(id: string | null): Promise<void>;
   getLayout(): Promise<LayoutSettings>;
   setLayout(layout: LayoutSettings): Promise<void>;
+  /**
+   * Restore layout + default-folder prefs to product defaults.
+   * Preserves last-open folder (`openFolderId`). Does not touch dial images.
+   */
+  resetToDefaults(): Promise<LayoutSettings>;
+  /**
+   * Remove the entire settings blob (layout, default folder, last-open).
+   * Does not touch dial image keys — pair with ImagesApi.clearAll for Erase.
+   */
+  clearAll(): Promise<void>;
 };
+
+/** Result applied to Settings UI after Reset or Erase. */
+export type DangerZoneResult = {
+  layout: LayoutSettings;
+  defaultFolderId: string | null;
+};
+
+export const RESET_DEFAULTS_TITLE = "Reset to defaults?";
+export const RESET_DEFAULTS_MESSAGE =
+  "Restore layout, display, and picture preferences to product defaults. Your bookmarks and dial pictures stay.";
+export const RESET_DEFAULTS_CONFIRM = "Reset";
+
+export const ERASE_ALL_TITLE = "Erase all data?";
+export const ERASE_ALL_MESSAGE =
+  "Permanently clear all Hearth settings and stored dial pictures in this browser profile. Your Chrome bookmarks are not deleted.";
+export const ERASE_ALL_CONFIRM = "Erase all data";
 
 export function clampColumns(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_LAYOUT.columns;
@@ -233,6 +259,21 @@ export function previewSettings(): SettingsApi {
         imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
         thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
       });
+    },
+    async resetToDefaults() {
+      writeStored({
+        columns: DEFAULT_LAYOUT.columns,
+        tileSize: DEFAULT_LAYOUT.tileSize,
+        reverseOrder: DEFAULT_LAYOUT.reverseOrder,
+        thumbnailsEnabled: DEFAULT_LAYOUT.thumbnailsEnabled,
+        imageUrlFetchEnabled: DEFAULT_LAYOUT.imageUrlFetchEnabled,
+        thumbnailWaitSeconds: DEFAULT_LAYOUT.thumbnailWaitSeconds,
+        defaultFolderId: null,
+      });
+      return { ...DEFAULT_LAYOUT };
+    },
+    async clearAll() {
+      localStorage.removeItem(STORAGE_KEY);
     },
   };
 }

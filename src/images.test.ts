@@ -4,6 +4,7 @@ import {
   bookmarkIdFromImageKey,
   collectImages,
   dataUrlByteLength,
+  dialImageStorageKeys,
   fetchImageAsDataUrl,
   IMAGE_KEY_PREFIX,
   imageSourceUrl,
@@ -63,6 +64,19 @@ test("orphanImageKeys lists pictures whose bookmarks are gone", () => {
     `${IMAGE_KEY_PREFIX}`,
   ];
   assert.deepEqual(orphanImageKeys(keys, new Set(["11", "12"])), [`${IMAGE_KEY_PREFIX}99`]);
+});
+
+test("dialImageStorageKeys lists only dial picture keys", () => {
+  assert.deepEqual(
+    dialImageStorageKeys([
+      "settings",
+      `${IMAGE_KEY_PREFIX}11`,
+      `${IMAGE_KEY_PREFIX}`,
+      "other",
+      `${IMAGE_KEY_PREFIX}99`,
+    ]),
+    [`${IMAGE_KEY_PREFIX}11`, `${IMAGE_KEY_PREFIX}99`],
+  );
 });
 
 test("imageSourceUrl accepts only http(s)", () => {
