@@ -1,6 +1,10 @@
 import type { CreateKind, ViewModel } from "./present.ts";
 import { confirmDialog, openDialog, type DialogHandle } from "./dialog.ts";
-import { imagePickerAccept } from "./images.ts";
+import {
+  formatDialStorageUsage,
+  imagePickerAccept,
+  type ImageStorageUsage,
+} from "./images.ts";
 import {
   chromeBeforeIdFromDisplayDrop,
   folderDropZone,
@@ -46,6 +50,8 @@ export type ViewActions = {
   resetToDefaults(): void | Promise<DangerZoneResult>;
   /** Clear extension settings + dial pictures (never bookmarks). */
   eraseAllData(): void | Promise<DangerZoneResult>;
+  /** Local dial-picture storage footprint for the Settings usage line. */
+  getImageStorageUsage(): Promise<ImageStorageUsage>;
 };
 
 type MenuTarget = {
@@ -381,6 +387,19 @@ function openSettingsDialog(
   waitHelp.textContent =
     "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
   picturesCategory.append(waitHelp);
+  const storageUsage = document.createElement("span");
+  storageUsage.className = "settings-help settings-storage-usage";
+  storageUsage.textContent = "Measuring dial picture storage…";
+  picturesCategory.append(storageUsage);
+  void Promise.resolve(actions.getImageStorageUsage())
+    .then((usage) => {
+      if (!storageUsage.isConnected) return;
+      storageUsage.textContent = formatDialStorageUsage(usage);
+    })
+    .catch(() => {
+      if (!storageUsage.isConnected) return;
+      storageUsage.textContent = "Dial picture storage usage is unavailable right now.";
+    });
   body.append(picturesCategory);
 
   // Danger Zone must always remain last if new settings categories are added.

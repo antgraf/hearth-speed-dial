@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { chromeBookmarks, chromeImages, chromeSettings } from "./browser.ts";
-import { IMAGE_KEY_PREFIX } from "./images.ts";
+import {
+  IMAGE_KEY_PREFIX,
+  imageStorageWriteFailedMessage,
+} from "./images.ts";
 import { DEFAULT_LAYOUT } from "./settings.ts";
 
 type StorageBag = Record<string, unknown>;
@@ -18,8 +21,11 @@ type FakeChrome = {
       get: (keys: string | string[] | null) => Promise<StorageBag>;
       set: (items: StorageBag) => Promise<void>;
       remove: (keys: string | string[]) => Promise<void>;
+      getBytesInUse: (keys: string | string[] | null) => Promise<number>;
+      QUOTA_BYTES: number;
       store: StorageBag;
       calls: string[];
+      setError?: Error | null;
     };
   };
 };
@@ -32,7 +38,10 @@ afterEach(() => {
   delete (globalThis as unknown as { chrome?: FakeChrome }).chrome;
 });
 
-function fakeChrome(initialStore: StorageBag = {}): FakeChrome {
+function fakeChrome(
+  initialStore: StorageBag = {},
+  options: { quotaBytes?: number; setError?: Error | null } = {},
+): FakeChrome {
   const store: StorageBag = { ...initialStore };
   const bookmarkCalls: string[] = [];
   const storageCalls: string[] = [];
@@ -60,6 +69,8 @@ function fakeChrome(initialStore: StorageBag = {}): FakeChrome {
       local: {
         store,
         calls: storageCalls,
+        QUOTA_BYTES: options.quotaBytes ?? 10_485_760,
+        setError: options.setError ?? null,
         async get(keys) {
           storageCalls.push(`get:${JSON.stringify(keys)}`);
           if (keys === null) return { ...store };
@@ -74,12 +85,25 @@ function fakeChrome(initialStore: StorageBag = {}): FakeChrome {
         },
         async set(items) {
           storageCalls.push(`set:${Object.keys(items).sort().join(",")}`);
+          if (this.setError) throw this.setError;
           Object.assign(store, items);
         },
         async remove(keys) {
           const list = typeof keys === "string" ? [keys] : keys;
           storageCalls.push(`remove:${list.slice().sort().join(",")}`);
           for (const key of list) delete store[key];
+        },
+        async getBytesInUse(keys) {
+          storageCalls.push(`getBytesInUse:${JSON.stringify(keys)}`);
+          const list =
+            keys === null ? Object.keys(store) : typeof keys === "string" ? [keys] : keys;
+          let total = 0;
+          for (const key of list) {
+            const value = store[key];
+            if (typeof value === "string") total += value.length;
+            else if (value != null) total += JSON.stringify(value).length;
+          }
+          return total;
         },
       },
     },
@@ -172,4 +196,66 @@ test("P1-4 chromeImages.clearAll removes only hearth.image.* keys", async () => 
   assert.match(removeCall, new RegExp(`${IMAGE_KEY_PREFIX}99`));
   assert.ok(!removeCall.includes("settings"));
   assert.ok(!removeCall.includes("hearth.other"));
+});
+
+test("chromeImages.setImage maps quota errors to honest UX copy", async () => {
+  const fake = fakeChrome(
+    {},
+    { setError: new Error("QUOTA_BYTES quota exceeded") },
+  );
+  installChrome(fake);
+  const api = chromeImages();
+
+  await assert.rejects(
+    () => api.setImage("11", "data:image/png;base64,aa=="),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message === imageStorageWriteFailedMessage(new Error("QUOTA_BYTES quota exceeded")),
+  );
+  assert.equal(`${IMAGE_KEY_PREFIX}11` in fake.storage.local.store, false);
+});
+
+test("chromeImages.setImage maps generic write failures to honest UX copy", async () => {
+  const fake = fakeChrome({}, { setError: new Error("disk I/O failed") });
+  installChrome(fake);
+  const api = chromeImages();
+
+  await assert.rejects(
+    () => api.setImage("11", "data:image/png;base64,aa=="),
+    (error: unknown) =>
+      error instanceof Error && error.message === imageStorageWriteFailedMessage(),
+  );
+});
+
+test("chromeImages.getUsage reports dial-picture bytes and drops unlimited quotas", async () => {
+  const png = "data:image/png;base64,aa==";
+  const fake = fakeChrome(
+    {
+      settings: { columns: 4 },
+      [`${IMAGE_KEY_PREFIX}11`]: png,
+      unrelated: "ignore-me",
+    },
+    { quotaBytes: Number.MAX_SAFE_INTEGER },
+  );
+  installChrome(fake);
+  const api = chromeImages();
+
+  const usage = await api.getUsage();
+  assert.equal(usage.bytesUsed, png.length);
+  assert.equal(usage.bytesQuota, null);
+  assert.ok(fake.storage.local.calls.some((c) => c.startsWith("getBytesInUse:")));
+});
+
+test("chromeImages.getUsage keeps a meaningful finite quota", async () => {
+  const png = "data:image/png;base64,aa==";
+  const fake = fakeChrome(
+    { [`${IMAGE_KEY_PREFIX}11`]: png },
+    { quotaBytes: 10_485_760 },
+  );
+  installChrome(fake);
+  const api = chromeImages();
+
+  const usage = await api.getUsage();
+  assert.equal(usage.bytesUsed, png.length);
+  assert.equal(usage.bytesQuota, 10_485_760);
 });

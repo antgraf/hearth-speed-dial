@@ -152,6 +152,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       setDefaultFolderId: (id) => saveDefaultFolderId(id),
       resetToDefaults: () => resetToDefaults(),
       eraseAllData: () => eraseAllData(),
+      getImageStorageUsage: () => ports.images.getUsage(),
     });
 
   const syncThumbnailActive = async (preferEnabled: boolean): Promise<boolean> => {

@@ -182,6 +182,12 @@ function fakeImages(initial: Record<string, string> = {}): ImagesApi & { calls: 
       calls.push("clearAll");
       for (const key of Object.keys(map)) delete map[key];
     },
+    async getUsage() {
+      calls.push("getUsage");
+      let bytesUsed = 0;
+      for (const dataUrl of Object.values(map)) bytesUsed += dataUrl.length;
+      return { bytesUsed, bytesQuota: null };
+    },
   };
 }
 
@@ -757,5 +763,46 @@ test("P2-4 reload drops stale getTree responses when a newer request wins", asyn
   assert.equal(harness.views.length, viewsAfterFresh);
   assert.equal(lastGrid(harness.views).items.some((item) => item.id === "fresh"), true);
   assert.equal(lastGrid(harness.views).items.some((item) => item.id === "stale"), false);
+  harness.stop();
+});
+
+test("attachImage surfaces storage write-failure copy on the dial", async () => {
+  const { fileToDataUrl, imageStorageWriteFailedMessage } = await import("./images.ts");
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+  const file = new File([bytes], "dot.png", { type: "image/png" });
+  // Sanity: the same file encodes under the per-image cap.
+  assert.match(await fileToDataUrl(file), /^data:image\/png;base64,/i);
+
+  const images = fakeImages();
+  images.setImage = async () => {
+    images.calls.push("setImage:11");
+    throw new Error(imageStorageWriteFailedMessage(new Error("QUOTA_BYTES quota exceeded")));
+  };
+
+  const harness = await boot({ images });
+  harness.actions().attachImage("11", file);
+  for (let i = 0; i < 40; i++) {
+    const grid = lastGrid(harness.views);
+    if (grid.error) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  const grid = lastGrid(harness.views);
+  assert.equal(
+    grid.error,
+    imageStorageWriteFailedMessage(new Error("QUOTA_BYTES quota exceeded")),
+  );
+  assert.equal("11" in images.map, false);
+  harness.stop();
+});
+
+test("getImageStorageUsage reports dial-picture footprint through ViewActions", async () => {
+  const images = fakeImages({ "11": "data:image/png;base64,aa==" });
+  const harness = await boot({ images });
+  const usage = await harness.actions().getImageStorageUsage();
+  assert.equal(usage.bytesUsed, "data:image/png;base64,aa==".length);
+  assert.equal(usage.bytesQuota, null);
+  assert.ok(images.calls.includes("getUsage"));
   harness.stop();
 });

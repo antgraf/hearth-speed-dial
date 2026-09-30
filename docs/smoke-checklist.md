@@ -1,6 +1,6 @@
 # Chrome load-unpacked smoke checklist
 
-Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) and **Load unpacked** → select the repo’s `dist` folder. Expect always-on permissions: **bookmarks**, **storage**, **contextMenus**, **activeTab**. Optional **tabs** / **site access** appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
+Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) and **Load unpacked** → select the repo’s `dist` folder. Expect always-on permissions: **bookmarks**, **storage**, **unlimitedStorage**, **contextMenus**, **activeTab**. Optional **tabs** / **site access** appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
 
 ## New tab grid
 
@@ -38,6 +38,8 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 ## Local pictures / URL / thumbnails
 
 - [ ] Oversized or non-image file shows an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.
+- [ ] Settings **Pictures** shows a dial-picture local storage usage line (updates after Erase All Data clears pictures).
+- [ ] If Chrome rejects a picture write (full disk / remaining storage limits), the dial shows a clear error — not a silent miss.
 - [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. First turn on → Chrome prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL.
 - [ ] Turn **Assign pictures from URLs** off → active access is dropped; menu locks again. Turn on again → `permissions.request` runs; Chrome usually restores without a dialog after the first Allow (expected). To force a new prompt, revoke under `chrome://extensions` → Hearth → site access, then enable again.
 - [ ] **Generate dial thumbnails** off by default; first enable prompts for optional tabs + site access. Deny → setting stays off; grant → **Capture thumbnail** works (temp window opens, then closes; dial face updates). Off → on after Allow usually silent; revoke in extension details to force a new prompt.

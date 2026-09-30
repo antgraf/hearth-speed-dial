@@ -5,20 +5,26 @@ import {
   collectImages,
   dataUrlByteLength,
   dialImageStorageKeys,
+  estimateDialImageBytes,
   fetchImageAsDataUrl,
   fileToDataUrl,
+  formatDialStorageUsage,
+  formatStorageBytes,
   IMAGE_KEY_PREFIX,
   imageDownloadFailedMessage,
   imagePickerAccept,
   imageSourceUrl,
   imageStorageKey,
+  imageStorageWriteFailedMessage,
   imageTooLargeMessage,
   imageTypeMessage,
   imageUrlInvalidMessage,
   isAllowedImageType,
   isImageDataUrl,
+  isStorageQuotaError,
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
+  meaningfulStorageQuotaBytes,
   mimeFromContentType,
   orphanImageKeys,
   readImageDataUrl,
@@ -208,4 +214,43 @@ test("fileToDataUrl rejects oversized files with the size message", async () => 
     () => fileToDataUrl(file),
     (error: unknown) => error instanceof Error && error.message === imageTooLargeMessage(),
   );
+});
+
+test("isStorageQuotaError recognizes Chromium and DOM quota failures", () => {
+  assert.equal(isStorageQuotaError(new Error("QUOTA_BYTES quota exceeded")), true);
+  assert.equal(isStorageQuotaError(new Error("Resource's quota has been exceeded.")), true);
+  const dom = new Error("The quota has been exceeded.");
+  dom.name = "QuotaExceededError";
+  assert.equal(isStorageQuotaError(dom), true);
+  assert.equal(isStorageQuotaError(new Error("disk I/O failed")), false);
+  assert.equal(isStorageQuotaError(null), false);
+});
+
+test("imageStorageWriteFailedMessage distinguishes quota from other write failures", () => {
+  assert.match(
+    imageStorageWriteFailedMessage(new Error("QUOTA_BYTES quota exceeded")),
+    /out of space for dial pictures/i,
+  );
+  assert.match(imageStorageWriteFailedMessage(new Error("boom")), /Could not save that dial picture/);
+  assert.equal(imageStorageWriteFailedMessage(), imageStorageWriteFailedMessage(new Error("other")));
+});
+
+test("meaningfulStorageQuotaBytes drops unlimited sentinels", () => {
+  assert.equal(meaningfulStorageQuotaBytes(10_485_760), 10_485_760);
+  assert.equal(meaningfulStorageQuotaBytes(Number.MAX_SAFE_INTEGER), null);
+  assert.equal(meaningfulStorageQuotaBytes(0), null);
+  assert.equal(meaningfulStorageQuotaBytes(undefined), null);
+});
+
+test("formatDialStorageUsage describes used space with and without a quota", () => {
+  assert.match(
+    formatDialStorageUsage({ bytesUsed: 0, bytesQuota: null }),
+    /about 0 B of local storage.*no fixed size cap/i,
+  );
+  assert.match(
+    formatDialStorageUsage({ bytesUsed: 2 * 1024 * 1024, bytesQuota: 10_485_760 }),
+    /about 2(\.0)? MB of /,
+  );
+  assert.equal(formatStorageBytes(512), "512 B");
+  assert.equal(estimateDialImageBytes({ a: "data:image/png;base64,aa==" }), "data:image/png;base64,aa==".length);
 });

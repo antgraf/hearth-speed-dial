@@ -2,17 +2,23 @@
  * Local dial pictures live in extension storage (chrome.storage.local), keyed by
  * bookmark id. They do not sync and never leave the browser profile.
  *
- * Quota (Chrome defaults, no unlimitedStorage):
- * - chrome.storage.local total ≈ 10 MB for settings + all dial images.
+ * Quota:
+ * - Manifest requests install-time `unlimitedStorage` so dial art is not capped
+ *   by Chrome’s default ~10 MB shared `storage.local` quota.
  * - Each image is stored as a data URL (base64), ~33% larger than the file.
- * - Per-file cap below keeps several dials under the default quota without
- *   requesting unlimitedStorage. Revisit that permission only if real use hits
- *   QUOTA_BYTES.
+ * - Per-file cap below still bounds a single attach/capture; disk can still fill.
+ * - Write failures (full disk / remaining Chromium limits) surface honest UX.
  */
 export const IMAGE_KEY_PREFIX = "hearth.image.";
 
 /** Max raw file size accepted from the file picker (before data-URL encoding). */
 export const MAX_IMAGE_BYTES = 1_500_000;
+
+/**
+ * Treat Chromium `QUOTA_BYTES` above this as “effectively unlimited” (the
+ * sentinel used when `unlimitedStorage` is granted). Below it, show remaining.
+ */
+export const MEANINGFUL_STORAGE_QUOTA_BYTES = 100_000_000;
 
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
@@ -26,6 +32,16 @@ export function imagePickerAccept(): string {
   return ALLOWED_IMAGE_TYPES.join(",");
 }
 
+/** Bytes used by dial pictures in extension local storage. */
+export type ImageStorageUsage = {
+  bytesUsed: number;
+  /**
+   * Reported `chrome.storage.local` quota when finite and meaningful; null when
+   * `unlimitedStorage` (or an unknown/huge sentinel) applies.
+   */
+  bytesQuota: number | null;
+};
+
 export type ImagesApi = {
   /** All stored dial images keyed by bookmark id. */
   getAll(): Promise<Record<string, string>>;
@@ -35,6 +51,8 @@ export type ImagesApi = {
   clearMissing(existingIds: ReadonlySet<string>): Promise<void>;
   /** Remove every dial picture from extension storage. */
   clearAll(): Promise<void>;
+  /** Approximate local-storage footprint of dial pictures (for Settings). */
+  getUsage(): Promise<ImageStorageUsage>;
 };
 
 export function imageStorageKey(bookmarkId: string): string {
@@ -107,6 +125,67 @@ export function imageTooLargeMessage(): string {
 
 export function imageTypeMessage(): string {
   return "Choose a JPEG, PNG, GIF, or WebP image.";
+}
+
+/** True when Chrome / localStorage rejected a write for quota / space. */
+export function isStorageQuotaError(error: unknown): boolean {
+  if (error == null) return false;
+  const name = error instanceof Error ? error.name : "";
+  if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /quota/i.test(message) || /QUOTA_BYTES/i.test(message) || /exceeded the storage/i.test(message);
+}
+
+/**
+ * User-facing copy when persisting a dial picture fails.
+ * Distinguishes quota/full-disk from other write errors.
+ */
+export function imageStorageWriteFailedMessage(error?: unknown): string {
+  if (error !== undefined && isStorageQuotaError(error)) {
+    return "This browser profile is out of space for dial pictures. Remove some pictures or free disk space, then try again.";
+  }
+  return "Could not save that dial picture. Check that this profile has free disk space, then try again.";
+}
+
+/** Drop huge Chromium unlimited sentinels so Settings does not show fake %. */
+export function meaningfulStorageQuotaBytes(quota: number | null | undefined): number | null {
+  if (quota == null || !Number.isFinite(quota) || quota <= 0) return null;
+  if (quota >= MEANINGFUL_STORAGE_QUOTA_BYTES) return null;
+  return Math.floor(quota);
+}
+
+/** Format bytes for the Settings usage line (binary megabytes). */
+export function formatStorageBytes(bytes: number): string {
+  const safe = Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
+  if (safe < 1024) return `${Math.max(0, Math.round(safe))} B`;
+  if (safe < 1024 * 1024) {
+    const kb = safe / 1024;
+    return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
+  }
+  const mb = safe / (1024 * 1024);
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
+/** Settings help line for dial-picture local storage use. */
+export function formatDialStorageUsage(usage: ImageStorageUsage): string {
+  const used = formatStorageBytes(usage.bytesUsed);
+  const quota = meaningfulStorageQuotaBytes(usage.bytesQuota);
+  if (quota == null) {
+    return `Dial pictures use about ${used} of local storage in this profile (no fixed size cap; still limited by free disk).`;
+  }
+  return `Dial pictures use about ${used} of ${formatStorageBytes(quota)} available local storage in this profile.`;
+}
+
+/**
+ * Approximate stored size of dial-image values (data URL string length).
+ * Used by preview / tests when getBytesInUse is unavailable.
+ */
+export function estimateDialImageBytes(images: Record<string, string>): number {
+  let total = 0;
+  for (const dataUrl of Object.values(images)) {
+    total += dataUrl.length;
+  }
+  return total;
 }
 
 export function imageUrlInvalidMessage(): string {
@@ -236,7 +315,11 @@ export function previewImages(): ImagesApi {
       if (!valid) throw new Error("That file could not be stored as an image.");
       const map = await this.getAll();
       map[bookmarkId] = valid;
-      writePreviewMap(map);
+      try {
+        writePreviewMap(map);
+      } catch (error) {
+        throw new Error(imageStorageWriteFailedMessage(error), { cause: error });
+      }
     },
     async clearImage(bookmarkId) {
       const map = await this.getAll();
@@ -257,6 +340,10 @@ export function previewImages(): ImagesApi {
     },
     async clearAll() {
       writePreviewMap({});
+    },
+    async getUsage() {
+      const map = await this.getAll();
+      return { bytesUsed: estimateDialImageBytes(map), bytesQuota: null };
     },
   };
 }
