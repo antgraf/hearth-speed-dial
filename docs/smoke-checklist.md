@@ -14,7 +14,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 - [ ] Tile **⋮** sits on the meta row (Folder / domain); menu: **Rename**, **Picture…**, **Delete** (delete confirms in a dialog).
 - [ ] **Picture…** offers **Attach file…**, **Image from URL…**, and (for http(s) bookmarks) **Capture thumbnail** — URL and capture items disabled with “enable in Settings” until each opt-in is on.
 - [ ] Current-folder breadcrumb **⋮** offers the same actions (including Picture); Chrome root has no menu.
-- [ ] New-tab **gear** opens Settings in the in-page dialog overlay (columns, tile size, thumbnail wait, default folder for new windows, reverse order, **Generate dial thumbnails**, **Assign pictures from URLs**). `settings.html` remains available as the extension options page.
+- [ ] New-tab **gear** opens Settings in the in-page dialog overlay (categorized: layout sliders, display switches / default folder, picture switches + wait slider). `settings.html` remains available as the extension options page.
 
 ## Drag
 
@@ -24,11 +24,14 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 
 ## Grid settings
 
-- [ ] In the Settings overlay: change **Columns** and **Tile size** (16:9 faces, size up to 576); layout updates on the open new tab.
-- [ ] Close and reopen Settings: **Tile size** slider sits at the saved width (not the middle/default).
+- [ ] In the Settings overlay: **Layout / Display / Pictures** categories; panel scrolls when content is tall.
+- [ ] **Columns**, **Tile size**, and **Thumbnail wait** are all sliders (columns 1–8; wait 1–15; tile size unchanged). Layout updates on the open new tab.
+- [ ] Close and reopen Settings: **Tile size** (and other) sliders sit at the saved values (not the middle/default).
+- [ ] Boolean prefs use switch toggles (not checkboxes): reverse order, thumbnails, URL pictures.
 - [ ] **Thumbnail wait** defaults to 2s (range 1–15); raising it delays the screenshot so slow pages can paint.
 - [ ] **Default folder for new windows** unset → new tab recalls last open; set to a folder → new tab / new window opens there; navigating still updates last-open; missing folder falls back gracefully.
 - [ ] Toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.
+- [ ] Dial face / photo corner radius is subtle (~2% of tile width), not a large rounded rect.
 
 ## Local pictures / URL / thumbnails
 

@@ -68,81 +68,24 @@ export function startSettings(
       void save();
     });
 
-    const reverse = document.createElement("input");
-    reverse.type = "checkbox";
-    reverse.name = "reverseOrder";
-    reverse.checked = layout.reverseOrder;
-    reverse.id = "reverseOrder";
-    reverse.disabled = saving;
-    const reverseLabel = document.createElement("label");
-    reverseLabel.className = "settings-check";
-    reverseLabel.htmlFor = "reverseOrder";
-    const reverseText = document.createElement("span");
-    reverseText.className = "settings-check-text";
-    const reverseCaption = document.createElement("span");
-    reverseCaption.className = "settings-check-title";
-    reverseCaption.textContent = "Show last bookmarks first";
-    const reverseHelp = document.createElement("span");
-    reverseHelp.className = "settings-help";
-    reverseHelp.textContent = "Newest or last-listed bookmarks appear at the start of the grid.";
-    reverseText.append(reverseCaption, reverseHelp);
-    reverseLabel.append(reverse, reverseText);
-    form.append(reverseLabel);
-
-    const thumbnails = document.createElement("input");
-    thumbnails.type = "checkbox";
-    thumbnails.name = "thumbnailsEnabled";
-    thumbnails.checked = layout.thumbnailsEnabled;
-    thumbnails.id = "thumbnailsEnabled";
-    thumbnails.disabled = saving;
-    const thumbnailsLabel = document.createElement("label");
-    thumbnailsLabel.className = "settings-check";
-    thumbnailsLabel.htmlFor = "thumbnailsEnabled";
-    const thumbnailsText = document.createElement("span");
-    thumbnailsText.className = "settings-check-text";
-    const thumbnailsCaption = document.createElement("span");
-    thumbnailsCaption.className = "settings-check-title";
-    thumbnailsCaption.textContent = "Generate dial thumbnails";
-    const thumbnailsHelp = document.createElement("span");
-    thumbnailsHelp.className = "settings-help";
-    thumbnailsHelp.textContent =
-      "Off by default. The first time you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded.";
-    thumbnailsText.append(thumbnailsCaption, thumbnailsHelp);
-    thumbnailsLabel.append(thumbnails, thumbnailsText);
-    form.append(thumbnailsLabel);
-
-    const imageUrlFetch = document.createElement("input");
-    imageUrlFetch.type = "checkbox";
-    imageUrlFetch.name = "imageUrlFetchEnabled";
-    imageUrlFetch.checked = layout.imageUrlFetchEnabled;
-    imageUrlFetch.id = "imageUrlFetchEnabled";
-    imageUrlFetch.disabled = saving;
-    const imageUrlFetchLabel = document.createElement("label");
-    imageUrlFetchLabel.className = "settings-check";
-    imageUrlFetchLabel.htmlFor = "imageUrlFetchEnabled";
-    const imageUrlFetchText = document.createElement("span");
-    imageUrlFetchText.className = "settings-check-text";
-    const imageUrlFetchCaption = document.createElement("span");
-    imageUrlFetchCaption.className = "settings-check-title";
-    imageUrlFetchCaption.textContent = "Assign pictures from URLs";
-    const imageUrlFetchHelp = document.createElement("span");
-    imageUrlFetchHelp.className = "settings-help";
-    imageUrlFetchHelp.textContent =
-      "Off by default. The first time you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking.";
-    imageUrlFetchText.append(imageUrlFetchCaption, imageUrlFetchHelp);
-    imageUrlFetchLabel.append(imageUrlFetch, imageUrlFetchText);
-    form.append(imageUrlFetchLabel);
+    const layoutCategory = category("Layout");
 
     const columns = document.createElement("input");
-    columns.type = "number";
     columns.name = "columns";
-    columns.min = String(LAYOUT_LIMITS.columns.min);
-    columns.max = String(LAYOUT_LIMITS.columns.max);
-    columns.step = "1";
-    columns.value = String(layout.columns);
+    bindRangeInput(columns, {
+      min: LAYOUT_LIMITS.columns.min,
+      max: LAYOUT_LIMITS.columns.max,
+      step: 1,
+      value: layout.columns,
+    });
     columns.disabled = saving;
     columns.setAttribute("aria-label", "Columns");
-    form.append(labeled("Columns", columns));
+    layoutCategory.append(labeled("Columns", columns));
+    syncRangeInputValue(columns, layout.columns);
+    const columnsHelp = document.createElement("span");
+    columnsHelp.className = "settings-help";
+    columnsHelp.textContent = "Number of dial columns (1–8).";
+    layoutCategory.append(columnsHelp);
 
     const tileSize = document.createElement("input");
     tileSize.name = "tileSize";
@@ -154,29 +97,31 @@ export function startSettings(
     });
     tileSize.disabled = saving;
     tileSize.setAttribute("aria-label", "Tile size");
-    form.append(labeled("Tile size", tileSize));
+    layoutCategory.append(labeled("Tile size", tileSize));
     syncRangeInputValue(tileSize, layout.tileSize);
     const tileHelp = document.createElement("span");
     tileHelp.className = "settings-help";
     tileHelp.textContent =
       "Width of each dial face (96–576px). Faces use a 16:9 aspect ratio.";
-    form.append(tileHelp);
+    layoutCategory.append(tileHelp);
+    form.append(layoutCategory);
 
-    const thumbnailWait = document.createElement("input");
-    thumbnailWait.type = "number";
-    thumbnailWait.name = "thumbnailWaitSeconds";
-    thumbnailWait.min = String(LAYOUT_LIMITS.thumbnailWaitSeconds.min);
-    thumbnailWait.max = String(LAYOUT_LIMITS.thumbnailWaitSeconds.max);
-    thumbnailWait.step = String(LAYOUT_LIMITS.thumbnailWaitSeconds.step);
-    thumbnailWait.value = String(layout.thumbnailWaitSeconds);
-    thumbnailWait.disabled = saving;
-    thumbnailWait.setAttribute("aria-label", "Thumbnail wait (seconds)");
-    form.append(labeled("Thumbnail wait (seconds)", thumbnailWait));
-    const waitHelp = document.createElement("span");
-    waitHelp.className = "settings-help";
-    waitHelp.textContent =
-      "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
-    form.append(waitHelp);
+    const displayCategory = category("Display");
+
+    const reverse = document.createElement("input");
+    reverse.type = "checkbox";
+    reverse.name = "reverseOrder";
+    reverse.checked = layout.reverseOrder;
+    reverse.id = "reverseOrder";
+    reverse.disabled = saving;
+    reverse.setAttribute("role", "switch");
+    displayCategory.append(
+      switchControl(
+        reverse,
+        "Show last bookmarks first",
+        "Newest or last-listed bookmarks appear at the start of the grid.",
+      ),
+    );
 
     const defaultFolder = document.createElement("select");
     defaultFolder.name = "defaultFolderId";
@@ -204,19 +149,74 @@ export function startSettings(
     } else {
       defaultFolder.value = "";
     }
-    form.append(labeledSelect("Default folder for new windows", defaultFolder));
+    displayCategory.append(labeledSelect("Default folder for new windows", defaultFolder));
     const folderHelp = document.createElement("span");
     folderHelp.className = "settings-help";
     folderHelp.textContent =
       "Unset keeps recalling the last folder you had open. Set a folder and each new window / new tab starts there; navigating still updates last-open for when this is unset.";
-    form.append(folderHelp);
+    displayCategory.append(folderHelp);
+    form.append(displayCategory);
 
+    const picturesCategory = category("Pictures");
+
+    const thumbnails = document.createElement("input");
+    thumbnails.type = "checkbox";
+    thumbnails.name = "thumbnailsEnabled";
+    thumbnails.checked = layout.thumbnailsEnabled;
+    thumbnails.id = "thumbnailsEnabled";
+    thumbnails.disabled = saving;
+    thumbnails.setAttribute("role", "switch");
+    picturesCategory.append(
+      switchControl(
+        thumbnails,
+        "Generate dial thumbnails",
+        "Off by default. The first time you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded.",
+      ),
+    );
+
+    const imageUrlFetch = document.createElement("input");
+    imageUrlFetch.type = "checkbox";
+    imageUrlFetch.name = "imageUrlFetchEnabled";
+    imageUrlFetch.checked = layout.imageUrlFetchEnabled;
+    imageUrlFetch.id = "imageUrlFetchEnabled";
+    imageUrlFetch.disabled = saving;
+    imageUrlFetch.setAttribute("role", "switch");
+    picturesCategory.append(
+      switchControl(
+        imageUrlFetch,
+        "Assign pictures from URLs",
+        "Off by default. The first time you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking.",
+      ),
+    );
+
+    const thumbnailWait = document.createElement("input");
+    thumbnailWait.name = "thumbnailWaitSeconds";
+    bindRangeInput(thumbnailWait, {
+      min: LAYOUT_LIMITS.thumbnailWaitSeconds.min,
+      max: LAYOUT_LIMITS.thumbnailWaitSeconds.max,
+      step: LAYOUT_LIMITS.thumbnailWaitSeconds.step,
+      value: layout.thumbnailWaitSeconds,
+    });
+    thumbnailWait.disabled = saving;
+    thumbnailWait.setAttribute("aria-label", "Thumbnail wait (seconds)");
+    picturesCategory.append(labeled("Thumbnail wait (seconds)", thumbnailWait));
+    syncRangeInputValue(thumbnailWait, layout.thumbnailWaitSeconds);
+    const waitHelp = document.createElement("span");
+    waitHelp.className = "settings-help";
+    waitHelp.textContent =
+      "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
+    picturesCategory.append(waitHelp);
+    form.append(picturesCategory);
+
+    const actions = document.createElement("div");
+    actions.className = "settings-actions";
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.className = "primary";
     submit.textContent = saving ? "Saving…" : "Save";
     submit.disabled = saving;
-    form.append(submit);
+    actions.append(submit);
+    form.append(actions);
 
     frame.append(form);
   };
@@ -360,8 +360,40 @@ export function startSettings(
   })();
 }
 
+function category(title: string): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "settings-category";
+  const heading = document.createElement("h2");
+  heading.className = "settings-category-title";
+  heading.textContent = title;
+  section.append(heading);
+  return section;
+}
+
+function switchControl(
+  input: HTMLInputElement,
+  title: string,
+  help: string,
+): HTMLLabelElement {
+  const label = document.createElement("label");
+  label.className = "settings-switch";
+  if (input.id) label.htmlFor = input.id;
+  const text = document.createElement("span");
+  text.className = "settings-switch-text";
+  const caption = document.createElement("span");
+  caption.className = "settings-switch-title";
+  caption.textContent = title;
+  const helpEl = document.createElement("span");
+  helpEl.className = "settings-help";
+  helpEl.textContent = help;
+  text.append(caption, helpEl);
+  label.append(input, text);
+  return label;
+}
+
 function labeled(labelText: string, control: HTMLInputElement): HTMLLabelElement {
   const label = document.createElement("label");
+  label.className = "settings-field";
   const caption = document.createElement("span");
   caption.textContent = labelText;
   label.append(caption, control);
@@ -370,6 +402,7 @@ function labeled(labelText: string, control: HTMLInputElement): HTMLLabelElement
 
 function labeledSelect(labelText: string, control: HTMLSelectElement): HTMLLabelElement {
   const label = document.createElement("label");
+  label.className = "settings-field";
   const caption = document.createElement("span");
   caption.textContent = labelText;
   label.append(caption, control);

@@ -38,7 +38,7 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
 export const TILE_ASPECT = 16 / 9;
 
 export const LAYOUT_LIMITS = {
-  columns: { min: 2, max: 8 },
+  columns: { min: 1, max: 8 },
   /** Width in CSS pixels of the 16:9 dial face. */
   tileSize: { min: 96, max: 576 },
   /** Seconds to wait after opening the capture tab before screenshot. */
