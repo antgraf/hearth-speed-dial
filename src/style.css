@@ -375,7 +375,25 @@ h1 {
 }
 
 .dialog-panel.settings-dialog {
-  width: min(380px, 100%);
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100%);
+  max-height: min(85vh, 640px);
+  padding-bottom: 16px;
+}
+
+.dialog-panel.settings-dialog .dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.dialog-panel.settings-dialog .dialog-footer {
+  flex: 0 0 auto;
+  margin-top: 14px;
+  padding-top: 4px;
 }
 
 .dialog-title {
@@ -441,23 +459,44 @@ h1 {
   accent-color: var(--ember);
 }
 
-.settings-dialog-form .settings-check {
+.settings-dialog-form {
+  gap: 18px;
+}
+
+.settings-dialog-form .settings-category {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-dialog-form .settings-category-title {
+  margin: 0;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+  color: var(--brass);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-dialog-form .settings-switch {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   color: var(--text);
   font-size: 15px;
 }
 
-.settings-dialog-form .settings-check-text {
+.settings-dialog-form .settings-switch-text {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.settings-dialog-form .settings-check-title {
+.settings-dialog-form .settings-switch-title {
   color: var(--text);
   font-size: 15px;
   line-height: 1.35;
@@ -470,16 +509,12 @@ h1 {
   line-height: 1.4;
 }
 
-.settings-dialog-form .settings-check .settings-help {
+.settings-dialog-form .settings-switch .settings-help {
   margin: 0;
 }
 
-.settings-dialog-form > .settings-help {
-  margin-top: -4px;
-}
-
-.settings-dialog-form input[type="number"] {
-  width: 4.5rem;
+.settings-dialog-form .settings-field .settings-help {
+  margin-top: 0;
 }
 
 .settings-dialog-form select {
@@ -495,6 +530,10 @@ h1 {
 
 .settings-dialog-form input[type="range"] {
   width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   accent-color: var(--ember);
 }
 
@@ -538,6 +577,10 @@ h1 {
   flex: 0 0 auto;
 }
 
+.settings-page {
+  max-height: none;
+}
+
 .settings-page .settings-intro,
 .settings-page .settings-help,
 .settings-page .settings-saved {
@@ -552,10 +595,32 @@ h1 {
 .settings-form {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: stretch;
+  gap: 22px;
   margin-top: 24px;
-  max-width: 28rem;
+  max-width: 32rem;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  padding-bottom: 8px;
+}
+
+.settings-form .settings-category {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-form .settings-category-title {
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--brass);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .settings-form label {
@@ -566,48 +631,30 @@ h1 {
   font-size: 12px;
 }
 
-.settings-form .settings-check {
+.settings-form .settings-switch {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   color: var(--text);
   font-size: 15px;
 }
 
-.settings-form .settings-check input[type="checkbox"] {
-  width: auto;
-  flex: 0 0 auto;
-  align-self: start;
-  margin: 0.2em 0 0;
-  accent-color: var(--ember);
-}
-
-.settings-form .settings-check-text {
+.settings-form .settings-switch-text {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.settings-form .settings-check-title {
+.settings-form .settings-switch-title {
   color: var(--text);
   font-size: 15px;
   line-height: 1.35;
 }
 
-.settings-form input[type="number"] {
-  width: 4.5rem;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--raise);
-  color: var(--text);
-  font: inherit;
-}
-
 .settings-form select {
-  width: min(280px, 100%);
+  width: min(320px, 100%);
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -617,7 +664,10 @@ h1 {
 }
 
 .settings-form input[type="range"] {
-  width: min(220px, 40vw);
+  width: min(280px, 100%);
+  padding: 0;
+  border: 0;
+  background: transparent;
   accent-color: var(--ember);
 }
 
@@ -627,12 +677,69 @@ h1 {
   line-height: 1.4;
 }
 
-.settings-form .settings-check .settings-help {
+.settings-form .settings-switch .settings-help {
   margin: 0;
 }
 
-.settings-form > .settings-help {
-  margin-top: -8px;
+.settings-form .settings-actions {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+/* Shared modern switch (checkbox + role=switch). */
+.settings-switch input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  align-self: start;
+  width: 40px;
+  height: 24px;
+  margin: 1px 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #2a2420;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-switch input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.settings-switch input[type="checkbox"]:checked {
+  border-color: var(--ember);
+  background: var(--ember);
+}
+
+.settings-switch input[type="checkbox"]:checked::before {
+  transform: translateX(16px);
+  background: var(--ember-ink);
+}
+
+.settings-switch input[type="checkbox"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-switch input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.dialog-form .settings-switch input[type="checkbox"] {
+  width: 40px;
+  background: #2a2420;
 }
 
 .grid {
@@ -695,7 +802,7 @@ div.tile-main {
   width: min(100%, var(--tile-size));
   aspect-ratio: var(--tile-aspect);
   height: auto;
-  border-radius: calc(var(--tile-size) * 0.08);
+  border-radius: calc(var(--tile-size) * 0.02);
   background: var(--mark-bg);
   color: var(--mark);
   font-size: calc(var(--tile-size) * 9 / 16 * 0.52);

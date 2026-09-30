@@ -34,8 +34,12 @@ test("defaults match the layout constants", () => {
 });
 
 test("columns and tile size clamp to the allowed ranges", () => {
+  assert.equal(LAYOUT_LIMITS.columns.min, 1);
+  assert.equal(LAYOUT_LIMITS.columns.max, 8);
   assert.equal(clampColumns(LAYOUT_LIMITS.columns.min - 3), LAYOUT_LIMITS.columns.min);
   assert.equal(clampColumns(LAYOUT_LIMITS.columns.max + 3), LAYOUT_LIMITS.columns.max);
+  assert.equal(clampColumns(0), 1);
+  assert.equal(clampColumns(1), 1);
   assert.equal(clampColumns(4.6), 5);
   assert.equal(clampColumns(Number.NaN), DEFAULT_LAYOUT.columns);
 
