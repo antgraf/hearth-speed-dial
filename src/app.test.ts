@@ -49,11 +49,14 @@ function layout(partial: Partial<LayoutSettings> = {}): LayoutSettings {
 function fakeBookmarks(tree: BookmarkNode[] = sampleTree()): BookmarksApi & {
   calls: CallLog;
   tree: BookmarkNode[];
+  listeners: Array<() => void>;
 } {
   const calls: CallLog = [];
+  const listeners: Array<() => void> = [];
   return {
     calls,
     tree,
+    listeners,
     async getTree() {
       calls.push("getTree");
       return tree;
@@ -90,9 +93,13 @@ function fakeBookmarks(tree: BookmarkNode[] = sampleTree()): BookmarksApi & {
       };
       if (!removeFrom(tree)) throw new Error(`missing node ${id}`);
     },
-    subscribe() {
+    subscribe(listener) {
       calls.push("subscribe");
-      return () => undefined;
+      listeners.push(listener);
+      return () => {
+        const index = listeners.indexOf(listener);
+        if (index >= 0) listeners.splice(index, 1);
+      };
     },
   };
 }
@@ -685,5 +692,70 @@ test("P1-3 declined delete confirm calls nothing", async () => {
   assert.deepEqual(bookmarks.calls, bookmarkCallsBefore);
   assert.deepEqual(images.calls, imageCallsBefore);
   assert.equal(images.map["11"], "data:image/png;base64,keep==");
+  harness.stop();
+});
+
+test("P2-4 reload drops stale getTree responses when a newer request wins", async () => {
+  const bookmarks = fakeBookmarks();
+  const harness = await boot({ bookmarks });
+  assert.equal(bookmarks.listeners.length, 1);
+  const listener = bookmarks.listeners[0];
+  assert.ok(listener);
+
+  type Gate = { resolve: (tree: BookmarkNode[]) => void };
+  const gates: Gate[] = [];
+  bookmarks.getTree = async () => {
+    bookmarks.calls.push("getTree");
+    return await new Promise<BookmarkNode[]>((resolve) => {
+      gates.push({ resolve });
+    });
+  };
+
+  // Stale request starts first.
+  listener();
+  // Newer request starts while the first is still pending.
+  listener();
+
+  for (let i = 0; i < 40; i++) {
+    if (gates.length >= 2) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  assert.equal(gates.length, 2);
+
+  const viewsBefore = harness.views.length;
+  const staleTree: BookmarkNode[] = [
+    {
+      id: "0",
+      title: "Bookmarks",
+      children: [{ id: "stale", title: "Stale Only", children: [] }],
+    },
+  ];
+  const freshTree: BookmarkNode[] = [
+    {
+      id: "0",
+      title: "Bookmarks",
+      children: [{ id: "fresh", title: "Fresh Only", children: [] }],
+    },
+  ];
+
+  // Newer (second) response arrives first.
+  gates[1]!.resolve(freshTree);
+  for (let i = 0; i < 40; i++) {
+    if (harness.views.length > viewsBefore) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  await harness.ready();
+  assert.equal(lastGrid(harness.views).items.some((item) => item.id === "fresh"), true);
+  assert.equal(lastGrid(harness.views).items.some((item) => item.id === "stale"), false);
+
+  const viewsAfterFresh = harness.views.length;
+  // Stale (first) response arrives later and must be ignored.
+  gates[0]!.resolve(staleTree);
+  for (let i = 0; i < 20; i++) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  assert.equal(harness.views.length, viewsAfterFresh);
+  assert.equal(lastGrid(harness.views).items.some((item) => item.id === "fresh"), true);
+  assert.equal(lastGrid(harness.views).items.some((item) => item.id === "stale"), false);
   harness.stop();
 });
