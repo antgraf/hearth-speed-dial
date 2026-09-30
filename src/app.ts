@@ -9,13 +9,25 @@ import {
   nodeIndex,
   openableUrl,
   parentIds,
+  refreshableThumbnailTargets,
   reorderMoveIndex,
   type BookmarkNode,
 } from "./model.ts";
-import { canDeleteNode, canRenameNode, deleteConfirmMessage, present, type AppState, type CreateKind } from "./present.ts";
+import {
+  canDeleteNode,
+  canRenameNode,
+  deleteConfirmMessage,
+  present,
+  REFRESH_ALL_THUMBNAILS_CONFIRM,
+  REFRESH_ALL_THUMBNAILS_TITLE,
+  refreshAllThumbnailsConfirmMessage,
+  type AppState,
+  type CreateKind,
+} from "./present.ts";
 import type { BookmarksApi } from "./browser.ts";
 import { confirmDialog } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
+import { isRefreshAllThumbnailsMessage } from "./messages.ts";
 import {
   imageUrlPermissionDeniedMessage,
   imageUrlUnavailableMessage,
@@ -119,6 +131,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       },
       captureThumbnail: (id) => {
         void captureThumbnail(id);
+      },
+      refreshAllThumbnails: () => {
+        void refreshAllThumbnails();
       },
       clearImage: (id) => {
         void clearImage(id);
@@ -261,20 +276,11 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     }
   };
 
-  const captureThumbnail = async (id: string) => {
-    if (state.saving) return;
-    const node = nodeIndex(state.tree).get(id);
-    if (!node || classify(node) !== "link" || !node.url) return;
-    const pageUrl = openableUrl(node.url);
-    if (!pageUrl || pageUrl.startsWith("file:")) {
-      state.error = "Thumbnails work for http:// and https:// bookmarks only.";
-      draw();
-      return;
-    }
+  const ensureThumbnailCaptureReady = async (): Promise<boolean> => {
     if (!state.layout.thumbnailsEnabled) {
       state.error = thumbnailUnavailableMessage();
       draw();
-      return;
+      return false;
     }
     const granted = await syncThumbnailActive(true);
     if (!granted) {
@@ -286,18 +292,74 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       } catch {
         // Keep the in-memory off state even if persist fails.
       }
+      return false;
+    }
+    return true;
+  };
+
+  const captureAndStoreThumbnail = async (id: string, pageUrl: string): Promise<void> => {
+    const dataUrl = await ports.capture.capturePage(
+      pageUrl,
+      thumbnailWaitMs(state.layout.thumbnailWaitSeconds),
+    );
+    await ports.images.setImage(id, dataUrl);
+    state.images = { ...state.images, [id]: dataUrl };
+  };
+
+  const captureThumbnail = async (id: string) => {
+    if (state.saving) return;
+    const node = nodeIndex(state.tree).get(id);
+    if (!node || classify(node) !== "link" || !node.url) return;
+    const pageUrl = openableUrl(node.url);
+    if (!pageUrl || pageUrl.startsWith("file:")) {
+      state.error = "Thumbnails work for http:// and https:// bookmarks only.";
+      draw();
       return;
     }
+    if (!(await ensureThumbnailCaptureReady())) return;
     state.saving = true;
     state.error = null;
     draw();
     try {
-      const dataUrl = await ports.capture.capturePage(
-        pageUrl,
-        thumbnailWaitMs(state.layout.thumbnailWaitSeconds),
-      );
-      await ports.images.setImage(id, dataUrl);
-      state.images = { ...state.images, [id]: dataUrl };
+      await captureAndStoreThumbnail(id, pageUrl);
+      state.saving = false;
+      draw();
+    } catch (error) {
+      state.saving = false;
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const refreshAllThumbnails = async () => {
+    if (state.saving) return;
+    const folder = nodeIndex(state.tree).get(state.currentId ?? "");
+    if (!folder || classify(folder) !== "folder") return;
+    const targets = refreshableThumbnailTargets(folder);
+    if (targets.length === 0) {
+      state.error = "This folder has no http:// or https:// bookmarks to refresh.";
+      draw();
+      return;
+    }
+    if (!(await ensureThumbnailCaptureReady())) return;
+    const confirmed = await confirmDialog({
+      title: REFRESH_ALL_THUMBNAILS_TITLE,
+      message: refreshAllThumbnailsConfirmMessage(targets.length),
+      confirmLabel: REFRESH_ALL_THUMBNAILS_CONFIRM,
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+    if (!confirmed) return;
+    state.form = null;
+    state.saving = true;
+    state.error = null;
+    draw();
+    try {
+      for (const target of targets) {
+        // Reuse the same single-page capture pipeline sequentially.
+        await captureAndStoreThumbnail(target.id, target.url);
+        draw();
+      }
       state.saving = false;
       draw();
     } catch (error) {
@@ -647,6 +709,20 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     state.error = errorText(error);
   }
 
+  const onRuntimeMessage = (
+    message: unknown,
+    _sender: chrome.runtime.MessageSender,
+    sendResponse: (response?: unknown) => void,
+  ): boolean => {
+    if (!isRefreshAllThumbnailsMessage(message)) return false;
+    void refreshAllThumbnails();
+    sendResponse({ ok: true });
+    return true;
+  };
+  if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener(onRuntimeMessage);
+  }
+
   void (async () => {
     try {
       const defaultFolderId = await ports.settings.getDefaultFolderId();
@@ -677,7 +753,12 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     await reload();
   })();
 
-  return unsubscribe;
+  return () => {
+    unsubscribe();
+    if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+      chrome.runtime.onMessage.removeListener(onRuntimeMessage);
+    }
+  };
 }
 
 function collectDescendantIds(node: BookmarkNode): string[] {

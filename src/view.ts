@@ -33,6 +33,8 @@ export type ViewActions = {
   attachImage(id: string, file: File): void;
   attachImageUrl(id: string, url: string): void;
   captureThumbnail(id: string): void;
+  /** Recapture http(s) bookmark thumbnails in the open folder. */
+  refreshAllThumbnails(): void;
   clearImage(id: string): void;
   /** Persist layout; may clear opt-in flags if optional permission is denied. */
   setLayout(layout: LayoutSettings): void | Promise<LayoutSettings>;
@@ -113,13 +115,11 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       const title = document.createElement("h1");
       title.textContent = crumb.title;
       current.append(title);
-      if (view.canRenameCurrent || view.canDeleteCurrent) {
-        current.append(
-          menuButton(`Actions for ${crumb.title}`, view.saving, (button) => {
-            openActionMenu(view.currentFolder, actions, button, view.thumbnailsActive, view.imageUrlFetchActive);
-          }),
-        );
-      }
+      current.append(
+        menuButton(`Actions for ${crumb.title}`, view.saving, (button) => {
+          openCurrentFolderMenu(view, actions, button);
+        }),
+      );
       nav.append(current);
       return;
     }
@@ -647,6 +647,89 @@ function openActionMenu(
     openPictureMenu(item, actions, anchor, thumbnailsActive, imageUrlFetchActive),
   );
   addItem("Delete", iconDelete(), () => actions.requestDelete(item.id), true);
+
+  const handle = openDialog({
+    panelClass: "dialog-menu",
+    body: list,
+    returnFocus: anchor,
+    closeOnBackdrop: true,
+    closeOnEscape: true,
+  });
+}
+
+function refreshableCount(items: readonly DialItem[]): number {
+  let count = 0;
+  for (const item of items) {
+    if (item.kind !== "link" || !item.url) continue;
+    const pageUrl = openableUrl(item.url);
+    if (!pageUrl) continue;
+    if (pageUrl.startsWith("http:") || pageUrl.startsWith("https:")) count += 1;
+  }
+  return count;
+}
+
+function openCurrentFolderMenu(
+  view: Extract<ViewModel, { name: "grid" }>,
+  actions: ViewActions,
+  anchor: HTMLElement,
+): void {
+  const list = document.createElement("div");
+  list.className = "dialog-menu-list";
+  list.setAttribute("role", "menu");
+
+  const addItem = (
+    label: string,
+    icon: SVGSVGElement,
+    onPick: () => void,
+    opts?: { danger?: boolean; disabled?: boolean },
+  ) => {
+    const itemButton = document.createElement("button");
+    itemButton.type = "button";
+    itemButton.className = opts?.danger ? "dialog-menu-item danger" : "dialog-menu-item";
+    itemButton.setAttribute("role", "menuitem");
+    itemButton.disabled = Boolean(opts?.disabled);
+    itemButton.append(icon, document.createTextNode(label));
+    itemButton.addEventListener("click", () => {
+      if (itemButton.disabled) return;
+      handle.close();
+      onPick();
+    });
+    list.append(itemButton);
+  };
+
+  if (view.canRenameCurrent) {
+    addItem("Rename", iconRename(), () => actions.beginEdit(view.currentFolder.id));
+  }
+  if (view.canRenameCurrent || view.canDeleteCurrent) {
+    addItem("Picture…", iconPicture(), () =>
+      openPictureMenu(
+        view.currentFolder,
+        actions,
+        anchor,
+        view.thumbnailsActive,
+        view.imageUrlFetchActive,
+      ),
+    );
+  }
+
+  const count = refreshableCount(view.items);
+  if (!view.thumbnailsActive) {
+    addItem("Refresh All Thumbnails (enable in Settings)", iconCamera(), () => undefined, {
+      disabled: true,
+    });
+  } else if (count === 0) {
+    addItem("Refresh All Thumbnails (no http bookmarks)", iconCamera(), () => undefined, {
+      disabled: true,
+    });
+  } else {
+    addItem("Refresh All Thumbnails", iconCamera(), () => actions.refreshAllThumbnails());
+  }
+
+  if (view.canDeleteCurrent) {
+    addItem("Delete", iconDelete(), () => actions.requestDelete(view.currentFolder.id), {
+      danger: true,
+    });
+  }
 
   const handle = openDialog({
     panelClass: "dialog-menu",

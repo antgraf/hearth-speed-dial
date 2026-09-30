@@ -1,16 +1,33 @@
 import { addPageQuery } from "./model.ts";
+import { refreshAllThumbnailsMessage } from "./messages.ts";
 
-const MENU_ID = "add-to-hearth";
+const ADD_MENU_ID = "add-to-hearth";
+const REFRESH_ALL_MENU_ID = "refresh-all-thumbnails";
 
 /** Popup size tuned to the Add form; CSS fills larger windows without a tiny floating card. */
 const ADD_WINDOW = { width: 420, height: 520 };
 
+/** http(s) pages only — hide Add to Hearth on chrome-extension:// dial / options pages. */
+const WEB_DOCUMENT_PATTERNS = ["http://*/*", "https://*/*"] as const;
+
+function dialDocumentPatterns(): string[] {
+  // New-tab override is index.html; query strings still match this path pattern.
+  return [chrome.runtime.getURL("index.html")];
+}
+
 function ensureMenu(): void {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: MENU_ID,
+      id: ADD_MENU_ID,
       title: "Add to Hearth…",
       contexts: ["page", "link"],
+      documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
+    });
+    chrome.contextMenus.create({
+      id: REFRESH_ALL_MENU_ID,
+      title: "Refresh All Thumbnails",
+      contexts: ["page"],
+      documentUrlPatterns: dialDocumentPatterns(),
     });
   });
 }
@@ -27,9 +44,23 @@ chrome.runtime.onStartup.addListener(() => {
 ensureMenu();
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId !== MENU_ID) return;
-  void openAddWindow(info, tab);
+  if (info.menuItemId === ADD_MENU_ID) {
+    void openAddWindow(info, tab);
+    return;
+  }
+  if (info.menuItemId === REFRESH_ALL_MENU_ID) {
+    void requestRefreshAllThumbnails(tab);
+  }
 });
+
+async function requestRefreshAllThumbnails(tab: chrome.tabs.Tab | undefined): Promise<void> {
+  if (tab?.id == null) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, refreshAllThumbnailsMessage());
+  } catch {
+    // Dial page may not be listening yet (cold load); ignore.
+  }
+}
 
 async function resolvePageTitle(
   info: chrome.contextMenus.OnClickData,

@@ -7,6 +7,7 @@ import {
   deleteConfirmMessage,
   folderHasContents,
   present,
+  refreshAllThumbnailsConfirmMessage,
   type AppState,
 } from "./present.ts";
 import { DEFAULT_LAYOUT } from "./settings.ts";
@@ -189,4 +190,11 @@ test("delete confirm messages warn harder for non-empty folders", () => {
   assert.match(deleteConfirmMessage(link), /Delete “Example”/);
   assert.match(deleteConfirmMessage(empty), /empty folder “News”/);
   assert.match(deleteConfirmMessage(filled), /everything inside it/);
+});
+
+test("refresh-all confirm mentions count and nested-folder scope", () => {
+  assert.match(refreshAllThumbnailsConfirmMessage(1), /1 bookmark/);
+  assert.match(refreshAllThumbnailsConfirmMessage(3), /3 bookmarks/);
+  assert.match(refreshAllThumbnailsConfirmMessage(3), /Nested folders are not included/);
+  assert.match(refreshAllThumbnailsConfirmMessage(3), /replaced/);
 });

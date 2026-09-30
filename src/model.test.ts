@@ -24,6 +24,7 @@ import {
   orderDialItems,
   parentIds,
   parseAddPageFields,
+  refreshableThumbnailTargets,
   reorderMoveIndex,
   siteLabel,
   type BookmarkNode,
@@ -101,6 +102,31 @@ test("dial items keep bookmark order and drop separators", () => {
       ["link", "developer.mozilla.org", "https://developer.mozilla.org/", "developer.mozilla.org"],
       ["link", "Script", null, "Unavailable link"],
     ],
+  );
+});
+
+test("refreshable thumbnail targets are direct http(s) children only", () => {
+  const news = tree[0]?.children?.[0]?.children?.[0];
+  const bar = tree[0]?.children?.[0];
+  assert.deepEqual(refreshableThumbnailTargets(news), [
+    { id: "11", url: "https://www.example.com/path" },
+    { id: "12", url: "https://developer.mozilla.org/" },
+  ]);
+  // Nested folder contents are not included when refreshing the parent folder.
+  assert.deepEqual(refreshableThumbnailTargets(bar), []);
+  assert.deepEqual(refreshableThumbnailTargets(undefined), []);
+  assert.deepEqual(
+    refreshableThumbnailTargets({
+      id: "mixed",
+      title: "Mixed",
+      children: [
+        { id: "a", title: "Ok", url: "http://example.com/" },
+        { id: "b", title: "Nested", children: [{ id: "c", title: "Deep", url: "https://deep.example/" }] },
+        { id: "d", title: "Local", url: "file:///tmp/x.html" },
+        { id: "e", title: "Bad", url: "javascript:void(0)" },
+      ],
+    }),
+    [{ id: "a", url: "http://example.com/" }],
   );
 });
 

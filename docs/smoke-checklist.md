@@ -13,7 +13,8 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 
 - [ ] Tile **⋮** sits on the meta row (Folder / domain); menu: **Rename**, **Picture…**, **Delete** (delete confirms in a dialog).
 - [ ] **Picture…** offers **Attach file…**, **Image from URL…**, and (for http(s) bookmarks) **Capture thumbnail** — URL and capture items disabled with “enable in Settings” until each opt-in is on.
-- [ ] Current-folder breadcrumb **⋮** offers the same actions (including Picture); Chrome root has no menu.
+- [ ] Current-folder breadcrumb **⋮** offers Rename / Picture / Delete when allowed, plus **Refresh All Thumbnails** (disabled with “enable in Settings” when thumbnails are off; disabled when the open folder has no http(s) bookmarks). Chrome root shows the ⋮ menu for Refresh All (no Rename/Delete).
+- [ ] **Refresh All Thumbnails** confirms before replacing dial pictures; runs the same capture path as per-tile Capture thumbnail, sequentially, for direct http(s) children only (not nested folders).
 - [ ] New-tab **gear** opens Settings in the in-page dialog overlay (categorized: layout sliders, display switches / default folder, picture switches + wait slider). `settings.html` remains available as the extension options page.
 
 ## Drag
@@ -45,6 +46,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 ## Add to Hearth (context menu)
 
 - [ ] On a normal `https` page (or link): right-click → **Add to Hearth…**.
+- [ ] On the Hearth new-tab dial page: right-click → **Refresh All Thumbnails** (not **Add to Hearth…**). Settings / Add popup pages do not show Refresh All.
 - [ ] Popup fits its content (no dual scrollbars); maximizing fills the window (not a tiny floating card).
 - [ ] **Name** prefers the page title (not only the domain); address is read-only.
 - [ ] Folder picker is a collapsible tree (collapsed by default). When Settings **default folder for new windows** is set, the picker is scoped to that folder and its descendants.
