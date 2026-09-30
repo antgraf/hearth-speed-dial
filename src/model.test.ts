@@ -12,7 +12,9 @@ import {
   chromeIndexBefore,
   classify,
   dialFolderOptions,
+  dialFolderTree,
   dialOpenFolderOptions,
+  flattenFolderTree,
   dialItems,
   folderName,
   isUnderAncestor,
@@ -211,6 +213,34 @@ test("dialFolderOptions lists nested folders and skips the chrome root", () => {
   ]);
 });
 
+test("dialFolderTree nests folders and can scope under defaultFolderId", () => {
+  assert.deepEqual(dialFolderTree(tree), [
+    {
+      id: "1",
+      title: "Bookmarks bar",
+      children: [{ id: "10", title: "News", children: [] }],
+    },
+    {
+      id: "2",
+      title: "Other bookmarks",
+      children: [{ id: "20", title: "Hearth", children: [] }],
+    },
+  ]);
+  assert.deepEqual(flattenFolderTree(dialFolderTree(tree)), dialFolderOptions(tree));
+  assert.deepEqual(dialFolderTree(tree, "20"), [
+    { id: "20", title: "Hearth", children: [] },
+  ]);
+  assert.deepEqual(dialFolderTree(tree, "1"), [
+    {
+      id: "1",
+      title: "Bookmarks bar",
+      children: [{ id: "10", title: "News", children: [] }],
+    },
+  ]);
+  assert.deepEqual(dialFolderTree(tree, "0"), dialFolderTree(tree));
+  assert.deepEqual(dialFolderTree(tree, "missing"), dialFolderTree(tree));
+});
+
 test("dialOpenFolderOptions includes the chrome root for default-folder picking", () => {
   assert.deepEqual(dialOpenFolderOptions(tree), [
     { id: "0", title: "Bookmarks", depth: 0 },
@@ -221,14 +251,41 @@ test("dialOpenFolderOptions includes the chrome root for default-folder picking"
   ]);
 });
 
-test("add page query keeps an openable url and optional title", () => {
+test("add page query keeps an openable url and prefers tab title for pages", () => {
   assert.equal(
     addPageQuery({ pageUrl: "https://example.com/path", selectionText: " Example " }),
     "url=https%3A%2F%2Fexample.com%2Fpath&title=Example",
   );
   assert.equal(
-    addPageQuery({ linkUrl: "https://news.example/", pageUrl: "https://ignored.example/" }),
+    addPageQuery({
+      pageUrl: "https://translate.google.com/",
+      tabTitle: "Google Translate",
+    }),
+    "url=https%3A%2F%2Ftranslate.google.com%2F&title=Google+Translate",
+  );
+  assert.equal(
+    addPageQuery({
+      pageUrl: "https://translate.google.com/",
+      tabTitle: "Google Translate",
+      selectionText: "ignored when tab title exists",
+    }),
+    "url=https%3A%2F%2Ftranslate.google.com%2F&title=Google+Translate",
+  );
+  assert.equal(
+    addPageQuery({
+      linkUrl: "https://news.example/",
+      pageUrl: "https://ignored.example/",
+      tabTitle: "Hosting page title",
+    }),
     "url=https%3A%2F%2Fnews.example%2F",
+  );
+  assert.equal(
+    addPageQuery({
+      linkUrl: "https://news.example/",
+      selectionText: "News link",
+      tabTitle: "Hosting page title",
+    }),
+    "url=https%3A%2F%2Fnews.example%2F&title=News+link",
   );
   assert.equal(addPageQuery({ pageUrl: "javascript:alert(1)" }), null);
   assert.equal(addPageQuery({}), null);

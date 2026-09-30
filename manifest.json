@@ -3,7 +3,7 @@
   "name": "Hearth Speed Dial",
   "version": "0.1.0",
   "description": "New tab speed dial for one folder of your bookmarks.",
-  "permissions": ["bookmarks", "storage", "contextMenus"],
+  "permissions": ["bookmarks", "storage", "contextMenus", "activeTab"],
   "optional_permissions": ["tabs"],
   "optional_host_permissions": ["<all_urls>", "http://*/*", "https://*/*"],
   "background": {

@@ -41,9 +41,11 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 ## Add to Hearth (context menu)
 
 - [ ] On a normal `https` page (or link): right-click → **Add to Hearth…**.
-- [ ] Popup lists dial folders (Chrome root not offered); name is editable; address is read-only.
+- [ ] Popup fits its content (no dual scrollbars); maximizing fills the window (not a tiny floating card).
+- [ ] **Name** prefers the page title (not only the domain); address is read-only.
+- [ ] Folder picker is a collapsible tree (collapsed by default). When Settings **default folder for new windows** is set, the picker is scoped to that folder and its descendants.
 - [ ] Choosing a folder and **Add bookmark** creates the dial there; cancel closes without adding.
-- [ ] New-tab open folder is not used unless you pick it in the popup.
+- [ ] New-tab open folder is not used unless you pick it in the popup (or it is the Settings default and thus in scope).
 
 ## Packaging sanity
 

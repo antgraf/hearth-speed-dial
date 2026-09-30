@@ -70,7 +70,7 @@ test("manifest optional lists match helpers and stay out of always-on permission
   const manifest = readManifest();
   assert.deepEqual(manifest.optional_permissions, [...MANIFEST_OPTIONAL_PERMISSIONS]);
   assert.deepEqual(manifest.optional_host_permissions, [...MANIFEST_OPTIONAL_HOST_PERMISSIONS]);
-  assert.deepEqual(manifest.permissions, ["bookmarks", "storage", "contextMenus"]);
+  assert.deepEqual(manifest.permissions, ["bookmarks", "storage", "contextMenus", "activeTab"]);
   // Host patterns must live in optional_host_permissions, not optional_permissions.
   const optionalApi = new Set<string>(manifest.optional_permissions);
   for (const host of MANIFEST_OPTIONAL_HOST_PERMISSIONS) {

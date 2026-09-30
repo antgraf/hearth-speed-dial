@@ -1,5 +1,7 @@
 import { startAdd } from "./add-app.ts";
-import { chromeBookmarks } from "./browser.ts";
+import { chromeBookmarks, chromeSettings } from "./browser.ts";
+
+document.documentElement.classList.add("add-page");
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
@@ -11,6 +13,7 @@ const bookmarksReady = typeof chrome !== "undefined" && Boolean(chrome.bookmarks
 if (bookmarksReady) {
   startAdd(host, {
     bookmarks: chromeBookmarks(),
+    settings: chromeSettings(),
     search: location.search,
     close: () => {
       window.close();
