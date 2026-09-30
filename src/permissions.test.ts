@@ -76,10 +76,12 @@ test("manifest optional lists match helpers and stay out of always-on permission
     "bookmarks",
     "storage",
     "unlimitedStorage",
+    "favicon",
     "contextMenus",
     "activeTab",
   ]);
   assert.ok(manifest.permissions.includes("unlimitedStorage"));
+  assert.ok(manifest.permissions.includes("favicon"));
   // Host patterns must live in optional_host_permissions, not optional_permissions.
   const optionalApi = new Set<string>(manifest.optional_permissions);
   for (const host of MANIFEST_OPTIONAL_HOST_PERMISSIONS) {

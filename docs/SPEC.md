@@ -1,6 +1,6 @@
 # Hearth Speed Dial — product spec
 
-Status: Chrome Manifest V3 new-tab speed dial of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size, thumbnail wait time, optional default folder for new windows, and display-order reverse in an in-page **Settings** overlay (gear; 16:9 faces, width up to 576px; `settings.html` remains a secondary options entry); context-menu **Add to Hearth…** with folder picker (http/https pages only); dial pictures from a local file, an image URL (fetched once into local storage), or an optional captured thumbnail; **Refresh All Thumbnails** for http(s) bookmarks in the currently open dial folder (folder ⋮ + right-click on the dial page); monogram fallback for bookmarks and a folder icon for folders; in-page dialogs for rename, delete confirm, settings, and ⋮ action menus (tile + current folder). Create uses one **New** control that chooses folder vs bookmark. Still Chrome only; refresh of a single dial remains later vision.
+Status: Chrome Manifest V3 new-tab speed dial of the bookmark tree; create, rename, delete; drag reorder and drag into folders; grid columns/tile size, thumbnail wait time, optional default folder for new windows, and display-order reverse in an in-page **Settings** overlay (gear; 16:9 faces, width up to 576px; `settings.html` remains a secondary options entry); context-menu **Add to Hearth…** with folder picker (http/https pages only); dial pictures from a local file, an image URL (fetched once into local storage), or an optional captured thumbnail; **Refresh All Thumbnails** for http(s) bookmarks in the currently open dial folder (folder ⋮ + right-click on the dial page); title-strip favicons from Chrome’s local profile cache for http(s) bookmarks; monogram fallback for bookmark dial faces and a folder icon for folders; in-page dialogs for rename, delete confirm, settings, and ⋮ action menus (tile + current folder). Create uses one **New** control that chooses folder vs bookmark. Still Chrome only; refresh of a single dial remains later vision.
 
 ## Vision
 
@@ -16,7 +16,7 @@ Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab pa
 - The new tab is a grid of the open bookmark folder. Chrome’s root is that same grid of folders. Nested folders open in the grid. A new tab reopens the last folder unless a default folder is set. The bookmark’s title, URL, parent, and order are the source of truth. The open folder can gain a new folder or bookmark from a single **New** control (chooser for folder vs bookmark).
 - Drag a dial to reorder it or move it, including into another folder in the tree.
 - Right-click a normal web page to add it as a bookmark in a folder of the dial tree, including a nested folder. **Add to Hearth…** is limited to `http://` / `https://` documents via `documentUrlPatterns` so it does not appear on Hearth’s own `chrome-extension://` dial page. On that dial page, right-click instead offers **Refresh All Thumbnails** (same action as the folder ⋮ item).
-- A dial with no picture shows a monogram for bookmarks, or a folder icon for folders. The user can assign a picture by:
+- A dial with no picture shows a monogram for bookmarks, or a folder icon for folders. Beside the title on http(s) bookmark tiles, Hearth shows a small site icon from Chrome’s local favicon cache (`favicon` permission + `_favicon` URL — profile cache only; no network and no third-party icon CDN). A missing cache entry or load error hides the title icon; the monogram / folder icon on the dial face stays the ultimate fallback. The user can assign a picture by:
   - attaching one local image file, or
   - entering an image URL (http/https) when that opt-in is on. Hearth fetches the image **once** and stores it as a local data URL in `chrome.storage.local` (same store as file attach). The dial does **not** hotlink the remote URL afterward.
   - capturing a page thumbnail when that opt-in is on (see Permissions).
@@ -25,26 +25,26 @@ Chrome, Manifest V3, unpacked load from this repo. One extension, one new-tab pa
 - **Assign pictures from URLs** is a separate Settings toggle, also **off by default**. Enabling it requests optional http/https host access. On grant, **Picture… → Image from URL…** is unlocked. Turning the toggle off calls `chrome.permissions.remove` for those http/https grants (not `tabs` / `<all_urls>` used by thumbnails), so active access drops while the setting is off. Chrome usually restores a previously allowed optional grant on the next enable **without** showing the dialog again; to force a new prompt, revoke site access under `chrome://extensions` → Hearth. Deny or revoke degrades gracefully like thumbnails. Optional permissions are **not** requested at install or on first new-tab open.
 - No account, no analytics, and no request to a service run for this extension.
 
-Default install permissions stay narrow: `bookmarks`, `storage`, `unlimitedStorage` (local dial pictures only — lifts the default ~10 MB shared quota; no network, no sync of blobs), `contextMenus`, and `activeTab` (temporary tab title for **Add to Hearth…** after the context-menu gesture). Host access and `tabs` are **optional** (see Permissions).
+Default install permissions stay narrow: `bookmarks`, `storage`, `unlimitedStorage` (local dial pictures only — lifts the default ~10 MB shared quota; no network, no sync of blobs), `favicon` (Chrome profile favicon cache for title-strip icons only — no network), `contextMenus`, and `activeTab` (temporary tab title for **Add to Hearth…** after the context-menu gesture). Host access and `tabs` are **optional** (see Permissions).
 
-Out of scope for now: Firefox; refresh one dial; favicon-as-fallback (monogram / folder icon remain the defaults).
+Out of scope for now: Firefox; refresh one dial; favicon-as-dial-face fallback (title-strip favicons are in scope; monogram / folder icon remain the dial-face defaults).
 
 ## Permissions
 
 | Kind | Permissions | When |
 | --- | --- | --- |
-| Always on | `bookmarks`, `storage`, `unlimitedStorage`, `contextMenus`, `activeTab` | Install (`unlimitedStorage` is local dial art only — no network / no blob sync; `activeTab` only unlocks the clicked tab for the gesture — used to prefill the dial name from the page title) |
+| Always on | `bookmarks`, `storage`, `unlimitedStorage`, `favicon`, `contextMenus`, `activeTab` | Install (`unlimitedStorage` is local dial art only — no network / no blob sync; `favicon` is Chrome’s local profile cache for title-strip icons — no network / no third-party CDN; `activeTab` only unlocks the clicked tab for the gesture — used to prefill the dial name from the page title) |
 | Optional | `tabs` + host `<all_urls>` | Only when the user enables **Generate dial thumbnails** in Settings |
 | Optional | Host `http://*/*` + `https://*/*` | Only when the user enables **Assign pictures from URLs** in Settings. Manifest `optional_host_permissions` lists those scheme wildcards (plus `<all_urls>` for thumbnails). Turning the toggle off removes those http/https grants from the **active** set. |
 
-**Choice:** The two opt-ins are independent. Thumbnails keep `tabs` + `<all_urls>`; URL fetch uses the http/https scheme wildcards. If thumbnails already granted `<all_urls>`, URL fetch can use that host access when its own toggle is on (no second host prompt). Turning URL fetch off does **not** revoke thumbnail `<all_urls>` / `tabs`. Toggle-off `permissions.remove` drops active capability; Chrome’s optional-permission “granted” memory means a later `permissions.request` for the same grant typically returns true without a dialog (documented Chrome behavior). Always-on install permissions stay narrow aside from `unlimitedStorage` for local dial pictures. Settings shows a simple dial-picture storage usage line; assign/capture write failures (full disk / remaining Chromium limits) surface an honest error instead of failing silently.
+**Choice:** The two opt-ins are independent. Thumbnails keep `tabs` + `<all_urls>`; URL fetch uses the http/https scheme wildcards. If thumbnails already granted `<all_urls>`, URL fetch can use that host access when its own toggle is on (no second host prompt). Turning URL fetch off does **not** revoke thumbnail `<all_urls>` / `tabs`. Toggle-off `permissions.remove` drops active capability; Chrome’s optional-permission “granted” memory means a later `permissions.request` for the same grant typically returns true without a dialog (documented Chrome behavior). Always-on install permissions stay narrow aside from `unlimitedStorage` (local dial pictures) and `favicon` (local cache for title icons — install-time so a fresh install over a real bookmark tree is recognizable without assigning pictures; optional grant would defeat that first impression). Settings shows a simple dial-picture storage usage line; assign/capture write failures (full disk / remaining Chromium limits) surface an honest error instead of failing silently.
 
 ## Hard requirements this spec is aiming at
 
 These stay the product bar.
 
 1. New-tab speed dial with a customizable grid.
-2. Assign an image (local file, or URL / thumbnail when the matching Settings opt-in and optional permissions are granted). Refresh all thumbnails in the open folder is in scope; favicon-on-creation and refresh of one dial remain later vision.
+2. Assign an image (local file, or URL / thumbnail when the matching Settings opt-in and optional permissions are granted). Refresh all thumbnails in the open folder is in scope; title-strip favicons from the local cache are in scope; favicon-as-dial-face and refresh of one dial remain later vision.
 3. Add the current page from a right-click, into a chosen folder.
 4. Items are normal bookmarks. Sync is the browser’s. The bookmark manager can edit them.
 5. Drag to order and to move.
@@ -52,7 +52,7 @@ These stay the product bar.
 
 ## Assumptions
 
-- The fallback picture is a monogram for bookmarks (not Chrome’s favicon cache). Folders without a picture use a folder icon. Say if the product should show the favicon instead.
+- Dial faces without a picture use a monogram for bookmarks and a folder icon for folders (not the favicon as the face). Title strips on http(s) bookmarks show a small Chrome-cache favicon when available.
 - The right-click item lets the user pick the destination folder. It does not silently use whichever folder is open on the new-tab page.
 - Settings that are not bookmarks (grid, display-order reverse, thumbnail opt-in, thumbnail wait time, last opened folder id, optional default folder for new windows, image blobs) live in extension storage and do not sync yet.
 - Copyright holder for the MIT license is the GitHub account `antgraf`.

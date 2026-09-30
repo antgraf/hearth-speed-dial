@@ -1,6 +1,6 @@
 # Chrome load-unpacked smoke checklist
 
-Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) and **Load unpacked** → select the repo’s `dist` folder. Expect always-on permissions: **bookmarks**, **storage**, **unlimitedStorage**, **contextMenus**, **activeTab**. Optional **tabs** / **site access** appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
+Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) and **Load unpacked** → select the repo’s `dist` folder. Expect always-on permissions: **bookmarks**, **storage**, **unlimitedStorage**, **favicon**, **contextMenus**, **activeTab**. Optional **tabs** / **site access** appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
 
 ## New tab grid
 
@@ -8,6 +8,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 - [ ] Open a nested folder; breadcrumbs navigate back.
 - [ ] Reload / open another new tab: last folder is still open (or the Settings default folder, when one is set).
 - [ ] **New** control → choose folder or bookmark; creates in the open folder (not at Chrome root).
+- [ ] http(s) bookmark tiles show a small favicon beside the title when Chrome has one cached; folders and `file:` bookmarks do not; missing/broken icons leave the title text alone (monogram / folder icon still on the dial face).
 
 ## Rename / delete / pictures
 
@@ -57,6 +58,6 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 
 ## Packaging sanity
 
-- [ ] Fresh install / after adding install-time permissions: Remove the unpacked extension and **Load unpacked** again from `dist` (Reload alone can leave an old permission set). Details: always-on includes **Unlimited storage**; no host permissions granted yet; optional permissions listed but inactive until used.
+- [ ] Fresh install / after adding install-time permissions: Remove the unpacked extension and **Load unpacked** again from `dist` (Reload alone can leave an old permission set). Details: always-on includes **Unlimited storage** and **Favicon**; no host permissions granted yet; optional permissions listed but inactive until used.
 - [ ] Settings **Dial picture storage** shows used size with “no fixed size cap” (not “of 10 MB”) when `unlimitedStorage` is active.
 - [ ] Service worker / Errors panel stays clean while exercising the steps above.
