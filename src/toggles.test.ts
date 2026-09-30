@@ -62,94 +62,201 @@ function layout(partial: Partial<LayoutSettings> = {}): LayoutSettings {
   return { ...DEFAULT_LAYOUT, ...partial };
 }
 
-test("applyLayoutChange denies thumbnail enable and keeps URL-fetch active state", async () => {
-  const permissions = fakePermissions({
-    async requestThumbnailAccess() {
-      permissions.calls.push("requestThumbnailAccess");
-      return false;
-    },
-    async hasImageUrlFetchAccess() {
-      permissions.calls.push("hasImageUrlFetchAccess");
-      return true;
-    },
-  });
-  const result = await applyLayoutChange(
-    layout({ imageUrlFetchEnabled: true }),
-    layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: true }),
-    permissions,
-  );
-  assert.equal(result.next.thumbnailsEnabled, false);
-  assert.equal(result.next.imageUrlFetchEnabled, true);
-  assert.equal(result.earlyDenial, true);
-  assert.equal(result.thumbnailsActive, false);
-  assert.equal(result.imageUrlFetchActive, true);
-  assert.equal(result.error, thumbnailPermissionDeniedMessage());
-  assert.deepEqual(permissions.calls, ["requestThumbnailAccess", "hasImageUrlFetchAccess"]);
-});
+test("applyLayoutChange table: permission toggle state machine", async () => {
+  type Case = {
+    name: string;
+    previous: Partial<LayoutSettings>;
+    requested: Partial<LayoutSettings>;
+    answers?: {
+      requestThumbnailAccess?: boolean;
+      requestImageUrlFetchAccess?: boolean;
+      hasThumbnailAccess?: boolean;
+      hasImageUrlFetchAccess?: boolean;
+    };
+    expect: {
+      thumbnailsEnabled?: boolean;
+      imageUrlFetchEnabled?: boolean;
+      earlyDenial?: boolean;
+      thumbnailsActive?: boolean;
+      imageUrlFetchActive?: boolean;
+      error?: string | null;
+      calls: string[];
+    };
+  };
 
-test("applyLayoutChange re-owns URL-fetch before dropping thumbnail grants", async () => {
-  const permissions = fakePermissions();
-  const result = await applyLayoutChange(
-    layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: true }),
-    layout({ thumbnailsEnabled: false, imageUrlFetchEnabled: true }),
-    permissions,
-  );
-  assert.equal(result.next.thumbnailsEnabled, false);
-  assert.equal(result.next.imageUrlFetchEnabled, true);
-  assert.equal(result.earlyDenial, false);
-  assert.equal(result.imageUrlFetchActive, true);
-  assert.deepEqual(permissions.calls, [
-    "requestImageUrlFetchAccess",
-    "removeThumbnailAccess",
-    "hasImageUrlFetchAccess",
-  ]);
-});
+  const cases: Case[] = [
+    {
+      name: "deny thumbnail enable stays off",
+      previous: { imageUrlFetchEnabled: true },
+      requested: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      answers: { requestThumbnailAccess: false, hasImageUrlFetchAccess: true },
+      expect: {
+        thumbnailsEnabled: false,
+        imageUrlFetchEnabled: true,
+        earlyDenial: true,
+        thumbnailsActive: false,
+        imageUrlFetchActive: true,
+        error: thumbnailPermissionDeniedMessage(),
+        calls: ["requestThumbnailAccess", "hasImageUrlFetchAccess"],
+      },
+    },
+    {
+      name: "grant thumbnail enable becomes active",
+      previous: {},
+      requested: { thumbnailsEnabled: true },
+      answers: { requestThumbnailAccess: true },
+      expect: {
+        thumbnailsEnabled: true,
+        earlyDenial: false,
+        thumbnailsActive: true,
+        error: null,
+        calls: ["requestThumbnailAccess"],
+      },
+    },
+    {
+      name: "thumbnails off while URL-fetch on re-owns before revoke",
+      previous: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      requested: { thumbnailsEnabled: false, imageUrlFetchEnabled: true },
+      expect: {
+        thumbnailsEnabled: false,
+        imageUrlFetchEnabled: true,
+        earlyDenial: false,
+        imageUrlFetchActive: true,
+        calls: ["requestImageUrlFetchAccess", "removeThumbnailAccess", "hasImageUrlFetchAccess"],
+      },
+    },
+    {
+      name: "URL-fetch off leaves thumbnail grants alone",
+      previous: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      requested: { thumbnailsEnabled: true, imageUrlFetchEnabled: false },
+      answers: { hasThumbnailAccess: true },
+      expect: {
+        imageUrlFetchEnabled: false,
+        thumbnailsActive: true,
+        calls: ["hasThumbnailAccess", "removeImageUrlFetchAccess"],
+      },
+    },
+    {
+      name: "revoked thumbnails demote without URL denial banner",
+      previous: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      requested: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      answers: { hasThumbnailAccess: false, hasImageUrlFetchAccess: true },
+      expect: {
+        thumbnailsEnabled: false,
+        imageUrlFetchEnabled: true,
+        error: thumbnailPermissionDeniedMessage(),
+        imageUrlFetchActive: true,
+        calls: ["hasThumbnailAccess", "hasImageUrlFetchAccess"],
+      },
+    },
+    {
+      name: "deny URL-fetch enable stays off",
+      previous: {},
+      requested: { imageUrlFetchEnabled: true },
+      answers: { requestImageUrlFetchAccess: false },
+      expect: {
+        imageUrlFetchEnabled: false,
+        earlyDenial: true,
+        imageUrlFetchActive: false,
+        error: imageUrlPermissionDeniedMessage(),
+        calls: ["requestImageUrlFetchAccess"],
+      },
+    },
+    {
+      name: "grant URL-fetch enable becomes active",
+      previous: {},
+      requested: { imageUrlFetchEnabled: true },
+      answers: { requestImageUrlFetchAccess: true },
+      expect: {
+        imageUrlFetchEnabled: true,
+        earlyDenial: false,
+        imageUrlFetchActive: true,
+        error: null,
+        calls: ["requestImageUrlFetchAccess"],
+      },
+    },
+  ];
 
-test("applyLayoutChange turns URL-fetch off without touching thumbnail grants", async () => {
-  const permissions = fakePermissions({
-    async hasThumbnailAccess() {
-      permissions.calls.push("hasThumbnailAccess");
-      return true;
-    },
-  });
-  const result = await applyLayoutChange(
-    layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: true }),
-    layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: false }),
-    permissions,
-  );
-  assert.equal(result.next.imageUrlFetchEnabled, false);
-  assert.equal(result.thumbnailsActive, true);
-  assert.deepEqual(permissions.calls, ["hasThumbnailAccess", "removeImageUrlFetchAccess"]);
-});
+  for (const entry of cases) {
+    const permissions = fakePermissions({
+      async requestThumbnailAccess() {
+        permissions.calls.push("requestThumbnailAccess");
+        return entry.answers?.requestThumbnailAccess ?? true;
+      },
+      async removeThumbnailAccess() {
+        permissions.calls.push("removeThumbnailAccess");
+      },
+      async hasThumbnailAccess() {
+        permissions.calls.push("hasThumbnailAccess");
+        return entry.answers?.hasThumbnailAccess ?? true;
+      },
+      async requestImageUrlFetchAccess() {
+        permissions.calls.push("requestImageUrlFetchAccess");
+        return entry.answers?.requestImageUrlFetchAccess ?? true;
+      },
+      async removeImageUrlFetchAccess() {
+        permissions.calls.push("removeImageUrlFetchAccess");
+      },
+      async hasImageUrlFetchAccess() {
+        permissions.calls.push("hasImageUrlFetchAccess");
+        return entry.answers?.hasImageUrlFetchAccess ?? true;
+      },
+    });
 
-test("applyLayoutChange demotes revoked thumbnails without a URL denial banner", async () => {
-  const permissions = fakePermissions({
-    async hasThumbnailAccess() {
-      permissions.calls.push("hasThumbnailAccess");
-      return false;
-    },
-    async hasImageUrlFetchAccess() {
-      permissions.calls.push("hasImageUrlFetchAccess");
-      return true;
-    },
-  });
-  const result = await applyLayoutChange(
-    layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: true }),
-    layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: true }),
-    permissions,
-  );
-  assert.equal(result.next.thumbnailsEnabled, false);
-  assert.equal(result.next.imageUrlFetchEnabled, true);
-  assert.equal(result.error, thumbnailPermissionDeniedMessage());
-  assert.notEqual(result.error, imageUrlPermissionDeniedMessage());
-  assert.equal(result.imageUrlFetchActive, true);
+    const result = await applyLayoutChange(
+      layout(entry.previous),
+      layout({ ...entry.previous, ...entry.requested }),
+      permissions,
+    );
+
+    if (entry.expect.thumbnailsEnabled !== undefined) {
+      assert.equal(result.next.thumbnailsEnabled, entry.expect.thumbnailsEnabled, entry.name);
+    }
+    if (entry.expect.imageUrlFetchEnabled !== undefined) {
+      assert.equal(result.next.imageUrlFetchEnabled, entry.expect.imageUrlFetchEnabled, entry.name);
+    }
+    if (entry.expect.earlyDenial !== undefined) {
+      assert.equal(result.earlyDenial, entry.expect.earlyDenial, entry.name);
+    }
+    if (entry.expect.thumbnailsActive !== undefined) {
+      assert.equal(result.thumbnailsActive, entry.expect.thumbnailsActive, entry.name);
+    }
+    if (entry.expect.imageUrlFetchActive !== undefined) {
+      assert.equal(result.imageUrlFetchActive, entry.expect.imageUrlFetchActive, entry.name);
+    }
+    if (entry.expect.error !== undefined) {
+      assert.equal(result.error, entry.expect.error, entry.name);
+    }
+    if (entry.expect.error === thumbnailPermissionDeniedMessage()) {
+      assert.notEqual(result.error, imageUrlPermissionDeniedMessage(), entry.name);
+    }
+    assert.deepEqual(permissions.calls, entry.expect.calls, entry.name);
+  }
 });
 
 test("revokeOptionalFeaturePermissions only removes grants that were on", async () => {
-  const permissions = fakePermissions();
+  const onlyThumbnails = fakePermissions();
   await revokeOptionalFeaturePermissions(
     layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: false }),
-    permissions,
+    onlyThumbnails,
   );
-  assert.deepEqual(permissions.calls, ["removeThumbnailAccess"]);
+  assert.deepEqual(onlyThumbnails.calls, ["removeThumbnailAccess"]);
+
+  const onlyUrl = fakePermissions();
+  await revokeOptionalFeaturePermissions(
+    layout({ thumbnailsEnabled: false, imageUrlFetchEnabled: true }),
+    onlyUrl,
+  );
+  assert.deepEqual(onlyUrl.calls, ["removeImageUrlFetchAccess"]);
+
+  const both = fakePermissions();
+  await revokeOptionalFeaturePermissions(
+    layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: true }),
+    both,
+  );
+  assert.deepEqual(both.calls, ["removeImageUrlFetchAccess", "removeThumbnailAccess"]);
+
+  const neither = fakePermissions();
+  await revokeOptionalFeaturePermissions(layout(), neither);
+  assert.deepEqual(neither.calls, []);
 });

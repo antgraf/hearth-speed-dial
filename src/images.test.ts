@@ -6,14 +6,18 @@ import {
   dataUrlByteLength,
   dialImageStorageKeys,
   fetchImageAsDataUrl,
+  fileToDataUrl,
   IMAGE_KEY_PREFIX,
   imagePickerAccept,
   imageSourceUrl,
   imageStorageKey,
+  imageTooLargeMessage,
+  imageTypeMessage,
   imageUrlInvalidMessage,
   isAllowedImageType,
   isImageDataUrl,
   ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
   mimeFromContentType,
   orphanImageKeys,
   readImageDataUrl,
@@ -130,4 +134,33 @@ test("fetchImageAsDataUrl rejects non-images and bad URLs", async () => {
 
   const failFetch: typeof fetch = async () => new Response(null, { status: 404 });
   await assert.rejects(() => fetchImageAsDataUrl("https://example.com/missing.png", failFetch));
+});
+
+test("fileToDataUrl accepts a local PNG file", async () => {
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+  const file = new File([bytes], "dot.png", { type: "image/png" });
+  const dataUrl = await fileToDataUrl(file);
+  assert.match(dataUrl, /^data:image\/png;base64,/i);
+  assert.ok(isImageDataUrl(dataUrl));
+});
+
+test("fileToDataUrl rejects SVG with the type message", async () => {
+  const file = new File(["<svg xmlns='http://www.w3.org/2000/svg'></svg>"], "x.svg", {
+    type: "image/svg+xml",
+  });
+  await assert.rejects(
+    () => fileToDataUrl(file),
+    (error: unknown) => error instanceof Error && error.message === imageTypeMessage(),
+  );
+});
+
+test("fileToDataUrl rejects oversized files with the size message", async () => {
+  const oversized = new Uint8Array(MAX_IMAGE_BYTES + 1);
+  const file = new File([oversized], "big.png", { type: "image/png" });
+  await assert.rejects(
+    () => fileToDataUrl(file),
+    (error: unknown) => error instanceof Error && error.message === imageTooLargeMessage(),
+  );
 });
