@@ -1,6 +1,7 @@
 import type { CreateKind, ViewModel } from "./present.ts";
 import { confirmDialog, openDialog, type DialogHandle } from "./dialog.ts";
 import {
+  dialStorageUsageLabel,
   formatDialStorageUsage,
   imagePickerAccept,
   type ImageStorageUsage,
@@ -387,18 +388,16 @@ function openSettingsDialog(
   waitHelp.textContent =
     "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
   picturesCategory.append(waitHelp);
-  const storageUsage = document.createElement("span");
-  storageUsage.className = "settings-help settings-storage-usage";
-  storageUsage.textContent = "Measuring dial picture storage…";
-  picturesCategory.append(storageUsage);
+  const storageUsage = dialStorageUsageRow("Measuring…");
+  picturesCategory.append(storageUsage.root);
   void Promise.resolve(actions.getImageStorageUsage())
     .then((usage) => {
-      if (!storageUsage.isConnected) return;
-      storageUsage.textContent = formatDialStorageUsage(usage);
+      if (!storageUsage.root.isConnected) return;
+      storageUsage.setValue(formatDialStorageUsage(usage));
     })
     .catch(() => {
-      if (!storageUsage.isConnected) return;
-      storageUsage.textContent = "Dial picture storage usage is unavailable right now.";
+      if (!storageUsage.root.isConnected) return;
+      storageUsage.setValue("Storage usage is unavailable right now.");
     });
   body.append(picturesCategory);
 
@@ -550,6 +549,28 @@ function settingsCategory(title: string): HTMLElement {
   heading.textContent = title;
   section.append(heading);
   return section;
+}
+
+/** Labeled readout so dial-picture storage is visible, not another muted help line. */
+function dialStorageUsageRow(initialValue: string): {
+  root: HTMLElement;
+  setValue: (text: string) => void;
+} {
+  const root = document.createElement("div");
+  root.className = "settings-storage-usage";
+  const title = document.createElement("span");
+  title.className = "settings-storage-usage-title";
+  title.textContent = dialStorageUsageLabel();
+  const value = document.createElement("span");
+  value.className = "settings-storage-usage-value";
+  value.textContent = initialValue;
+  root.append(title, value);
+  return {
+    root,
+    setValue(text) {
+      value.textContent = text;
+    },
+  };
 }
 
 function settingsSwitch(

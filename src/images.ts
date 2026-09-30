@@ -166,14 +166,19 @@ export function formatStorageBytes(bytes: number): string {
   return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
 }
 
-/** Settings help line for dial-picture local storage use. */
+/** Body copy under the Settings “Dial picture storage” label. */
 export function formatDialStorageUsage(usage: ImageStorageUsage): string {
   const used = formatStorageBytes(usage.bytesUsed);
   const quota = meaningfulStorageQuotaBytes(usage.bytesQuota);
   if (quota == null) {
-    return `Dial pictures use about ${used} of local storage in this profile (no fixed size cap; still limited by free disk).`;
+    return `About ${used} used in this profile. No fixed size cap — still limited by free disk.`;
   }
-  return `Dial pictures use about ${used} of ${formatStorageBytes(quota)} available local storage in this profile.`;
+  return `About ${used} of ${formatStorageBytes(quota)} available in this profile.`;
+}
+
+/** Label for the Settings dial-picture storage readout. */
+export function dialStorageUsageLabel(): string {
+  return "Dial picture storage";
 }
 
 /**

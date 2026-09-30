@@ -245,11 +245,11 @@ test("meaningfulStorageQuotaBytes drops unlimited sentinels", () => {
 test("formatDialStorageUsage describes used space with and without a quota", () => {
   assert.match(
     formatDialStorageUsage({ bytesUsed: 0, bytesQuota: null }),
-    /about 0 B of local storage.*no fixed size cap/i,
+    /About 0 B used in this profile.*No fixed size cap/i,
   );
   assert.match(
     formatDialStorageUsage({ bytesUsed: 2 * 1024 * 1024, bytesQuota: 10_485_760 }),
-    /about 2(\.0)? MB of /,
+    /About 2(\.0)? MB of /,
   );
   assert.equal(formatStorageBytes(512), "512 B");
   assert.equal(estimateDialImageBytes({ a: "data:image/png;base64,aa==" }), "data:image/png;base64,aa==".length);

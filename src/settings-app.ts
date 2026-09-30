@@ -1,7 +1,12 @@
 import type { BookmarksApi } from "./browser.ts";
 import { confirmDialog } from "./dialog.ts";
 import { dialOpenFolderOptions, type FolderOption } from "./model.ts";
-import { formatDialStorageUsage, type ImageStorageUsage, type ImagesApi } from "./images.ts";
+import {
+  dialStorageUsageLabel,
+  formatDialStorageUsage,
+  type ImageStorageUsage,
+  type ImagesApi,
+} from "./images.ts";
 import {
   bindRangeInput,
   DEFAULT_LAYOUT,
@@ -212,16 +217,10 @@ export function startSettings(
       "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
     picturesCategory.append(waitHelp);
     if (images) {
-      const usageHelp = document.createElement("span");
-      usageHelp.className = "settings-help settings-storage-usage";
-      if (storageUsageError) {
-        usageHelp.textContent = "Dial picture storage usage is unavailable right now.";
-      } else if (storageUsage) {
-        usageHelp.textContent = formatDialStorageUsage(storageUsage);
-      } else {
-        usageHelp.textContent = "Measuring dial picture storage…";
-      }
-      picturesCategory.append(usageHelp);
+      let valueText = "Measuring…";
+      if (storageUsageError) valueText = "Storage usage is unavailable right now.";
+      else if (storageUsage) valueText = formatDialStorageUsage(storageUsage);
+      picturesCategory.append(dialStorageUsageRow(valueText));
     }
     form.append(picturesCategory);
 
@@ -445,6 +444,20 @@ function category(title: string): HTMLElement {
   heading.textContent = title;
   section.append(heading);
   return section;
+}
+
+/** Labeled readout so dial-picture storage is visible, not another muted help line. */
+function dialStorageUsageRow(valueText: string): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "settings-storage-usage";
+  const title = document.createElement("span");
+  title.className = "settings-storage-usage-title";
+  title.textContent = dialStorageUsageLabel();
+  const value = document.createElement("span");
+  value.className = "settings-storage-usage-value";
+  value.textContent = valueText;
+  root.append(title, value);
+  return root;
 }
 
 function switchControl(

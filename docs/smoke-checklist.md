@@ -38,7 +38,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 ## Local pictures / URL / thumbnails
 
 - [ ] Oversized or non-image file shows an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.
-- [ ] Settings **Pictures** shows a dial-picture local storage usage line (updates after Erase All Data clears pictures).
+- [ ] Settings **Pictures** shows a labeled **Dial picture storage** readout (not just help text under wait); updates after Erase All Data clears pictures.
 - [ ] If Chrome rejects a picture write (full disk / remaining storage limits), the dial shows a clear error — not a silent miss.
 - [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. First turn on → Chrome prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL.
 - [ ] Turn **Assign pictures from URLs** off → active access is dropped; menu locks again. Turn on again → `permissions.request` runs; Chrome usually restores without a dialog after the first Allow (expected). To force a new prompt, revoke under `chrome://extensions` → Hearth → site access, then enable again.
