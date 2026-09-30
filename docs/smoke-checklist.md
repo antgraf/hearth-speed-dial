@@ -32,6 +32,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 - [ ] **Default folder for new windows** unset → new tab recalls last open; set to a folder → new tab / new window opens there; navigating still updates last-open; missing folder falls back gracefully.
 - [ ] Toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.
 - [ ] Dial face / photo corner radius is subtle (~2% of tile width), not a large rounded rect.
+- [ ] Dragging **Tile size** up grows the dial face / preview image steadily (grid gap stays ~16px; faces do not grow-then-shrink).
 
 ## Local pictures / URL / thumbnails
 

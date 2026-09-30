@@ -745,7 +745,8 @@ h1 {
 .grid {
   display: grid;
   grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
-  gap: calc(var(--tile-size) * 0.14);
+  /* Fixed gap so growing --tile-size enlarges the dial face, not the gutters. */
+  gap: 16px;
   margin: 28px 0 0;
   padding: 0;
   list-style: none;
