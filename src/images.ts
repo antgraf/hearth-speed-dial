@@ -15,8 +15,9 @@ export const IMAGE_KEY_PREFIX = "hearth.image.";
 export const MAX_IMAGE_BYTES = 1_500_000;
 
 /**
- * Treat Chromium `QUOTA_BYTES` above this as “effectively unlimited” (the
- * sentinel used when `unlimitedStorage` is granted). Below it, show remaining.
+ * Treat Chromium `QUOTA_BYTES` above this as an “unlimited” sentinel.
+ * Note: with install-time `unlimitedStorage`, Chrome often still reports the
+ * default ~10 MB constant — callers must check the permission grant too.
  */
 export const MEANINGFUL_STORAGE_QUOTA_BYTES = 100_000_000;
 

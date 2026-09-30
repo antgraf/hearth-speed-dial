@@ -28,6 +28,12 @@ type FakeChrome = {
       setError?: Error | null;
     };
   };
+  runtime: {
+    getManifest: () => { permissions?: string[] };
+  };
+  permissions: {
+    contains: (request: { permissions?: string[] }) => Promise<boolean>;
+  };
 };
 
 function installChrome(fake: FakeChrome): void {
@@ -40,11 +46,17 @@ afterEach(() => {
 
 function fakeChrome(
   initialStore: StorageBag = {},
-  options: { quotaBytes?: number; setError?: Error | null } = {},
+  options: {
+    quotaBytes?: number;
+    setError?: Error | null;
+    /** When true (default), mimic install-time unlimitedStorage in the manifest. */
+    unlimitedStorage?: boolean;
+  } = {},
 ): FakeChrome {
   const store: StorageBag = { ...initialStore };
   const bookmarkCalls: string[] = [];
   const storageCalls: string[] = [];
+  const unlimited = options.unlimitedStorage !== false;
   const nodes = new Map<string, { id: string; title: string; url?: string; children?: unknown[] }>([
     ["link-1", { id: "link-1", title: "Example", url: "https://example.com/" }],
     ["folder-1", { id: "folder-1", title: "News", children: [] }],
@@ -105,6 +117,20 @@ function fakeChrome(
           }
           return total;
         },
+      },
+    },
+    runtime: {
+      getManifest() {
+        return {
+          permissions: unlimited
+            ? ["bookmarks", "storage", "unlimitedStorage", "contextMenus", "activeTab"]
+            : ["bookmarks", "storage", "contextMenus", "activeTab"],
+        };
+      },
+    },
+    permissions: {
+      async contains(request) {
+        return Boolean(unlimited && request.permissions?.includes("unlimitedStorage"));
       },
     },
   };
@@ -227,15 +253,16 @@ test("chromeImages.setImage maps generic write failures to honest UX copy", asyn
   );
 });
 
-test("chromeImages.getUsage reports dial-picture bytes and drops unlimited quotas", async () => {
+test("chromeImages.getUsage ignores QUOTA_BYTES when unlimitedStorage is granted", async () => {
   const png = "data:image/png;base64,aa==";
+  // Chrome still reports the default 10 MB constant with unlimitedStorage.
   const fake = fakeChrome(
     {
       settings: { columns: 4 },
       [`${IMAGE_KEY_PREFIX}11`]: png,
       unrelated: "ignore-me",
     },
-    { quotaBytes: Number.MAX_SAFE_INTEGER },
+    { quotaBytes: 10_485_760, unlimitedStorage: true },
   );
   installChrome(fake);
   const api = chromeImages();
@@ -246,11 +273,11 @@ test("chromeImages.getUsage reports dial-picture bytes and drops unlimited quota
   assert.ok(fake.storage.local.calls.some((c) => c.startsWith("getBytesInUse:")));
 });
 
-test("chromeImages.getUsage keeps a meaningful finite quota", async () => {
+test("chromeImages.getUsage keeps a finite quota without unlimitedStorage", async () => {
   const png = "data:image/png;base64,aa==";
   const fake = fakeChrome(
     { [`${IMAGE_KEY_PREFIX}11`]: png },
-    { quotaBytes: 10_485_760 },
+    { quotaBytes: 10_485_760, unlimitedStorage: false },
   );
   installChrome(fake);
   const api = chromeImages();

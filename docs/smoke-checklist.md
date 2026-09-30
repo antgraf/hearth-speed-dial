@@ -57,5 +57,6 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 
 ## Packaging sanity
 
-- [ ] Fresh install: `chrome://extensions` → Hearth details: no host permissions granted yet; optional permissions listed but inactive until used.
+- [ ] Fresh install / after adding install-time permissions: Remove the unpacked extension and **Load unpacked** again from `dist` (Reload alone can leave an old permission set). Details: always-on includes **Unlimited storage**; no host permissions granted yet; optional permissions listed but inactive until used.
+- [ ] Settings **Dial picture storage** shows used size with “no fixed size cap” (not “of 10 MB”) when `unlimitedStorage` is active.
 - [ ] Service worker / Errors panel stays clean while exercising the steps above.

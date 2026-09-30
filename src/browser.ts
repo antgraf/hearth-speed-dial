@@ -220,12 +220,28 @@ export function chromeImages(): ImagesApi {
           for (const dataUrl of Object.values(images)) bytesUsed += dataUrl.length;
         }
       }
+      // Chrome often still exposes QUOTA_BYTES as ~10 MB even when
+      // unlimitedStorage is granted; trust the permission, not the constant.
+      if (await hasUnlimitedStorageGrant()) {
+        return { bytesUsed, bytesQuota: null };
+      }
       return {
         bytesUsed,
         bytesQuota: meaningfulStorageQuotaBytes(chrome.storage.local.QUOTA_BYTES),
       };
     },
   };
+}
+
+/** True when install-time or optional unlimitedStorage is active for this load. */
+async function hasUnlimitedStorageGrant(): Promise<boolean> {
+  try {
+    const declared = chrome.runtime.getManifest().permissions ?? [];
+    if (declared.includes("unlimitedStorage")) return true;
+    return await chrome.permissions.contains({ permissions: ["unlimitedStorage"] });
+  } catch {
+    return false;
+  }
 }
 
 async function readGrantedPermissions(): Promise<PermissionRequestPayload> {
