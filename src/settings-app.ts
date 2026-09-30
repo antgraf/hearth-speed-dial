@@ -1,12 +1,20 @@
 import type { BookmarksApi } from "./browser.ts";
+import { confirmDialog } from "./dialog.ts";
 import { dialOpenFolderOptions, type FolderOption } from "./model.ts";
+import type { ImagesApi } from "./images.ts";
 import {
   bindRangeInput,
   clampColumns,
   clampThumbnailWaitSeconds,
   clampTileSize,
   DEFAULT_LAYOUT,
+  ERASE_ALL_CONFIRM,
+  ERASE_ALL_MESSAGE,
+  ERASE_ALL_TITLE,
   LAYOUT_LIMITS,
+  RESET_DEFAULTS_CONFIRM,
+  RESET_DEFAULTS_MESSAGE,
+  RESET_DEFAULTS_TITLE,
   syncRangeInputValue,
   type LayoutSettings,
   type SettingsApi,
@@ -23,6 +31,7 @@ export function startSettings(
   banner?: string | null,
   permissions?: PermissionsApi,
   bookmarks?: BookmarksApi,
+  images?: ImagesApi,
 ): void {
   let layout: LayoutSettings = { ...DEFAULT_LAYOUT };
   let defaultFolderId: string | null = null;
@@ -208,6 +217,37 @@ export function startSettings(
     picturesCategory.append(waitHelp);
     form.append(picturesCategory);
 
+    // Danger Zone must always remain last if new settings categories are added.
+    const dangerCategory = category("Danger Zone");
+    dangerCategory.classList.add("settings-danger-zone");
+    const dangerHelp = document.createElement("span");
+    dangerHelp.className = "settings-help";
+    dangerHelp.textContent =
+      "These actions only affect Hearth preferences and stored dial pictures — never your Chrome bookmarks.";
+    dangerCategory.append(dangerHelp);
+    const dangerActions = document.createElement("div");
+    dangerActions.className = "settings-danger-actions";
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "settings-danger-reset";
+    resetBtn.textContent = "Reset to Defaults";
+    resetBtn.disabled = saving;
+    const eraseBtn = document.createElement("button");
+    eraseBtn.type = "button";
+    eraseBtn.className = "settings-danger-erase";
+    eraseBtn.textContent = "Erase All Data";
+    eraseBtn.disabled = saving;
+    dangerActions.append(resetBtn, eraseBtn);
+    dangerCategory.append(dangerActions);
+    form.append(dangerCategory);
+
+    resetBtn.addEventListener("click", () => {
+      void resetToDefaults(resetBtn);
+    });
+    eraseBtn.addEventListener("click", () => {
+      void eraseAllData(eraseBtn);
+    });
+
     const actions = document.createElement("div");
     actions.className = "settings-actions";
     const submit = document.createElement("button");
@@ -219,6 +259,89 @@ export function startSettings(
     form.append(actions);
 
     frame.append(form);
+  };
+
+  const revokeOptionalPermissions = async (previous: LayoutSettings): Promise<void> => {
+    if (!permissions) return;
+    if (previous.imageUrlFetchEnabled) {
+      try {
+        await permissions.removeImageUrlFetchAccess();
+      } catch {
+        // Best-effort; defaults still apply.
+      }
+    }
+    if (previous.thumbnailsEnabled) {
+      try {
+        await permissions.removeThumbnailAccess();
+      } catch {
+        // Best-effort; defaults still apply.
+      }
+    }
+  };
+
+  const resetToDefaults = async (returnFocus: HTMLElement) => {
+    if (saving) return;
+    const confirmed = await confirmDialog({
+      title: RESET_DEFAULTS_TITLE,
+      message: RESET_DEFAULTS_MESSAGE,
+      confirmLabel: RESET_DEFAULTS_CONFIRM,
+      cancelLabel: "Cancel",
+      returnFocus,
+    });
+    if (!confirmed) return;
+    saving = true;
+    error = null;
+    savedNote = null;
+    draw();
+    try {
+      await revokeOptionalPermissions(layout);
+      layout = await settings.resetToDefaults();
+      defaultFolderId = null;
+      saving = false;
+      savedNote = "Reset to defaults. Open a new tab to see layout changes.";
+      draw();
+    } catch (caught) {
+      saving = false;
+      error =
+        caught instanceof Error && caught.message.trim()
+          ? caught.message
+          : "Could not reset settings.";
+      draw();
+    }
+  };
+
+  const eraseAllData = async (returnFocus: HTMLElement) => {
+    if (saving) return;
+    const confirmed = await confirmDialog({
+      title: ERASE_ALL_TITLE,
+      message: ERASE_ALL_MESSAGE,
+      confirmLabel: ERASE_ALL_CONFIRM,
+      cancelLabel: "Cancel",
+      danger: true,
+      returnFocus,
+    });
+    if (!confirmed) return;
+    saving = true;
+    error = null;
+    savedNote = null;
+    draw();
+    try {
+      await revokeOptionalPermissions(layout);
+      await settings.clearAll();
+      if (images) await images.clearAll();
+      layout = { ...DEFAULT_LAYOUT };
+      defaultFolderId = null;
+      saving = false;
+      savedNote = "All Hearth data erased. Open a new tab to see the dial.";
+      draw();
+    } catch (caught) {
+      saving = false;
+      error =
+        caught instanceof Error && caught.message.trim()
+          ? caught.message
+          : "Could not erase data.";
+      draw();
+    }
   };
 
   const persistDenied = async (next: LayoutSettings, message: string) => {

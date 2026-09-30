@@ -6,6 +6,8 @@ import {
   clampThumbnailWaitSeconds,
   clampTileSize,
   DEFAULT_LAYOUT,
+  ERASE_ALL_CONFIRM,
+  ERASE_ALL_MESSAGE,
   LAYOUT_LIMITS,
   readColumns,
   readDefaultFolderId,
@@ -16,6 +18,8 @@ import {
   readThumbnailWaitSeconds,
   readThumbnailsEnabled,
   readTileSize,
+  RESET_DEFAULTS_CONFIRM,
+  RESET_DEFAULTS_MESSAGE,
   TILE_ASPECT,
   thumbnailWaitMs,
 } from "./settings.ts";
@@ -31,6 +35,13 @@ test("defaults match the layout constants", () => {
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout({}), DEFAULT_LAYOUT);
+});
+
+test("danger zone copy distinguishes reset from erase", () => {
+  assert.match(RESET_DEFAULTS_MESSAGE, /dial pictures stay/i);
+  assert.match(ERASE_ALL_MESSAGE, /bookmarks are not deleted/i);
+  assert.match(ERASE_ALL_MESSAGE, /stored dial pictures/i);
+  assert.notEqual(RESET_DEFAULTS_CONFIRM, ERASE_ALL_CONFIRM);
 });
 
 test("columns and tile size clamp to the allowed ranges", () => {

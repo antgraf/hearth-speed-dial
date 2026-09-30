@@ -73,6 +73,8 @@ export type OpenDialogOptions = {
 };
 
 let openCount = 0;
+/** Open dialogs, bottom → top. Only the topmost handles Escape. */
+const dialogStack: DialogHandle[] = [];
 
 /**
  * Modal overlay with focus trap and Escape-to-close.
@@ -128,6 +130,8 @@ export function openDialog(options: OpenDialogOptions, mount?: ParentNode): Dial
     if (closed) return;
     closed = true;
     doc.removeEventListener("keydown", onDocKey, true);
+    const stackIndex = dialogStack.lastIndexOf(handle);
+    if (stackIndex >= 0) dialogStack.splice(stackIndex, 1);
     root.remove();
     if (opts?.silent) return;
     if (previousFocus && previousFocus.isConnected) previousFocus.focus();
@@ -136,6 +140,8 @@ export function openDialog(options: OpenDialogOptions, mount?: ParentNode): Dial
 
   const onDocKey = (event: KeyboardEvent) => {
     if (closed) return;
+    // Nested dialogs: only the topmost Escape / Tab trap runs.
+    if (dialogStack[dialogStack.length - 1] !== handle) return;
     if (event.key === "Escape" && options.closeOnEscape !== false) {
       event.preventDefault();
       event.stopPropagation();
@@ -159,7 +165,9 @@ export function openDialog(options: OpenDialogOptions, mount?: ParentNode): Dial
   }
   queueMicrotask(() => initial.focus());
 
-  return { root, panel, close };
+  const handle: DialogHandle = { root, panel, close };
+  dialogStack.push(handle);
+  return handle;
 }
 
 export type ConfirmDialogOptions = {

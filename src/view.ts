@@ -1,5 +1,5 @@
 import type { CreateKind, ViewModel } from "./present.ts";
-import { openDialog, type DialogHandle } from "./dialog.ts";
+import { confirmDialog, openDialog, type DialogHandle } from "./dialog.ts";
 import {
   chromeBeforeIdFromDisplayDrop,
   openableUrl,
@@ -8,8 +8,15 @@ import {
 } from "./model.ts";
 import {
   bindRangeInput,
+  ERASE_ALL_CONFIRM,
+  ERASE_ALL_MESSAGE,
+  ERASE_ALL_TITLE,
   LAYOUT_LIMITS,
+  RESET_DEFAULTS_CONFIRM,
+  RESET_DEFAULTS_MESSAGE,
+  RESET_DEFAULTS_TITLE,
   syncRangeInputValue,
+  type DangerZoneResult,
   type LayoutSettings,
 } from "./settings.ts";
 
@@ -31,6 +38,10 @@ export type ViewActions = {
   setLayout(layout: LayoutSettings): void | Promise<LayoutSettings>;
   /** Persist optional default folder for new windows; null clears it. */
   setDefaultFolderId(id: string | null): void | Promise<void>;
+  /** Restore settings defaults (keeps dial pictures). */
+  resetToDefaults(): void | Promise<DangerZoneResult>;
+  /** Clear extension settings + dial pictures (never bookmarks). */
+  eraseAllData(): void | Promise<DangerZoneResult>;
 };
 
 type MenuTarget = {
@@ -370,6 +381,28 @@ function openSettingsDialog(
   picturesCategory.append(waitHelp);
   body.append(picturesCategory);
 
+  // Danger Zone must always remain last if new settings categories are added.
+  const dangerCategory = settingsCategory("Danger Zone");
+  dangerCategory.classList.add("settings-danger-zone");
+  const dangerHelp = document.createElement("span");
+  dangerHelp.className = "settings-help";
+  dangerHelp.textContent =
+    "These actions only affect Hearth preferences and stored dial pictures — never your Chrome bookmarks.";
+  dangerCategory.append(dangerHelp);
+  const dangerActions = document.createElement("div");
+  dangerActions.className = "settings-danger-actions";
+  const resetBtn = document.createElement("button");
+  resetBtn.type = "button";
+  resetBtn.className = "settings-danger-reset";
+  resetBtn.textContent = "Reset to Defaults";
+  const eraseBtn = document.createElement("button");
+  eraseBtn.type = "button";
+  eraseBtn.className = "settings-danger-erase";
+  eraseBtn.textContent = "Erase All Data";
+  dangerActions.append(resetBtn, eraseBtn);
+  dangerCategory.append(dangerActions);
+  body.append(dangerCategory);
+
   const readLayout = (): LayoutSettings => ({
     columns: Number(columns.value),
     tileSize: Number(tileSize.value),
@@ -378,6 +411,16 @@ function openSettingsDialog(
     imageUrlFetchEnabled: imageUrlFetch.checked,
     thumbnailWaitSeconds: Number(thumbnailWait.value),
   });
+
+  const syncForm = (result: DangerZoneResult) => {
+    reverse.checked = result.layout.reverseOrder;
+    thumbnails.checked = result.layout.thumbnailsEnabled;
+    imageUrlFetch.checked = result.layout.imageUrlFetchEnabled;
+    syncRangeInputValue(columns, result.layout.columns);
+    syncRangeInputValue(tileSize, result.layout.tileSize);
+    syncRangeInputValue(thumbnailWait, result.layout.thumbnailWaitSeconds);
+    defaultFolder.value = result.defaultFolderId ?? "";
+  };
 
   const applyLayout = () => {
     void Promise.resolve(actions.setLayout(readLayout()))
@@ -400,6 +443,45 @@ function openSettingsDialog(
     const value = defaultFolder.value.trim();
     void Promise.resolve(actions.setDefaultFolderId(value.length > 0 ? value : null));
   };
+
+  resetBtn.addEventListener("click", () => {
+    void (async () => {
+      const confirmed = await confirmDialog({
+        title: RESET_DEFAULTS_TITLE,
+        message: RESET_DEFAULTS_MESSAGE,
+        confirmLabel: RESET_DEFAULTS_CONFIRM,
+        cancelLabel: "Cancel",
+        returnFocus: resetBtn,
+      });
+      if (!confirmed) return;
+      try {
+        const result = await Promise.resolve(actions.resetToDefaults());
+        if (result) syncForm(result);
+      } catch {
+        // Errors surface via the dial banner on redraw.
+      }
+    })();
+  });
+
+  eraseBtn.addEventListener("click", () => {
+    void (async () => {
+      const confirmed = await confirmDialog({
+        title: ERASE_ALL_TITLE,
+        message: ERASE_ALL_MESSAGE,
+        confirmLabel: ERASE_ALL_CONFIRM,
+        cancelLabel: "Cancel",
+        danger: true,
+        returnFocus: eraseBtn,
+      });
+      if (!confirmed) return;
+      try {
+        const result = await Promise.resolve(actions.eraseAllData());
+        if (result) syncForm(result);
+      } catch {
+        // Errors surface via the dial banner on redraw.
+      }
+    })();
+  });
 
   columns.addEventListener("change", applyLayout);
   tileSize.addEventListener("change", applyLayout);
