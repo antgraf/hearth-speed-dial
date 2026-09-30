@@ -190,6 +190,17 @@ test("readDefaultFolderId is optional and separate from last-open", () => {
   assert.equal(readOpenFolderId({ rootFolderId: "legacy" }), "legacy");
 });
 
+test("readOpenFolderId handles non-objects and empty legacy ids", () => {
+  assert.equal(readOpenFolderId(null), null);
+  assert.equal(readOpenFolderId(undefined), null);
+  assert.equal(readOpenFolderId("1"), null);
+  assert.equal(readOpenFolderId(12), null);
+  assert.equal(readOpenFolderId({ openFolderId: "" }), null);
+  assert.equal(readOpenFolderId({ openFolderId: "   " }), "   ");
+  assert.equal(readOpenFolderId({ rootFolderId: "" }), null);
+  assert.equal(readOpenFolderId({ openFolderId: "", rootFolderId: "legacy" }), "legacy");
+});
+
 test("bindRangeInput sets min/max/step before value", () => {
   // jsdom-free: exercise the attribute/property order on a stub element.
   const order: string[] = [];

@@ -8,6 +8,7 @@ import {
   fetchImageAsDataUrl,
   fileToDataUrl,
   IMAGE_KEY_PREFIX,
+  imageDownloadFailedMessage,
   imagePickerAccept,
   imageSourceUrl,
   imageStorageKey,
@@ -134,6 +135,50 @@ test("fetchImageAsDataUrl rejects non-images and bad URLs", async () => {
 
   const failFetch: typeof fetch = async () => new Response(null, { status: 404 });
   await assert.rejects(() => fetchImageAsDataUrl("https://example.com/missing.png", failFetch));
+});
+
+test("fetchImageAsDataUrl maps a thrown fetch to the download-failed message", async () => {
+  const boom: typeof fetch = async () => {
+    throw new TypeError("network down");
+  };
+  await assert.rejects(
+    () => fetchImageAsDataUrl("https://example.com/dot.png", boom),
+    (error: unknown) => error instanceof Error && error.message === imageDownloadFailedMessage(),
+  );
+});
+
+test("fetchImageAsDataUrl rejects oversized remote images", async () => {
+  const oversized = new Uint8Array(MAX_IMAGE_BYTES + 1);
+  const fakeFetch: typeof fetch = async () =>
+    new Response(oversized, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    });
+  await assert.rejects(
+    () => fetchImageAsDataUrl("https://example.com/big.png", fakeFetch),
+    (error: unknown) => error instanceof Error && error.message === imageTooLargeMessage(),
+  );
+});
+
+test("fetchImageAsDataUrl falls back to Content-Type when the blob has no type", async () => {
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+  const fakeFetch: typeof fetch = async () => {
+    const response = new Response(bytes, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    });
+    const originalBlob = response.blob.bind(response);
+    response.blob = async () => {
+      const blob = await originalBlob();
+      return new Blob([await blob.arrayBuffer()], { type: "" });
+    };
+    return response;
+  };
+
+  const dataUrl = await fetchImageAsDataUrl("https://example.com/dot.png", fakeFetch);
+  assert.match(dataUrl, /^data:image\/png;base64,/i);
 });
 
 test("fileToDataUrl accepts a local PNG file", async () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { start, type AppPorts } from "./app.ts";
 import type { BookmarksApi } from "./browser.ts";
+import type { ConfirmDialogOptions } from "./dialog.ts";
 import type { ImagesApi } from "./images.ts";
 import type { BookmarkNode } from "./model.ts";
 import {
@@ -45,10 +46,14 @@ function layout(partial: Partial<LayoutSettings> = {}): LayoutSettings {
   return { ...DEFAULT_LAYOUT, ...partial };
 }
 
-function fakeBookmarks(tree: BookmarkNode[] = sampleTree()): BookmarksApi & { calls: CallLog } {
+function fakeBookmarks(tree: BookmarkNode[] = sampleTree()): BookmarksApi & {
+  calls: CallLog;
+  tree: BookmarkNode[];
+} {
   const calls: CallLog = [];
   return {
     calls,
+    tree,
     async getTree() {
       calls.push("getTree");
       return tree;
@@ -69,9 +74,21 @@ function fakeBookmarks(tree: BookmarkNode[] = sampleTree()): BookmarksApi & { ca
       calls.push("move");
       throw new Error("unexpected move");
     },
-    async remove() {
-      calls.push("remove");
-      throw new Error("unexpected remove");
+    async remove(id) {
+      calls.push(`remove:${id}`);
+      const removeFrom = (nodes: BookmarkNode[]): boolean => {
+        for (let i = 0; i < nodes.length; i++) {
+          const node = nodes[i];
+          if (!node) continue;
+          if (node.id === id) {
+            nodes.splice(i, 1);
+            return true;
+          }
+          if (node.children && removeFrom(node.children)) return true;
+        }
+        return false;
+      };
+      if (!removeFrom(tree)) throw new Error(`missing node ${id}`);
     },
     subscribe() {
       calls.push("subscribe");
@@ -223,6 +240,7 @@ async function boot(ports: {
   settings?: ReturnType<typeof fakeSettings>;
   images?: ReturnType<typeof fakeImages>;
   permissions?: ReturnType<typeof fakePermissions>;
+  confirm?: (options: ConfirmDialogOptions) => Promise<boolean>;
 } = {}): Promise<Harness> {
   const bookmarks = ports.bookmarks ?? fakeBookmarks();
   const settings = ports.settings ?? fakeSettings();
@@ -241,7 +259,7 @@ async function boot(ports: {
       views.push(view);
       actions = nextActions;
     },
-    confirm: async () => false,
+    confirm: ports.confirm ?? (async () => false),
   };
 
   const stop = start({} as HTMLElement, appPorts);
@@ -595,5 +613,77 @@ test("P0-4 bookmark-id stored as folder falls back to root", async () => {
   const harness = await boot({ settings });
   const grid = lastGrid(harness.views);
   assert.equal(grid.currentFolder.id, "0");
+  harness.stop();
+});
+
+test("P1-3 folder delete clears pictures for every descendant id", async () => {
+  const tree = sampleTree();
+  const news = tree[0]?.children?.[0]?.children?.[0];
+  assert.ok(news && news.children);
+  news.children.push(
+    { id: "101", title: "Nested link", url: "https://nested.example/" },
+    { id: "102", title: "Deep folder", children: [{ id: "1021", title: "Deep link", url: "https://deep.example/" }] },
+  );
+
+  const bookmarks = fakeBookmarks(tree);
+  const images = fakeImages({
+    "10": "data:image/png;base64,folder==",
+    "101": "data:image/png;base64,child==",
+    "102": "data:image/png;base64,sub==",
+    "1021": "data:image/png;base64,deep==",
+    "11": "data:image/png;base64,keep==",
+  });
+  const harness = await boot({
+    bookmarks,
+    images,
+    confirm: async () => true,
+  });
+
+  harness.actions().requestDelete("10");
+
+  for (let i = 0; i < 80; i++) {
+    const cleared = images.calls.filter((c) => c.startsWith("clearImage:"));
+    if (cleared.length >= 4 && bookmarks.calls.includes("remove:10")) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  await harness.ready();
+
+  assert.ok(bookmarks.calls.includes("remove:10"));
+  assert.deepEqual(
+    images.calls.filter((c) => c.startsWith("clearImage:")).sort(),
+    ["clearImage:10", "clearImage:101", "clearImage:102", "clearImage:1021"].sort(),
+  );
+  assert.equal(images.map["11"], "data:image/png;base64,keep==");
+  assert.equal(images.map["10"], undefined);
+  assert.equal(images.map["101"], undefined);
+  assert.equal(images.map["102"], undefined);
+  assert.equal(images.map["1021"], undefined);
+  harness.stop();
+});
+
+test("P1-3 declined delete confirm calls nothing", async () => {
+  const bookmarks = fakeBookmarks();
+  const images = fakeImages({ "11": "data:image/png;base64,keep==" });
+  let confirmCalls = 0;
+  const harness = await boot({
+    bookmarks,
+    images,
+    confirm: async () => {
+      confirmCalls += 1;
+      return false;
+    },
+  });
+
+  const bookmarkCallsBefore = bookmarks.calls.slice();
+  const imageCallsBefore = images.calls.slice();
+
+  harness.actions().requestDelete("11");
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await harness.ready();
+
+  assert.equal(confirmCalls, 1);
+  assert.deepEqual(bookmarks.calls, bookmarkCallsBefore);
+  assert.deepEqual(images.calls, imageCallsBefore);
+  assert.equal(images.map["11"], "data:image/png;base64,keep==");
   harness.stop();
 });

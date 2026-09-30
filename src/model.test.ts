@@ -11,6 +11,7 @@ import {
   chromeIndexAtEnd,
   chromeIndexBefore,
   classify,
+  folderDropZone,
   dialFolderOptions,
   dialFolderTree,
   dialOpenFolderOptions,
@@ -137,6 +138,32 @@ test("breadcrumb starts at the bookmark root", () => {
     { id: "10", title: "News" },
   ]);
   assert.deepEqual(breadcrumb(tree, "0", "0"), [{ id: "0", title: "Bookmarks" }]);
+});
+
+test("breadcrumb falls back to the root when the current folder is stale", () => {
+  assert.deepEqual(breadcrumb(tree, "0", "missing"), [{ id: "0", title: "Bookmarks" }]);
+  assert.deepEqual(breadcrumb(tree, "0", "11"), [{ id: "0", title: "Bookmarks" }]);
+  assert.deepEqual(breadcrumb(tree, "missing-root", "10"), []);
+});
+
+test("folderDropZone uses edge thirds for reorder and center for into", () => {
+  const wide = { left: 100, width: 90 };
+  // edge = min(28, 30) = 28
+  assert.equal(folderDropZone(100, wide), "before");
+  assert.equal(folderDropZone(100 + 27, wide), "before");
+  assert.equal(folderDropZone(100 + 28, wide), "into");
+  assert.equal(folderDropZone(100 + 45, wide), "into");
+  assert.equal(folderDropZone(100 + 62, wide), "into");
+  assert.equal(folderDropZone(100 + 63, wide), "after");
+  assert.equal(folderDropZone(100 + 89, wide), "after");
+
+  const narrow = { left: 0, width: 60 };
+  // edge = min(28, 20) = 20
+  assert.equal(folderDropZone(0, narrow), "before");
+  assert.equal(folderDropZone(19, narrow), "before");
+  assert.equal(folderDropZone(20, narrow), "into");
+  assert.equal(folderDropZone(40, narrow), "into");
+  assert.equal(folderDropZone(41, narrow), "after");
 });
 
 test("chromeIndexBefore matches Chromium same-parent insert-before", () => {

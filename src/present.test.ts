@@ -107,6 +107,26 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
   assert.equal(screen.message, "Bookmarks are unavailable.");
 });
 
+test("unavailable falls back to the default message when error is null", () => {
+  const screen = present(state({ tree: [], status: "failed", error: null }));
+  if (screen.name !== "unavailable") throw new Error("expected an unavailable screen");
+  assert.equal(screen.message, "Hearth could not read Chrome bookmarks.");
+});
+
+test("grid falls back to the root when currentId is a bookmark or deleted", () => {
+  const bookmarkId = present(state({ currentId: "11" }));
+  if (bookmarkId.name !== "grid") throw new Error("expected the grid");
+  assert.equal(bookmarkId.currentFolder.id, "0");
+  assert.deepEqual(
+    bookmarkId.items.map((item) => item.title),
+    ["Bookmarks bar", "Other bookmarks"],
+  );
+
+  const deleted = present(state({ currentId: "missing" }));
+  if (deleted.name !== "grid") throw new Error("expected the grid");
+  assert.equal(deleted.currentFolder.id, "0");
+});
+
 test("reverseOrder shows last bookmarks first without changing empty copy", () => {
   const screen = present(
     state({

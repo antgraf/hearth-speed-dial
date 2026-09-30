@@ -80,9 +80,18 @@ const dialogStack: DialogHandle[] = [];
  * Modal overlay with focus trap and Escape-to-close.
  * Appends to `document.body` (or `mount` when provided).
  */
+function resolveMountDocument(mount?: ParentNode): Document {
+  if (typeof Document !== "undefined" && mount instanceof Document) return mount;
+  if (mount?.ownerDocument) return mount.ownerDocument;
+  return document;
+}
+
 export function openDialog(options: OpenDialogOptions, mount?: ParentNode): DialogHandle {
-  const doc = (mount instanceof Document ? mount : mount?.ownerDocument) ?? document;
-  const parent = mount instanceof Document ? mount.body : (mount ?? doc.body);
+  const doc = resolveMountDocument(mount);
+  const parent =
+    typeof Document !== "undefined" && mount instanceof Document
+      ? mount.body
+      : (mount ?? doc.body);
 
   const root = doc.createElement("div");
   root.className = "dialog-root";
@@ -182,8 +191,7 @@ export type ConfirmDialogOptions = {
 /** Promise-based confirm dialog (Cancel / Confirm). */
 export function confirmDialog(options: ConfirmDialogOptions, mount?: ParentNode): Promise<boolean> {
   return new Promise((resolve) => {
-    const doc =
-      (mount instanceof Document ? mount : mount?.ownerDocument) ?? document;
+    const doc = resolveMountDocument(mount);
     const body = doc.createElement("p");
     body.className = "dialog-message";
     body.textContent = options.message;
