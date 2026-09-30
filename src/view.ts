@@ -3,6 +3,7 @@ import { confirmDialog, openDialog, type DialogHandle } from "./dialog.ts";
 import { imagePickerAccept } from "./images.ts";
 import {
   chromeBeforeIdFromDisplayDrop,
+  folderDropZone,
   openableUrl,
   type DialItem,
   type FolderOption,
@@ -994,14 +995,6 @@ function clearDragMarks(root: ParentNode | null | undefined): void {
   for (const marked of root?.querySelectorAll(".drag-before, .drag-after, .drag-into") ?? []) {
     marked.classList.remove("drag-before", "drag-after", "drag-into");
   }
-}
-
-function folderDropZone(clientX: number, rect: DOMRect): "before" | "into" | "after" {
-  const offset = clientX - rect.left;
-  const edge = Math.min(28, rect.width / 3);
-  if (offset < edge) return "before";
-  if (offset > rect.width - edge) return "after";
-  return "into";
 }
 
 function bindMoveIntoTarget(target: HTMLElement, parentId: string, actions: ViewActions): void {

@@ -289,6 +289,22 @@ export function childIndex(children: readonly BookmarkNode[], id: string): numbe
 }
 
 /**
+ * Drop zone on a folder tile: left/right edge thirds reorder (before/after);
+ * the center moves into the folder. Edge width is `min(28, width/3)` so narrow
+ * tiles still keep a usable into-zone.
+ */
+export function folderDropZone(
+  clientX: number,
+  rect: { left: number; width: number },
+): "before" | "into" | "after" {
+  const offset = clientX - rect.left;
+  const edge = Math.min(28, rect.width / 3);
+  if (offset < edge) return "before";
+  if (offset > rect.width - edge) return "after";
+  return "into";
+}
+
+/**
  * Same-parent Chrome move index to place `draggedId` before `beforeId`
  * (or at the end when `beforeId` is null). Uses the full children list so
  * separator/skip nodes keep their Chrome indices.
