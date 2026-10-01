@@ -172,6 +172,11 @@ export function previewPorts(): {
         previewFetchGranted = true;
         return true;
       },
+      async requestThumbnailAndImageUrlFetchAccess() {
+        previewThumbnailGranted = true;
+        previewFetchGranted = true;
+        return true;
+      },
       async removeImageUrlFetchAccess() {
         previewFetchGranted = false;
       },

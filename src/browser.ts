@@ -17,9 +17,11 @@ import {
   imageUrlFetchPermissionRequest,
   intersectGrantedPermissions,
   isRequestCoveredByOptionalManifest,
+  OPTIONAL_FETCH_HOST_PERMISSIONS,
   originHostPermission,
   permissionRemovePieces,
   THUMBNAIL_HOST_PERMISSION,
+  thumbnailAndImageUrlPermissionRequest,
   thumbnailPermissionDeniedMessage,
   thumbnailPermissionRemove,
   thumbnailPermissionRequest,
@@ -369,11 +371,13 @@ export function chromePermissions(): PermissionsApi {
       await revokeOptionalGrants(thumbnailPermissionRemove());
     },
     async hasImageUrlFetchAccess() {
+      // Prefer getAll over batch contains(http+https): more reliable when the
+      // browser lists scheme wildcards individually after a grant.
       try {
-        const hasAll = await extensionApi().permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
-        if (hasAll) return true;
-        const request = imageUrlFetchPermissionRequest();
-        return await extensionApi().permissions.contains({ origins: [...request.origins] });
+        const granted = await readGrantedPermissions();
+        const origins = new Set(granted.origins ?? []);
+        if (origins.has(THUMBNAIL_HOST_PERMISSION) || origins.has("*://*/*")) return true;
+        return OPTIONAL_FETCH_HOST_PERMISSIONS.every((origin) => origins.has(origin));
       } catch {
         return false;
       }
@@ -382,10 +386,23 @@ export function chromePermissions(): PermissionsApi {
       // Always request the scheme wildcards so this toggle owns its grants and
       // survives thumbnails revoke of <all_urls>. Silent when already covered
       // (<all_urls> or Chrome’s prior-Allow memory after remove).
+      // Do not await contains/getAll first — Firefox drops the user gesture.
       const request = imageUrlFetchPermissionRequest();
       if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
         return await extensionApi().permissions.request({ origins: [...request.origins] });
+      } catch {
+        return false;
+      }
+    },
+    async requestThumbnailAndImageUrlFetchAccess() {
+      const request = thumbnailAndImageUrlPermissionRequest();
+      if (!isRequestCoveredByOptionalManifest(request)) return false;
+      try {
+        return await extensionApi().permissions.request({
+          permissions: [...request.permissions],
+          origins: [...request.origins],
+        });
       } catch {
         return false;
       }
@@ -405,7 +422,8 @@ export function chromePermissions(): PermissionsApi {
       }
     },
     async requestFetchAccess(href) {
-      if (await this.canFetchUrl(href)) return true;
+      // Always call request (no contains short-circuit). A prior await of
+      // contains/getAll drops Firefox’s user-gesture requirement.
       const request = fetchPermissionRequest(href);
       if (!request) return false;
       if (!isRequestCoveredByOptionalManifest(request)) return false;

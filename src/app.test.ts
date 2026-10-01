@@ -236,6 +236,10 @@ function fakePermissions(overrides: Partial<PermissionsApi> = {}): PermissionsAp
       calls.push("requestThumbnailAccess");
       return true;
     },
+    async requestThumbnailAndImageUrlFetchAccess() {
+      calls.push("requestThumbnailAndImageUrlFetchAccess");
+      return true;
+    },
     async removeThumbnailAccess() {
       calls.push("removeThumbnailAccess");
     },

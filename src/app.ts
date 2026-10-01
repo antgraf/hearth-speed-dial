@@ -336,8 +336,10 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     state.error = null;
     draw();
     try {
-      const allowed = await ports.permissions.requestFetchAccess(href);
-      if (!allowed) throw new Error(imageUrlPermissionDeniedMessage());
+      // Host access comes from the Settings URL-images toggle (http/https
+      // wildcards or <all_urls>). Do not call permissions.request here — any
+      // prior await (syncImageUrlFetchActive) already consumed Firefox’s
+      // user-gesture, and the toggle path is the supported grant UX.
       const dataUrl = await fetchImageAsDataUrl(href, fetch, "tile");
       await ports.images.setImage(id, dataUrl);
       state.images = { ...state.images, [id]: dataUrl };
