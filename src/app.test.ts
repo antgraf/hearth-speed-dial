@@ -828,3 +828,69 @@ test("getImageStorageUsage reports dial-picture footprint through ViewActions", 
   assert.ok(images.calls.includes("getUsage"));
   harness.stop();
 });
+
+test("setSearchQuery filters the open folder subtree and clearSearch restores it", async () => {
+  const tree: BookmarkNode[] = [
+    {
+      id: "0",
+      title: "Bookmarks",
+      children: [
+        {
+          id: "1",
+          title: "Bookmarks bar",
+          children: [
+            { id: "11", title: "Example", url: "https://example.com/" },
+            {
+              id: "12",
+              title: "Projects",
+              children: [{ id: "121", title: "Hearth", url: "https://hearth.example/" }],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  const harness = await boot({
+    bookmarks: fakeBookmarks(tree),
+    settings: fakeSettings({ openFolderId: "1" }),
+  });
+  harness.actions().setSearchQuery("hearth");
+  let grid = lastGrid(harness.views);
+  assert.equal(grid.searching, true);
+  assert.equal(grid.searchQuery, "hearth");
+  assert.equal(grid.canCreate, false);
+  assert.deepEqual(
+    grid.items.map((item) => item.id),
+    ["121"],
+  );
+
+  harness.actions().clearSearch();
+  grid = lastGrid(harness.views);
+  assert.equal(grid.searching, false);
+  assert.equal(grid.searchQuery, "");
+  assert.equal(grid.canCreate, true);
+  assert.deepEqual(
+    grid.items.map((item) => item.id),
+    ["11", "12"],
+  );
+  harness.stop();
+});
+
+test("opening a folder clears the find-a-dial query", async () => {
+  const harness = await boot({
+    settings: fakeSettings({ openFolderId: "1" }),
+  });
+  harness.actions().setSearchQuery("example");
+  assert.equal(lastGrid(harness.views).searching, true);
+  harness.actions().openFolder("10");
+  for (let i = 0; i < 20; i++) {
+    const grid = lastGrid(harness.views);
+    if (grid.currentFolder.id === "10" && !grid.searching) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  const grid = lastGrid(harness.views);
+  assert.equal(grid.currentFolder.id, "10");
+  assert.equal(grid.searchQuery, "");
+  assert.equal(grid.searching, false);
+  harness.stop();
+});

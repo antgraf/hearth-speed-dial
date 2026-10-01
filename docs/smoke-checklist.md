@@ -6,6 +6,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 
 - [ ] New tab shows Hearth (not Chrome’s default new tab).
 - [ ] Open a nested folder; breadcrumbs navigate back.
+- [ ] **Find a dial**: type in the header Find field (or press `/` to focus) to filter the open folder and nested dials by title or URL; `Esc` clears. Nested hits stay visible without opening the parent first; opening a folder clears the filter.
 - [ ] Reload / open another new tab: last folder is still open (or the Settings default folder, when one is set).
 - [ ] **New** control → choose folder or bookmark; creates in the open folder (not at Chrome root).
 - [ ] http(s) bookmark tiles show a small favicon beside the title when Chrome has one cached; folders and `file:` bookmarks do not; missing/broken icons leave the title text alone (monogram / folder icon still on the dial face).

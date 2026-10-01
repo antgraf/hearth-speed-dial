@@ -45,7 +45,18 @@ import {
 } from "./settings.ts";
 import { applyLayoutChange, revokeOptionalFeaturePermissions } from "./toggles.ts";
 import { applyThemeToDocument } from "./theme.ts";
-import { render as defaultRender, type ViewActions } from "./view.ts";
+import { render as defaultRender, requestSearchFocus, type ViewActions } from "./view.ts";
+
+function isEditableKeyTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+function dialDialogOpen(doc: Document): boolean {
+  return Boolean(doc.querySelector(".dialog-root"));
+}
 
 export type AppPorts = {
   bookmarks: BookmarksApi;
@@ -83,6 +94,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     themeBackground: null,
     thumbnailsActive: false,
     imageUrlFetchActive: false,
+    searchQuery: "",
   };
   let request = 0;
   /** Last-open folder from storage; used once if the default folder is missing. */
@@ -167,6 +179,17 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       eraseAllData: () => eraseAllData(),
       getImageStorageUsage: () => ports.images.getUsage(),
       getThemeBackground: () => Promise.resolve(state.themeBackground),
+      setSearchQuery: (query) => {
+        state.searchQuery = query;
+        state.error = null;
+        draw();
+      },
+      clearSearch: () => {
+        if (!state.searchQuery) return;
+        state.searchQuery = "";
+        state.error = null;
+        draw();
+      },
     });
   };
   const syncThumbnailActive = async (preferEnabled: boolean): Promise<boolean> => {
@@ -194,6 +217,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (!folder || classify(folder) !== "folder") return;
     state.currentId = id;
     state.form = null;
+    state.searchQuery = "";
     state.error = null;
     draw();
     try {
@@ -708,8 +732,55 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     await reload();
   })();
 
+  const onDocumentKeydown = (event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+    const doc = typeof document !== "undefined" ? document : null;
+    if (!doc) return;
+
+    if (event.key === "/" && !event.shiftKey) {
+      if (state.status !== "ready" || state.saving) return;
+      if (dialDialogOpen(doc) || isEditableKeyTarget(event.target)) return;
+      event.preventDefault();
+      const existing = doc.querySelector<HTMLInputElement>(".dial-search-input");
+      if (existing) {
+        existing.focus();
+        return;
+      }
+      requestSearchFocus();
+      draw();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      if (dialDialogOpen(doc)) return;
+      if (!state.searchQuery) return;
+      if (isEditableKeyTarget(event.target)) {
+        const target = event.target;
+        if (
+          target instanceof HTMLInputElement &&
+          target.classList.contains("dial-search-input")
+        ) {
+          // Search input handles Escape itself (clear / blur).
+          return;
+        }
+        // Create form / other fields keep their own Escape behavior.
+        return;
+      }
+      event.preventDefault();
+      state.searchQuery = "";
+      state.error = null;
+      draw();
+    }
+  };
+  if (typeof document !== "undefined") {
+    document.addEventListener("keydown", onDocumentKeydown);
+  }
+
   return () => {
     unsubscribe();
+    if (typeof document !== "undefined") {
+      document.removeEventListener("keydown", onDocumentKeydown);
+    }
     if (colorSchemeMedia && onColorSchemeChange) {
       colorSchemeMedia.removeEventListener("change", onColorSchemeChange);
     }

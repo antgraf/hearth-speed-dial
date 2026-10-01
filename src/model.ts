@@ -379,38 +379,94 @@ export function alreadyInFolder(
   return (dragged.parentId ?? parents.get(draggedId)) === parentId;
 }
 
+function dialItemFromNode(node: BookmarkNode, parentTitle?: string): DialItem | null {
+  const kind = classify(node);
+  if (kind === "skip") return null;
+  if (kind === "folder") {
+    const title = folderLabel(node);
+    return {
+      id: node.id,
+      title,
+      kind: "folder",
+      url: null,
+      meta: parentTitle || "Folder",
+      monogram: monogram(title),
+      imageDataUrl: null,
+    };
+  }
+  const href = node.url ? openableUrl(node.url) : null;
+  const title = node.title.trim() || (href ? siteLabel(href) : "") || "Untitled";
+  const site = href ? siteLabel(href) : "Unavailable link";
+  return {
+    id: node.id,
+    title,
+    kind: "link",
+    url: href,
+    meta: parentTitle ? `${site} · ${parentTitle}` : site,
+    monogram: monogram(title),
+    imageDataUrl: null,
+  };
+}
+
 export function dialItems(folder: BookmarkNode | undefined): DialItem[] {
   if (!folder?.children) return [];
   const items: DialItem[] = [];
   for (const child of folder.children) {
-    const kind = classify(child);
-    if (kind === "skip") continue;
-    if (kind === "folder") {
-      const title = folderLabel(child);
-      items.push({
-        id: child.id,
-        title,
-        kind: "folder",
-        url: null,
-        meta: "Folder",
-        monogram: monogram(title),
-        imageDataUrl: null,
-      });
-      continue;
-    }
-    const href = child.url ? openableUrl(child.url) : null;
-    const title = child.title.trim() || (href ? siteLabel(href) : "") || "Untitled";
-    items.push({
-      id: child.id,
-      title,
-      kind: "link",
-      url: href,
-      meta: href ? siteLabel(href) : "Unavailable link",
-      monogram: monogram(title),
-      imageDataUrl: null,
-    });
+    const item = dialItemFromNode(child);
+    if (item) items.push(item);
   }
   return items;
+}
+
+/** Normalize a find-a-dial query; empty/whitespace → "". */
+export function normalizeDialQuery(query: string): string {
+  return query.trim().toLocaleLowerCase();
+}
+
+/** True when title or URL contains the normalized query (case-insensitive). */
+export function dialMatchesQuery(node: BookmarkNode, normalizedQuery: string): boolean {
+  if (!normalizedQuery) return false;
+  const kind = classify(node);
+  if (kind === "skip") return false;
+  if (kind === "folder") {
+    return folderLabel(node).toLocaleLowerCase().includes(normalizedQuery);
+  }
+  const href = node.url ? openableUrl(node.url) : null;
+  const title = node.title.trim() || (href ? siteLabel(href) : "") || "Untitled";
+  if (title.toLocaleLowerCase().includes(normalizedQuery)) return true;
+  if (node.url && node.url.toLocaleLowerCase().includes(normalizedQuery)) return true;
+  if (href && href.toLocaleLowerCase().includes(normalizedQuery)) return true;
+  return false;
+}
+
+/**
+ * Flatten matching dials from `folder` and its nested folders (titles + URLs).
+ * Direct children keep normal meta; nested hits show the containing folder in meta.
+ * Empty/whitespace query returns [] — callers should use `dialItems` instead.
+ */
+export function searchDialSubtree(
+  folder: BookmarkNode | undefined,
+  query: string,
+): DialItem[] {
+  const needle = normalizeDialQuery(query);
+  if (!needle || !folder?.children) return [];
+  const hits: DialItem[] = [];
+  const walk = (nodes: readonly BookmarkNode[], parent: BookmarkNode, depth: number) => {
+    const parentLabel = folderLabel(parent);
+    for (const node of nodes) {
+      const kind = classify(node);
+      if (kind === "skip") continue;
+      if (dialMatchesQuery(node, needle)) {
+        const item = dialItemFromNode(node, depth > 0 ? parentLabel : undefined);
+        if (item) hits.push(item);
+      }
+      if (kind === "folder" && node.children?.length) {
+        walk(node.children, node, depth + 1);
+      }
+    }
+  };
+  walk(folder.children, folder, 0);
+  return hits;
 }
 
 export type RefreshableThumbnailTarget = {

@@ -8,7 +8,9 @@ import {
   displayTitle,
   folderLabel,
   nodeIndex,
+  normalizeDialQuery,
   orderDialItems,
+  searchDialSubtree,
   type BookmarkNode,
   type Crumb,
   type DialItem,
@@ -54,6 +56,8 @@ export type AppState = {
   thumbnailsActive: boolean;
   /** True when Image-from-URL setting is on and optional host access is granted. */
   imageUrlFetchActive: boolean;
+  /** Find-a-dial filter for the open folder + subtree (titles + URLs). */
+  searchQuery: string;
 };
 
 export type ViewModel =
@@ -82,6 +86,10 @@ export type ViewModel =
       thumbnailsActive: boolean;
       /** Image from URL is available in the picture menu. */
       imageUrlFetchActive: boolean;
+      /** Current find-a-dial query (empty when not filtering). */
+      searchQuery: string;
+      /** True when a non-empty query is filtering the grid. */
+      searching: boolean;
     };
 
 function folderNode(tree: readonly BookmarkNode[], id: string | null): BookmarkNode | null {
@@ -143,21 +151,30 @@ export function present(state: AppState): ViewModel {
   }
 
   const current = folderNode(state.tree, state.currentId) ?? root;
+  const searchQuery = state.searchQuery;
+  const searching = normalizeDialQuery(searchQuery).length > 0;
+  const baseItems = searching ? searchDialSubtree(current, searchQuery) : dialItems(current);
   const items = orderDialItems(
-    dialItems(current).map((item) => ({
+    baseItems.map((item) => ({
       ...item,
       imageDataUrl: state.images[item.id] ?? null,
     })),
     state.layout.reverseOrder,
   );
+  let empty: string | null = null;
+  if (items.length === 0) {
+    empty = searching
+      ? `No dials match “${searchQuery.trim()}”.`
+      : "This folder has no bookmarks yet.";
+  }
   return {
     name: "grid",
     banner: state.banner,
     crumbs: breadcrumb(state.tree, root.id, current.id),
     items,
-    empty: items.length === 0 ? "This folder has no bookmarks yet." : null,
+    empty,
     error: state.error,
-    canCreate: acceptsChildren(current),
+    canCreate: acceptsChildren(current) && !searching,
     canRenameCurrent: canRenameNode(current),
     canDeleteCurrent: canDeleteNode(current),
     currentFolder: {
@@ -174,5 +191,7 @@ export function present(state: AppState): ViewModel {
     defaultFolderOptions: dialOpenFolderOptions(state.tree),
     thumbnailsActive: state.thumbnailsActive,
     imageUrlFetchActive: state.imageUrlFetchActive,
+    searchQuery,
+    searching,
   };
 }
