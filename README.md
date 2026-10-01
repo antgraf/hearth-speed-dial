@@ -2,7 +2,7 @@
 
 A visual new-tab speed dial for Chrome. Every dial is a normal bookmark, so the browser’s own sync is what copies them between devices.
 
-The extension has no account and no service of its own. The product scope is [docs/SPEC.md](docs/SPEC.md).
+The extension has no account and no service of its own. The product scope is [docs/SPEC.md](docs/SPEC.md). On the dial page, **Find…** (`/` to focus, `Esc` to clear) filters the open folder and its nested dials by title or URL using bookmark data already in memory.
 
 ## Privacy
 

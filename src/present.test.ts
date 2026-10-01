@@ -45,6 +45,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     themeBackground: null,
     thumbnailsActive: false,
     imageUrlFetchActive: false,
+    searchQuery: "",
     ...overrides,
   };
 }
@@ -157,6 +158,61 @@ test("stored images attach to matching dial items", () => {
   assert.equal(example?.imageDataUrl, dataUrl);
   assert.equal(news?.imageDataUrl, null);
   assert.equal(screen.currentFolder.imageDataUrl, dataUrl);
+});
+
+test("search filters the open folder and nested dials by title or URL", () => {
+  const nested: BookmarkNode[] = [
+    {
+      id: "0",
+      title: "",
+      children: [
+        {
+          id: "1",
+          title: "Bookmarks bar",
+          children: [
+            { id: "11", title: "Example", url: "https://example.com/" },
+            {
+              id: "12",
+              title: "News",
+              children: [{ id: "121", title: "BBC", url: "https://bbc.co.uk/news" }],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  const byTitle = present(state({ tree: nested, currentId: "1", searchQuery: "bbc" }));
+  if (byTitle.name !== "grid") throw new Error("expected the grid");
+  assert.equal(byTitle.searching, true);
+  assert.equal(byTitle.canCreate, false);
+  assert.deepEqual(
+    byTitle.items.map((item) => item.id),
+    ["121"],
+  );
+  assert.match(byTitle.items[0]?.meta ?? "", /News/);
+
+  const byUrl = present(state({ tree: nested, currentId: "1", searchQuery: "example.com" }));
+  if (byUrl.name !== "grid") throw new Error("expected the grid");
+  assert.deepEqual(
+    byUrl.items.map((item) => item.id),
+    ["11"],
+  );
+
+  const none = present(state({ tree: nested, currentId: "1", searchQuery: "zzzz" }));
+  if (none.name !== "grid") throw new Error("expected the grid");
+  assert.equal(none.empty, "No dials match “zzzz”.");
+  assert.deepEqual(none.items, []);
+});
+
+test("whitespace-only searchQuery does not filter the grid", () => {
+  const screen = present(state({ currentId: "1", searchQuery: "   " }));
+  if (screen.name !== "grid") throw new Error("expected the grid");
+  assert.equal(screen.searching, false);
+  assert.equal(screen.canCreate, true);
+  assert.deepEqual(
+    screen.items.map((item) => item.title),
+    ["Example", "News"],
+  );
 });
 
 test("edit form state is passed through to the grid", () => {

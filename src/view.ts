@@ -60,6 +60,10 @@ export type ViewActions = {
   eraseAllData(): void | Promise<DangerZoneResult>;
   /** Local dial-picture storage footprint for the Settings usage line. */
   getImageStorageUsage(): Promise<ImageStorageUsage>;
+  /** Find-a-dial filter query (titles + URLs in the open folder subtree). */
+  setSearchQuery(query: string): void;
+  /** Clear the find-a-dial filter. */
+  clearSearch(): void;
 };
 
 type MenuTarget = {
@@ -75,10 +79,28 @@ let editDialog: DialogHandle | null = null;
 /** Settings overlay lives on document.body and survives dial re-renders. */
 let settingsDialog: DialogHandle | null = null;
 let settingsOpen = false;
+/** Restore caret after a redraw when the search field had focus. */
+let searchCaret: { start: number; end: number } | null = null;
+/** Request focus on the search field after the next render (`/` shortcut). */
+let focusSearchAfterRender = false;
+
+export function requestSearchFocus(): void {
+  focusSearchAfterRender = true;
+}
 
 export function render(host: HTMLElement, view: ViewModel, actions: ViewActions): void {
   editDialog?.close({ silent: true });
   editDialog = null;
+
+  const prevSearch = host.querySelector<HTMLInputElement>(".dial-search-input");
+  if (prevSearch && host.ownerDocument.activeElement === prevSearch) {
+    searchCaret = {
+      start: prevSearch.selectionStart ?? prevSearch.value.length,
+      end: prevSearch.selectionEnd ?? prevSearch.value.length,
+    };
+  } else {
+    searchCaret = null;
+  }
 
   host.replaceChildren();
   if (view.banner) host.append(note(view.banner, "preview"));
@@ -100,6 +122,23 @@ export function render(host: HTMLElement, view: ViewModel, actions: ViewActions)
   if (view.form?.mode === "edit") {
     closeSettingsDialog({ silent: true });
     editDialog = showEditDialog(view, actions);
+  }
+
+  const nextSearch = host.querySelector<HTMLInputElement>(".dial-search-input");
+  if (nextSearch && (focusSearchAfterRender || searchCaret)) {
+    focusSearchAfterRender = false;
+    const caret = searchCaret;
+    searchCaret = null;
+    queueMicrotask(() => {
+      nextSearch.focus();
+      if (caret) {
+        const len = nextSearch.value.length;
+        nextSearch.setSelectionRange(Math.min(caret.start, len), Math.min(caret.end, len));
+      }
+    });
+  } else {
+    focusSearchAfterRender = false;
+    searchCaret = null;
   }
 }
 
@@ -148,6 +187,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     nav.append(button);
   });
   header.append(nav);
+  header.append(searchField(view, actions));
   header.append(
     settingsGear(view.layout, view.defaultFolderId, view.defaultFolderOptions, actions),
   );
@@ -159,8 +199,8 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
 
   const list = document.createElement("ul");
   list.className = "grid";
-  list.setAttribute("aria-label", "Speed dial");
-  const canDrag = !view.saving && view.items.length > 0;
+  list.setAttribute("aria-label", view.searching ? "Search results" : "Speed dial");
+  const canDrag = !view.saving && !view.searching && view.items.length > 0;
   const reverseOrder = view.layout.reverseOrder;
   for (const item of view.items) {
     const entry = document.createElement("li");
@@ -217,6 +257,48 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   }
   if (view.items.length > 0 || view.canCreate) section.append(list);
   return section;
+}
+
+function searchField(
+  view: Extract<ViewModel, { name: "grid" }>,
+  actions: ViewActions,
+): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "dial-search";
+  if (view.searching) wrap.classList.add("is-active");
+
+  const input = document.createElement("input");
+  input.type = "search";
+  input.className = "dial-search-input";
+  input.value = view.searchQuery;
+  input.placeholder = "Find…";
+  input.setAttribute("aria-label", "Find a dial");
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.disabled = view.saving;
+  input.addEventListener("input", () => {
+    actions.setSearchQuery(input.value);
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (view.searchQuery.trim()) {
+      actions.clearSearch();
+      return;
+    }
+    input.blur();
+  });
+
+  const hint = document.createElement("kbd");
+  hint.className = "dial-search-hint";
+  hint.textContent = "/";
+  hint.title = "Press / to find";
+  hint.setAttribute("aria-hidden", "true");
+
+  wrap.append(input);
+  if (!view.searching && !view.searchQuery) wrap.append(hint);
+  return wrap;
 }
 
 function settingsGear(

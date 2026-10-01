@@ -27,6 +27,9 @@ import {
   parseAddPageFields,
   refreshableThumbnailTargets,
   reorderMoveIndex,
+  searchDialSubtree,
+  dialMatchesQuery,
+  normalizeDialQuery,
   siteLabel,
   type BookmarkNode,
 } from "./model.ts";
@@ -357,4 +360,37 @@ test("parseAddPageFields requires an openable url and fills a title", () => {
   });
   assert.equal(parseAddPageFields("url=chrome://extensions"), null);
   assert.equal(parseAddPageFields(""), null);
+});
+
+test("normalizeDialQuery trims and lowercases", () => {
+  assert.equal(normalizeDialQuery("  HeLLo  "), "hello");
+  assert.equal(normalizeDialQuery("\t"), "");
+});
+
+test("dialMatchesQuery checks title and URL case-insensitively", () => {
+  const link = { id: "11", title: "Example", url: "https://www.example.com/path" };
+  const folder = { id: "10", title: "News", children: [] };
+  assert.equal(dialMatchesQuery(link, "example"), true);
+  assert.equal(dialMatchesQuery(link, "example.com"), true);
+  assert.equal(dialMatchesQuery(link, "path"), true);
+  assert.equal(dialMatchesQuery(link, "missing"), false);
+  assert.equal(dialMatchesQuery(folder, "news"), true);
+  assert.equal(dialMatchesQuery(folder, "zzz"), false);
+});
+
+test("searchDialSubtree finds nested dials and annotates parent meta", () => {
+  const folder = tree[0]?.children?.[0];
+  assert.ok(folder);
+  const hits = searchDialSubtree(folder, "mozilla");
+  assert.deepEqual(
+    hits.map((hit) => hit.id),
+    ["12"],
+  );
+  assert.match(hits[0]?.meta ?? "", /News/);
+
+  const byFolderTitle = searchDialSubtree(folder, "news");
+  assert.ok(byFolderTitle.some((hit) => hit.id === "10"));
+
+  assert.deepEqual(searchDialSubtree(folder, "   "), []);
+  assert.deepEqual(searchDialSubtree(undefined, "x"), []);
 });
