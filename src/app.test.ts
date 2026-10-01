@@ -607,6 +607,139 @@ test("P0-2 Danger Zone skips revoke when both optional toggles were already off"
   harness.stop();
 });
 
+const TINY_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const TINY_JPEG =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGfAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQMBAT8Bf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8Bf//Z";
+
+test("import overwrite replaces settings, wallpaper, and dial pictures; never bookmarks", async () => {
+  const { serializeBackup, buildBackup, BACKUP_FORMAT, BACKUP_VERSION } = await import("./backup.ts");
+  const settings = fakeSettings({
+    layout: layout({ columns: 3, thumbnailsEnabled: true }),
+    defaultFolderId: "10",
+    openFolderId: "1",
+  });
+  await settings.setThemeBackground(TINY_JPEG);
+  const images = fakeImages({
+    "11": TINY_JPEG,
+    "12": TINY_JPEG,
+  });
+  const permissions = fakePermissions({
+    async hasThumbnailAccess() {
+      permissions.calls.push("hasThumbnailAccess");
+      return true;
+    },
+  });
+  const harness = await boot({ settings, images, permissions });
+  permissions.calls.length = 0;
+  settings.calls.length = 0;
+  images.calls.length = 0;
+  const bookmarkMutations = () =>
+    harness.bookmarks.calls.filter((c) => !["getTree", "subscribe"].includes(c));
+  const mutationsBefore = bookmarkMutations();
+
+  const raw = serializeBackup(
+    buildBackup({
+      layout: layout({
+        columns: 7,
+        reverseOrder: true,
+        theme: { ...DEFAULT_LAYOUT.theme, mode: "dark", accent: "moss" },
+      }),
+      defaultFolderId: "12",
+      openFolderId: "10",
+      themeBackground: TINY_PNG,
+      images: { "11": TINY_PNG },
+      imageUrls: { "11": "https://example.com/" },
+      now: new Date("2026-10-01T00:00:00.000Z"),
+    }),
+  );
+  assert.match(raw, new RegExp(BACKUP_FORMAT));
+  assert.match(raw, new RegExp(String(BACKUP_VERSION)));
+
+  const result = await Promise.resolve(
+    harness.actions().importPicturesAndSettings(raw, "overwrite"),
+  );
+  if (!result) throw new Error("import should return DangerZoneResult");
+  await harness.ready();
+
+  assert.equal(result.layout.columns, 7);
+  assert.equal(result.layout.reverseOrder, true);
+  assert.equal(result.layout.theme.mode, "dark");
+  assert.equal(result.defaultFolderId, "12");
+  assert.equal(result.themeBackground, TINY_PNG);
+  assert.deepEqual(images.map, { "11": TINY_PNG });
+  assert.ok(images.calls.includes("clearAll"));
+  assert.ok(images.calls.includes("setImage:11"));
+  assert.ok(settings.calls.includes("setLayout"));
+  assert.ok(settings.calls.includes("setDefaultFolderId:12"));
+  assert.ok(settings.calls.includes("setOpenFolderId:10"));
+  assert.ok(settings.calls.includes("setThemeBackground:set"));
+  assert.ok(permissions.calls.includes("removeThumbnailAccess"));
+  assert.deepEqual(bookmarkMutations(), mutationsBefore);
+  const grid = lastGrid(harness.views);
+  assert.equal(grid.layout.columns, 7);
+  assert.equal(grid.currentFolder.id, "10");
+  harness.stop();
+});
+
+test("import merge keeps local pictures absent from the backup", async () => {
+  const { serializeBackup, buildBackup } = await import("./backup.ts");
+  const settings = fakeSettings({ layout: layout({ columns: 4 }) });
+  const images = fakeImages({
+    "11": TINY_JPEG,
+    "12": TINY_JPEG,
+  });
+  const harness = await boot({ settings, images });
+  images.calls.length = 0;
+
+  const raw = serializeBackup(
+    buildBackup({
+      layout: layout({ columns: 2 }),
+      defaultFolderId: null,
+      openFolderId: null,
+      themeBackground: null,
+      images: { "11": TINY_PNG },
+      imageUrls: { "11": "https://example.com/" },
+    }),
+  );
+
+  const result = await Promise.resolve(
+    harness.actions().importPicturesAndSettings(raw, "merge"),
+  );
+  if (!result) throw new Error("import should return DangerZoneResult");
+
+  assert.equal(result.layout.columns, 2);
+  assert.equal(result.themeBackground, null);
+  assert.deepEqual(images.map, { "11": TINY_PNG, "12": TINY_JPEG });
+  assert.ok(!images.calls.includes("clearAll"));
+  assert.ok(images.calls.includes("setImage:11"));
+  harness.stop();
+});
+
+test("import rematches dial pictures by URL when bookmark ids differ", async () => {
+  const { serializeBackup, buildBackup } = await import("./backup.ts");
+  const settings = fakeSettings();
+  const images = fakeImages();
+  const harness = await boot({ settings, images });
+  images.calls.length = 0;
+
+  const raw = serializeBackup(
+    buildBackup({
+      layout: layout(),
+      defaultFolderId: null,
+      openFolderId: null,
+      themeBackground: null,
+      images: { foreignId: TINY_PNG },
+      imageUrls: { foreignId: "https://example.com/" },
+    }),
+  );
+
+  await Promise.resolve(harness.actions().importPicturesAndSettings(raw, "merge"));
+  assert.deepEqual(images.map, { "11": TINY_PNG });
+  assert.ok(images.calls.includes("setImage:11"));
+  harness.stop();
+});
+
 test("P0-4 default folder wins for a new window", async () => {
   const settings = fakeSettings({
     defaultFolderId: "10",

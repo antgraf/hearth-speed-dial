@@ -240,3 +240,86 @@ export function confirmDialog(options: ConfirmDialogOptions, mount?: ParentNode)
     confirm.addEventListener("click", () => finish(true));
   });
 }
+
+export type ChoiceDialogOption<T extends string> = {
+  value: T;
+  label: string;
+  /** Primary styling; at most one option should set this. */
+  primary?: boolean;
+  danger?: boolean;
+};
+
+export type ChoiceDialogOptions<T extends string> = {
+  title: string;
+  message: string;
+  choices: readonly ChoiceDialogOption<T>[];
+  cancelLabel?: string;
+  returnFocus?: HTMLElement | null;
+};
+
+/**
+ * Promise-based multi-choice dialog. Resolves the chosen value, or null when
+ * cancelled / dismissed (Escape, backdrop, Cancel).
+ */
+export function choiceDialog<T extends string>(
+  options: ChoiceDialogOptions<T>,
+  mount?: ParentNode,
+): Promise<T | null> {
+  return new Promise((resolve) => {
+    const doc = resolveMountDocument(mount);
+    const body = doc.createElement("p");
+    body.className = "dialog-message";
+    body.textContent = options.message;
+
+    const footer = doc.createElement("div");
+    footer.className = "dialog-actions";
+
+    const cancel = doc.createElement("button");
+    cancel.type = "button";
+    cancel.className = "quiet";
+    cancel.textContent = options.cancelLabel ?? "Cancel";
+    footer.append(cancel);
+
+    const choiceButtons: { value: T; button: HTMLButtonElement }[] = [];
+    for (const choice of options.choices) {
+      const button = doc.createElement("button");
+      button.type = "button";
+      if (choice.danger) button.className = "primary danger";
+      else if (choice.primary) button.className = "primary";
+      else button.className = "quiet";
+      button.textContent = choice.label;
+      footer.append(button);
+      choiceButtons.push({ value: choice.value, button });
+    }
+
+    let settled = false;
+    const handle = openDialog(
+      {
+        title: options.title,
+        body,
+        footer,
+        returnFocus: options.returnFocus,
+        closeOnEscape: true,
+        closeOnBackdrop: true,
+        onClose: () => {
+          if (settled) return;
+          settled = true;
+          resolve(null);
+        },
+      },
+      mount,
+    );
+
+    const finish = (value: T | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+      handle.close();
+    };
+
+    cancel.addEventListener("click", () => finish(null));
+    for (const { value, button } of choiceButtons) {
+      button.addEventListener("click", () => finish(value));
+    }
+  });
+}

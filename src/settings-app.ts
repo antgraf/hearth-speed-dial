@@ -1,6 +1,24 @@
 import type { BookmarksApi } from "./browser.ts";
-import { confirmDialog } from "./dialog.ts";
-import { dialOpenFolderOptions, type FolderOption } from "./model.ts";
+import { choiceDialog, confirmDialog } from "./dialog.ts";
+import {
+  bookmarkIdsByUrl,
+  bookmarkUrlsById,
+  backupFilename,
+  buildBackup,
+  downloadTextFile,
+  IMPORT_INVALID_MESSAGE,
+  IMPORT_MERGE_LABEL,
+  IMPORT_MODE_MESSAGE,
+  IMPORT_MODE_TITLE,
+  IMPORT_OVERWRITE_LABEL,
+  parseBackup,
+  pickBackupFile,
+  planBackupApply,
+  serializeBackup,
+  type ImportMode,
+} from "./backup.ts";
+import { buildBackupCategory } from "./backup-settings.ts";
+import { dialOpenFolderOptions, nodeIndex, type FolderOption } from "./model.ts";
 import {
   dialStorageUsageLabel,
   fileToDataUrl,
@@ -281,6 +299,17 @@ export function startSettings(
     }
     form.append(picturesCategory);
 
+    const backupCategory = buildBackupCategory({
+      disabled: saving,
+      onExport: () => {
+        void exportBackup();
+      },
+      onImport: () => {
+        void importBackup();
+      },
+    });
+    form.append(backupCategory.root);
+
     // Danger Zone must always remain last if new settings categories are added.
     const dangerCategory = category("Danger Zone");
     dangerCategory.classList.add("settings-danger-zone");
@@ -405,6 +434,135 @@ export function startSettings(
         caught instanceof Error && caught.message.trim()
           ? caught.message
           : "Could not erase data.";
+      draw();
+    }
+  };
+
+  const exportBackup = async () => {
+    if (saving) return;
+    saving = true;
+    error = null;
+    savedNote = null;
+    draw();
+    try {
+      const openFolderId = await settings.getOpenFolderId();
+      const imageMap = images ? await images.getAll() : {};
+      let imageUrls: Record<string, string> = {};
+      if (bookmarks) {
+        try {
+          imageUrls = bookmarkUrlsById(await bookmarks.getTree());
+        } catch {
+          imageUrls = {};
+        }
+      }
+      const backup = buildBackup({
+        layout,
+        defaultFolderId,
+        openFolderId,
+        themeBackground,
+        images: imageMap,
+        imageUrls,
+      });
+      downloadTextFile(backupFilename(), serializeBackup(backup));
+      saving = false;
+      savedNote = "Backup downloaded. Chrome bookmarks are not included.";
+      draw();
+    } catch (caught) {
+      saving = false;
+      error =
+        caught instanceof Error && caught.message.trim()
+          ? caught.message
+          : "Could not export backup.";
+      draw();
+    }
+  };
+
+  const importBackup = async () => {
+    if (saving) return;
+    const file = await pickBackupFile();
+    if (!file) return;
+    let raw: string;
+    try {
+      raw = await file.text();
+      parseBackup(raw);
+    } catch (caught) {
+      error =
+        caught instanceof Error && caught.message.trim()
+          ? caught.message
+          : IMPORT_INVALID_MESSAGE;
+      savedNote = null;
+      draw();
+      return;
+    }
+    const mode = await choiceDialog<ImportMode>({
+      title: IMPORT_MODE_TITLE,
+      message: IMPORT_MODE_MESSAGE,
+      choices: [
+        { value: "merge", label: IMPORT_MERGE_LABEL, primary: true },
+        { value: "overwrite", label: IMPORT_OVERWRITE_LABEL, danger: true },
+      ],
+      cancelLabel: "Cancel",
+    });
+    if (!mode) return;
+
+    saving = true;
+    error = null;
+    savedNote = null;
+    draw();
+    try {
+      const backup = parseBackup(raw);
+      let existingIds: Set<string> | undefined;
+      let urlToId: Map<string, string> | undefined;
+      if (bookmarks) {
+        try {
+          const tree = await bookmarks.getTree();
+          existingIds = new Set(nodeIndex(tree).keys());
+          urlToId = bookmarkIdsByUrl(tree);
+        } catch {
+          existingIds = undefined;
+          urlToId = undefined;
+        }
+      }
+      const plan = planBackupApply(backup, mode, { existingIds, urlToId });
+
+      await revokeOptionalFeaturePermissions(
+        {
+          ...layout,
+          thumbnailsEnabled: layout.thumbnailsEnabled && !plan.layout.thumbnailsEnabled,
+          imageUrlFetchEnabled:
+            layout.imageUrlFetchEnabled && !plan.layout.imageUrlFetchEnabled,
+        },
+        permissions ?? null,
+      );
+
+      if (plan.clearAllImages && images) await images.clearAll();
+      if (images) {
+        for (const [id, dataUrl] of Object.entries(plan.imagesToSet)) {
+          await images.setImage(id, dataUrl);
+        }
+      }
+      await settings.setLayout(plan.layout);
+      await settings.setDefaultFolderId(plan.defaultFolderId);
+      if (plan.openFolderId) await settings.setOpenFolderId(plan.openFolderId);
+      if (plan.themeBackground !== undefined) {
+        await settings.setThemeBackground(plan.themeBackground);
+        themeBackground = plan.themeBackground;
+      }
+      layout = plan.layout;
+      defaultFolderId = plan.defaultFolderId;
+      await refreshStorageUsage();
+      saving = false;
+      savedNote =
+        mode === "overwrite"
+          ? "Backup imported (overwrite). Open a new tab to see the dial."
+          : "Backup imported (merge). Open a new tab to see the dial.";
+      draw();
+    } catch (caught) {
+      saving = false;
+      error =
+        caught instanceof Error && caught.message.trim()
+          ? caught.message
+          : "Could not import backup.";
       draw();
     }
   };
