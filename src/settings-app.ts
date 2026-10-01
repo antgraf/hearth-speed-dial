@@ -3,6 +3,7 @@ import { confirmDialog } from "./dialog.ts";
 import { dialOpenFolderOptions, type FolderOption } from "./model.ts";
 import {
   dialStorageUsageLabel,
+  fileToDataUrl,
   formatDialStorageUsage,
   type ImageStorageUsage,
   type ImagesApi,
@@ -23,6 +24,8 @@ import {
 } from "./settings.ts";
 import type { PermissionsApi } from "./permissions.ts";
 import { applyLayoutChange, revokeOptionalFeaturePermissions } from "./toggles.ts";
+import { applyThemeToDocument } from "./theme.ts";
+import { buildThemeCategory, type ThemeCategoryHandle } from "./theme-settings.ts";
 
 export function startSettings(
   host: HTMLElement,
@@ -32,7 +35,7 @@ export function startSettings(
   bookmarks?: BookmarksApi,
   images?: ImagesApi,
 ): void {
-  let layout: LayoutSettings = { ...DEFAULT_LAYOUT };
+  let layout: LayoutSettings = { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } };
   let defaultFolderId: string | null = null;
   let folderOptions: FolderOption[] = [];
   let saving = false;
@@ -40,6 +43,15 @@ export function startSettings(
   let savedNote: string | null = null;
   let storageUsage: ImageStorageUsage | null = null;
   let storageUsageError = false;
+  let themeBackground: string | null = null;
+  let themeControls: ThemeCategoryHandle | null = null;
+
+  const applyTheme = () => {
+    if (typeof document === "undefined") return;
+    applyThemeToDocument(document.documentElement, layout.theme, {
+      backgroundImage: themeBackground,
+    });
+  };
 
   const draw = () => {
     host.replaceChildren();
@@ -61,7 +73,7 @@ export function startSettings(
     const intro = document.createElement("p");
     intro.className = "settings-intro";
     intro.textContent =
-      "Layout preferences stay in this browser profile. Bookmark order in Chrome is unchanged — reverse only affects how the dial grid is shown.";
+      "Layout and theme preferences stay in this browser profile. Bookmark order in Chrome is unchanged — reverse only affects how the dial grid is shown.";
     frame.append(intro);
 
     if (error) {
@@ -167,6 +179,51 @@ export function startSettings(
     displayCategory.append(folderHelp);
     form.append(displayCategory);
 
+    themeControls = buildThemeCategory({
+      theme: layout.theme,
+      backgroundImage: themeBackground,
+      disabled: saving,
+      idPrefix: "page-theme",
+      onThemeChange: () => {
+        layout = { ...layout, theme: themeControls!.readTheme() };
+        applyTheme();
+      },
+      onBackgroundFile: (file) => {
+        void (async () => {
+          try {
+            if (file == null) {
+              themeBackground = null;
+              await settings.setThemeBackground(null);
+            } else {
+              const dataUrl = await fileToDataUrl(file);
+              themeBackground = dataUrl;
+              await settings.setThemeBackground(dataUrl);
+            }
+            themeControls?.setBackgroundImage(themeBackground);
+            applyTheme();
+            savedNote = "Background image updated.";
+            error = null;
+            draw();
+          } catch (caught) {
+            error =
+              caught instanceof Error && caught.message.trim()
+                ? caught.message
+                : "Could not update background image.";
+            draw();
+          }
+        })();
+      },
+    });
+    // Match options-page heading level used by other categories.
+    const themeHeading = themeControls.root.querySelector(".settings-category-title");
+    if (themeHeading) {
+      const h2 = document.createElement("h2");
+      h2.className = "settings-category-title";
+      h2.textContent = themeHeading.textContent;
+      themeHeading.replaceWith(h2);
+    }
+    form.append(themeControls.root);
+
     const picturesCategory = category("Pictures");
 
     const thumbnails = document.createElement("input");
@@ -266,6 +323,7 @@ export function startSettings(
     form.append(actions);
 
     frame.append(form);
+    applyTheme();
   };
 
   const refreshStorageUsage = async () => {
@@ -301,6 +359,7 @@ export function startSettings(
       await revokeOptionalFeaturePermissions(layout, permissions ?? null);
       layout = await settings.resetToDefaults();
       defaultFolderId = null;
+      themeBackground = null;
       saving = false;
       savedNote = "Reset to defaults. Open a new tab to see layout changes.";
       draw();
@@ -333,8 +392,9 @@ export function startSettings(
       await revokeOptionalFeaturePermissions(layout, permissions ?? null);
       await settings.clearAll();
       if (images) await images.clearAll();
-      layout = { ...DEFAULT_LAYOUT };
+      layout = { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } };
       defaultFolderId = null;
+      themeBackground = null;
       await refreshStorageUsage();
       saving = false;
       savedNote = "All Hearth data erased. Open a new tab to see the dial.";
@@ -362,6 +422,7 @@ export function startSettings(
       thumbnailsEnabled: data.get("thumbnailsEnabled") === "on",
       imageUrlFetchEnabled: data.get("imageUrlFetchEnabled") === "on",
       thumbnailWaitSeconds: Number(data.get("thumbnailWaitSeconds")),
+      theme: themeControls?.readTheme() ?? layout.theme,
     };
     const nextDefaultRaw = String(data.get("defaultFolderId") ?? "").trim();
     const nextDefault = nextDefaultRaw.length > 0 ? nextDefaultRaw : null;
@@ -405,6 +466,7 @@ export function startSettings(
     try {
       layout = await settings.getLayout();
       defaultFolderId = await settings.getDefaultFolderId();
+      themeBackground = await settings.getThemeBackground();
       if (bookmarks) {
         try {
           folderOptions = dialOpenFolderOptions(await bookmarks.getTree());
@@ -429,6 +491,7 @@ export function startSettings(
       }
       if (changed) void settings.setLayout(layout);
       await refreshStorageUsage();
+      applyTheme();
     } catch (caught) {
       error = caught instanceof Error && caught.message.trim() ? caught.message : "Could not load settings.";
     }

@@ -17,6 +17,7 @@ import {
   clampTileSize,
   type LayoutSettings,
 } from "./settings.ts";
+import { normalizeTheme } from "./theme.ts";
 
 /** Permission subset required by layout toggle transitions. */
 export type LayoutTogglePermissions = Pick<
@@ -64,6 +65,7 @@ export async function applyLayoutChange(
     thumbnailsEnabled: Boolean(requested.thumbnailsEnabled),
     imageUrlFetchEnabled: Boolean(requested.imageUrlFetchEnabled),
     thumbnailWaitSeconds: clampThumbnailWaitSeconds(requested.thumbnailWaitSeconds),
+    theme: normalizeTheme(requested.theme ?? previous.theme),
   };
 
   let error: string | null = null;

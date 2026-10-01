@@ -106,6 +106,12 @@ function fakeSettings(defaultFolderId: string | null = null): SettingsApi {
     async setLayout() {
       throw new Error("unexpected setLayout");
     },
+    async getThemeBackground() {
+      throw new Error("unexpected getThemeBackground");
+    },
+    async setThemeBackground() {
+      throw new Error("unexpected setThemeBackground");
+    },
     async resetToDefaults() {
       throw new Error("unexpected resetToDefaults");
     },

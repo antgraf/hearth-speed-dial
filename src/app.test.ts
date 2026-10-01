@@ -43,7 +43,11 @@ function sampleTree(): BookmarkNode[] {
 }
 
 function layout(partial: Partial<LayoutSettings> = {}): LayoutSettings {
-  return { ...DEFAULT_LAYOUT, ...partial };
+  return {
+    ...DEFAULT_LAYOUT,
+    ...partial,
+    theme: { ...DEFAULT_LAYOUT.theme, ...(partial.theme ?? {}) },
+  };
 }
 
 function fakeBookmarks(tree: BookmarkNode[] = sampleTree()): BookmarksApi & {
@@ -108,15 +112,23 @@ function fakeSettings(initial: {
   layout?: LayoutSettings;
   defaultFolderId?: string | null;
   openFolderId?: string | null;
-} = {}): SettingsApi & { calls: CallLog; storedLayout: LayoutSettings } {
+} = {}): SettingsApi & {
+  calls: CallLog;
+  storedLayout: LayoutSettings;
+  themeBackground: string | null;
+} {
   const calls: CallLog = [];
   let storedLayout = layout(initial.layout);
   let defaultFolderId = initial.defaultFolderId ?? null;
   let openFolderId = initial.openFolderId ?? null;
+  let themeBackground: string | null = null;
   return {
     calls,
     get storedLayout() {
       return storedLayout;
+    },
+    get themeBackground() {
+      return themeBackground;
     },
     async getOpenFolderId() {
       calls.push("getOpenFolderId");
@@ -136,23 +148,33 @@ function fakeSettings(initial: {
     },
     async getLayout() {
       calls.push("getLayout");
-      return { ...storedLayout };
+      return { ...storedLayout, theme: { ...storedLayout.theme } };
     },
     async setLayout(next) {
       calls.push("setLayout");
-      storedLayout = { ...next };
+      storedLayout = { ...next, theme: { ...next.theme } };
+    },
+    async getThemeBackground() {
+      calls.push("getThemeBackground");
+      return themeBackground;
+    },
+    async setThemeBackground(dataUrl) {
+      calls.push(dataUrl ? "setThemeBackground:set" : "setThemeBackground:clear");
+      themeBackground = dataUrl;
     },
     async resetToDefaults() {
       calls.push("resetToDefaults");
-      storedLayout = { ...DEFAULT_LAYOUT };
+      storedLayout = layout();
       defaultFolderId = null;
-      return { ...storedLayout };
+      themeBackground = null;
+      return { ...storedLayout, theme: { ...storedLayout.theme } };
     },
     async clearAll() {
       calls.push("clearAll");
-      storedLayout = { ...DEFAULT_LAYOUT };
+      storedLayout = layout();
       defaultFolderId = null;
       openFolderId = null;
+      themeBackground = null;
     },
   };
 }

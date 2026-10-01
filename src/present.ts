@@ -48,6 +48,8 @@ export type AppState = {
   layout: LayoutSettings;
   /** Local dial pictures keyed by bookmark id (data URLs). */
   images: Record<string, string>;
+  /** Optional local theme wallpaper data URL. */
+  themeBackground: string | null;
   /** True when thumbnails setting is on and optional permissions are granted. */
   thumbnailsActive: boolean;
   /** True when Image-from-URL setting is on and optional host access is granted. */

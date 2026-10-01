@@ -59,7 +59,11 @@ function fakePermissions(overrides: Partial<LayoutToggleFake> = {}): FakePermiss
 }
 
 function layout(partial: Partial<LayoutSettings> = {}): LayoutSettings {
-  return { ...DEFAULT_LAYOUT, ...partial };
+  return {
+    ...DEFAULT_LAYOUT,
+    ...partial,
+    theme: { ...DEFAULT_LAYOUT.theme, ...(partial.theme ?? {}) },
+  };
 }
 
 test("applyLayoutChange table: permission toggle state machine", async () => {
