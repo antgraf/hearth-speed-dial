@@ -4,6 +4,7 @@ desktop.ini
 
 node_modules/
 dist/
+.browser-profiles/
 artifacts/
 *.zip
 *.log

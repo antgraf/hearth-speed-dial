@@ -43,6 +43,12 @@ Or from the repo root: `.\build.ps1` (or `pwsh ./build.ps1`). Runs `npm install`
 
 After a rebuild, use **Reload** on the extension card so Chrome picks up `dist` changes.
 
+To try install/uninstall in a **temporary Chrome profile** (does not touch your personal profile), see [docs/DEV.md](docs/DEV.md):
+
+```bash
+npm run build && npm run browser:chrome
+```
+
 `npm test`, `npm run typecheck`, and `npm run lint` check the project. `npm run test:coverage` prints V8 coverage for modules the tests import (not whole-project until controllers have tests). `npm run dev` opens a preview that uses sample bookmarks. That sample is left out of the built extension.
 
 Manual Chrome checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
