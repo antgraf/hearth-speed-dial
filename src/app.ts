@@ -287,7 +287,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     state.error = null;
     draw();
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const dataUrl = await fileToDataUrl(file, "tile");
       await ports.images.setImage(id, dataUrl);
       state.images = { ...state.images, [id]: dataUrl };
       state.saving = false;
@@ -333,7 +333,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     try {
       const allowed = await ports.permissions.requestFetchAccess(href);
       if (!allowed) throw new Error(imageUrlPermissionDeniedMessage());
-      const dataUrl = await fetchImageAsDataUrl(href);
+      const dataUrl = await fetchImageAsDataUrl(href, fetch, "tile");
       await ports.images.setImage(id, dataUrl);
       state.images = { ...state.images, [id]: dataUrl };
       state.saving = false;
@@ -537,7 +537,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         state.themeBackground = null;
         await ports.settings.setThemeBackground(null);
       } else {
-        const dataUrl = await fileToDataUrl(file);
+        const dataUrl = await fileToDataUrl(file, "background");
         state.themeBackground = dataUrl;
         await ports.settings.setThemeBackground(dataUrl);
       }
@@ -546,6 +546,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     } catch (error) {
       state.error = errorText(error);
       draw();
+      // Rethrow so Settings overlay / options page can show an in-dialog error
+      // (the dial banner alone is hidden behind the Settings panel).
+      throw error instanceof Error ? error : new Error(errorText(error));
     }
   };
 

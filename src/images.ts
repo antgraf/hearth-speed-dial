@@ -8,13 +8,37 @@ import { t } from "./i18n.ts";
  * - Manifest requests install-time `unlimitedStorage` so dial art is not capped
  *   by Chrome’s default ~10 MB shared `storage.local` quota.
  * - Each image is stored as a data URL (base64), ~33% larger than the file.
- * - Per-file cap below still bounds a single attach/capture; disk can still fill.
+ * - Large / high-res uploads are decoded, downscaled, and recompressed on ingest
+ *   before persist; the stored-byte cap below still bounds each entry.
  * - Write failures (full disk / remaining Chromium limits) surface honest UX.
  */
 export const IMAGE_KEY_PREFIX = "hearth.image.";
 
-/** Max raw file size accepted from the file picker (before data-URL encoding). */
+/**
+ * Max stored payload size (decoded bytes of the data-URL body) for one dial
+ * picture or wallpaper after ingest resize/compress.
+ */
 export const MAX_IMAGE_BYTES = 1_500_000;
+
+/**
+ * Max raw bytes accepted from a local file or URL download before decode.
+ * Larger stock / camera files are resized on ingest; beyond this we refuse.
+ */
+export const MAX_SOURCE_IMAGE_BYTES = 40_000_000;
+
+/** Role picks max pixel dimensions for on-ingest downscale. */
+export type ImageIngestRole = "tile" | "background";
+
+export const IMAGE_INGEST_LIMITS = {
+  tile: { maxWidth: 1280, maxHeight: 720 },
+  background: { maxWidth: 2560, maxHeight: 1440 },
+  /** JPEG quality steps tried when the encoded blob is still over the store cap. */
+  jpegQualities: [0.85, 0.75, 0.65, 0.55] as const,
+  /** Extra downscale factor when quality alone cannot fit the store cap. */
+  shrinkFactor: 0.75,
+  /** Safety bound so a pathological encode loop cannot hang. */
+  maxEncodeAttempts: 12,
+} as const;
 
 /**
  * Treat Chromium `QUOTA_BYTES` above this as an “unlimited” sentinel.
@@ -29,6 +53,27 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/gif",
   "image/webp",
 ] as const;
+
+/** Decoded bitmap used by the ingest codec (browser ImageBitmap or a test double). */
+export type ImageBitmapLike = {
+  width: number;
+  height: number;
+  close?: () => void;
+};
+
+/**
+ * Pluggable decode/encode for unit tests. Production uses createImageBitmap + canvas.
+ */
+export type ImageIngestCodec = {
+  decode(blob: Blob): Promise<ImageBitmapLike>;
+  encode(
+    bitmap: ImageBitmapLike,
+    width: number,
+    height: number,
+    mime: "image/jpeg" | "image/png" | "image/webp",
+    quality: number,
+  ): Promise<Blob>;
+};
 
 /** `input.accept` value for the dial picture file picker (matches ALLOWED_IMAGE_TYPES). */
 export function imagePickerAccept(): string {
@@ -122,12 +167,28 @@ export function dialImageStorageKeys(storedKeys: readonly string[]): string[] {
 }
 
 export function imageTooLargeMessage(): string {
-  const mb = MAX_IMAGE_BYTES / 1_000_000;
+  const mb = MAX_SOURCE_IMAGE_BYTES / 1_000_000;
   return t("error_image_too_large", String(mb));
+}
+
+export function imageStillTooLargeMessage(): string {
+  return t("error_image_still_too_large");
+}
+
+export function imageDecodeFailedMessage(): string {
+  return t("error_image_decode");
+}
+
+export function imageEncodeFailedMessage(): string {
+  return t("error_image_encode");
 }
 
 export function imageTypeMessage(): string {
   return t("error_image_type");
+}
+
+export function backgroundImageFailedTitle(): string {
+  return t("background_failed_title");
 }
 
 /** True when Chrome / localStorage rejected a write for quota / space. */
@@ -228,12 +289,228 @@ export function mimeFromContentType(value: string | null | undefined): string {
 }
 
 /**
+ * Fit `width`×`height` inside `maxWidth`×`maxHeight` without upscaling.
+ * Returns integer pixel size (at least 1×1).
+ */
+export function fitWithinBounds(
+  width: number,
+  height: number,
+  maxWidth: number,
+  maxHeight: number,
+): { width: number; height: number } {
+  const srcW = Math.max(1, Math.floor(width));
+  const srcH = Math.max(1, Math.floor(height));
+  const scale = Math.min(1, maxWidth / srcW, maxHeight / srcH);
+  return {
+    width: Math.max(1, Math.round(srcW * scale)),
+    height: Math.max(1, Math.round(srcH * scale)),
+  };
+}
+
+/** Max pixel box for a dial tile vs theme wallpaper. */
+export function ingestMaxSize(role: ImageIngestRole): { maxWidth: number; maxHeight: number } {
+  return IMAGE_INGEST_LIMITS[role];
+}
+
+/** Sniff MIME from magic bytes when the File/Blob type is missing or wrong. */
+export function mimeFromMagicBytes(bytes: Uint8Array): string | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (
+    bytes.length >= 6 &&
+    bytes[0] === 0x47 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x38 &&
+    (bytes[4] === 0x37 || bytes[4] === 0x39) &&
+    bytes[5] === 0x61
+  ) {
+    return "image/gif";
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+/** Infer MIME from a filename extension when type/magic are unavailable. */
+export function mimeFromFileName(name: string): string | null {
+  const lower = name.trim().toLowerCase();
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".gif")) return "image/gif";
+  if (lower.endsWith(".webp")) return "image/webp";
+  return null;
+}
+
+/** Resolve an allowed MIME for ingest, or null when the bytes are not a supported image. */
+export async function resolveImageMime(
+  blob: Blob,
+  hintType?: string,
+  fileName?: string,
+): Promise<string | null> {
+  const hinted = mimeFromContentType(hintType ?? blob.type);
+  if (isAllowedImageType(hinted)) return hinted;
+  const buffer = await blob.slice(0, 16).arrayBuffer();
+  const magic = mimeFromMagicBytes(new Uint8Array(buffer));
+  if (magic && isAllowedImageType(magic)) return magic;
+  const fromName = fileName ? mimeFromFileName(fileName) : null;
+  if (fromName && isAllowedImageType(fromName)) return fromName;
+  return null;
+}
+
+function closeBitmap(bitmap: ImageBitmapLike): void {
+  try {
+    bitmap.close?.();
+  } catch {
+    // Best-effort; ImageBitmap.close is optional on doubles.
+  }
+}
+
+/** Browser codec: createImageBitmap + canvas.toBlob. */
+export function browserImageIngestCodec(): ImageIngestCodec {
+  return {
+    async decode(blob) {
+      if (typeof createImageBitmap !== "function") {
+        throw new Error(imageDecodeFailedMessage());
+      }
+      try {
+        return await createImageBitmap(blob);
+      } catch {
+        throw new Error(imageDecodeFailedMessage());
+      }
+    },
+    async encode(bitmap, width, height, mime, quality) {
+      const doc = typeof document !== "undefined" ? document : null;
+      if (!doc?.createElement) throw new Error(imageEncodeFailedMessage());
+      const canvas = doc.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error(imageEncodeFailedMessage());
+      // White fill so JPEG has no transparent black fringe from PNG/GIF sources.
+      if (mime === "image/jpeg") {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+      }
+      ctx.drawImage(bitmap as CanvasImageSource, 0, 0, width, height);
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((result) => resolve(result), mime, quality);
+      });
+      if (!blob || blob.size <= 0) throw new Error(imageEncodeFailedMessage());
+      return blob;
+    },
+  };
+}
+
+let defaultCodec: ImageIngestCodec | null = null;
+
+function activeCodec(override?: ImageIngestCodec): ImageIngestCodec {
+  if (override) return override;
+  if (!defaultCodec) defaultCodec = browserImageIngestCodec();
+  return defaultCodec;
+}
+
+/**
+ * Decode → optional downscale → encode so the stored data URL fits role limits.
+ * Files already under the stored-byte cap keep their original bytes when they
+ * also fit the role’s max dimensions (or when decode is unavailable — e.g. Node
+ * unit tests without canvas). Larger files always decode and recompress.
+ */
+export async function ingestImageBlob(
+  blob: Blob,
+  role: ImageIngestRole,
+  options: { mime?: string; fileName?: string; codec?: ImageIngestCodec } = {},
+): Promise<string> {
+  if (blob.size > MAX_SOURCE_IMAGE_BYTES) throw new Error(imageTooLargeMessage());
+
+  const mime = await resolveImageMime(blob, options.mime, options.fileName);
+  if (!mime) throw new Error(imageTypeMessage());
+
+  const codec = activeCodec(options.codec);
+  const bounds = ingestMaxSize(role);
+  const alreadyUnderStoreCap = blob.size <= MAX_IMAGE_BYTES;
+
+  let bitmap: ImageBitmapLike;
+  try {
+    bitmap = await codec.decode(blob);
+  } catch (error) {
+    // Small files: keep original bytes when the environment cannot decode
+    // (Node tests) — same as pre-ingest behavior for tiny icons.
+    if (alreadyUnderStoreCap && !options.codec) {
+      return blobToDataUrl(blob, mime);
+    }
+    if (error instanceof Error && error.message === imageDecodeFailedMessage()) throw error;
+    throw new Error(imageDecodeFailedMessage(), { cause: error });
+  }
+
+  try {
+    const fitsPixels =
+      bitmap.width <= bounds.maxWidth && bitmap.height <= bounds.maxHeight;
+    if (fitsPixels && alreadyUnderStoreCap) {
+      return blobToDataUrl(blob, mime);
+    }
+
+    let target = fitWithinBounds(bitmap.width, bitmap.height, bounds.maxWidth, bounds.maxHeight);
+    let attempts = 0;
+    while (attempts < IMAGE_INGEST_LIMITS.maxEncodeAttempts) {
+      attempts += 1;
+      for (const quality of IMAGE_INGEST_LIMITS.jpegQualities) {
+        let encoded: Blob;
+        try {
+          encoded = await codec.encode(bitmap, target.width, target.height, "image/jpeg", quality);
+        } catch (error) {
+          if (error instanceof Error && error.message === imageEncodeFailedMessage()) throw error;
+          throw new Error(imageEncodeFailedMessage(), { cause: error });
+        }
+        if (encoded.size <= MAX_IMAGE_BYTES) {
+          return blobToDataUrl(encoded, "image/jpeg");
+        }
+      }
+      const nextW = Math.max(1, Math.round(target.width * IMAGE_INGEST_LIMITS.shrinkFactor));
+      const nextH = Math.max(1, Math.round(target.height * IMAGE_INGEST_LIMITS.shrinkFactor));
+      if (nextW === target.width && nextH === target.height) break;
+      target = { width: nextW, height: nextH };
+    }
+    throw new Error(imageStillTooLargeMessage());
+  } finally {
+    closeBitmap(bitmap);
+  }
+}
+
+/**
  * Read a remote image into a data URL (same store shape as a local file attach).
  * Caller must ensure host permission / network access before calling.
  */
 export async function fetchImageAsDataUrl(
   href: string,
   fetchImpl: typeof fetch = fetch,
+  role: ImageIngestRole = "tile",
+  codec?: ImageIngestCodec,
 ): Promise<string> {
   const source = imageSourceUrl(href);
   if (!source) throw new Error(imageUrlInvalidMessage());
@@ -250,10 +527,7 @@ export async function fetchImageAsDataUrl(
   const blob = await response.blob();
   const blobType = mimeFromContentType(blob.type);
   const type = blobType || headerType;
-  if (!isAllowedImageType(type)) throw new Error(imageTypeMessage());
-  if (blob.size > MAX_IMAGE_BYTES) throw new Error(imageTooLargeMessage());
-
-  return blobToDataUrl(blob, type);
+  return ingestImageBlob(blob, role, { mime: type || undefined, codec });
 }
 
 /** Approximate decoded byte length of a base64 data URL payload. */
@@ -280,15 +554,43 @@ export async function blobToDataUrl(blob: Blob, type: string): Promise<string> {
   return valid;
 }
 
-/** Read a local image file into a data URL, enforcing type and size limits. */
-export async function fileToDataUrl(file: File): Promise<string> {
-  if (!isAllowedImageType(file.type)) {
-    throw new Error(imageTypeMessage());
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new Error(imageTooLargeMessage());
-  }
-  return blobToDataUrl(file, file.type);
+/**
+ * Read a local image file into a data URL for dial tiles or theme wallpaper.
+ * Oversized / high-res files are resized and compressed before persist.
+ */
+export async function fileToDataUrl(
+  file: File,
+  role: ImageIngestRole = "tile",
+  codec?: ImageIngestCodec,
+): Promise<string> {
+  return ingestImageBlob(file, role, {
+    mime: file.type || undefined,
+    fileName: file.name,
+    codec,
+  });
+}
+
+/**
+ * Normalize an already-captured JPEG/PNG data URL (thumbnail path) through the
+ * same dimension / stored-byte budget as file attach.
+ */
+export async function ingestDataUrl(
+  dataUrl: string,
+  role: ImageIngestRole = "tile",
+  codec?: ImageIngestCodec,
+): Promise<string> {
+  const valid = readImageDataUrl(dataUrl);
+  if (!valid) throw new Error(t("error_image_read"));
+  const comma = valid.indexOf(",");
+  const header = valid.slice(0, comma);
+  const mimeMatch = /^data:(image\/[a-z0-9.+-]+);base64$/i.exec(header);
+  const mime = mimeMatch?.[1]?.toLowerCase() ?? "";
+  const base64 = valid.slice(comma + 1);
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: mime });
+  return ingestImageBlob(blob, role, { mime, codec });
 }
 
 const PREVIEW_IMAGES_KEY = "hearth.previewImages";

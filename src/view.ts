@@ -536,8 +536,19 @@ function openSettingsDialog(
             backgroundImage: themeBackground,
           });
         })
-        .catch(() => {
-          // Errors surface via the dial banner on redraw.
+        .catch(async (error: unknown) => {
+          // Dial banner is behind this overlay — surface a modal so failures are visible.
+          const message =
+            error instanceof Error && error.message.trim()
+              ? error.message
+              : t("error_update_background");
+          await confirmDialog({
+            title: t("background_failed_title"),
+            message,
+            confirmLabel: t("btn_ok"),
+            cancelLabel: t("btn_close"),
+            returnFocus: themeControls.root,
+          });
         });
     },
   });

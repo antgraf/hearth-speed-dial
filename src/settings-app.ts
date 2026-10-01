@@ -214,7 +214,7 @@ export function startSettings(
               themeBackground = null;
               await settings.setThemeBackground(null);
             } else {
-              const dataUrl = await fileToDataUrl(file);
+              const dataUrl = await fileToDataUrl(file, "background");
               themeBackground = dataUrl;
               await settings.setThemeBackground(dataUrl);
             }
