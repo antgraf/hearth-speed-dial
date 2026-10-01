@@ -4,6 +4,7 @@ import { Window } from "happy-dom";
 import { DEFAULT_LAYOUT } from "./settings.ts";
 import type { ViewModel } from "./present.ts";
 import { render, type ViewActions } from "./view.ts";
+import { t } from "./i18n.ts";
 
 type DomKit = {
   window: Window;
@@ -119,8 +120,8 @@ test("grid renders a find-a-dial search field", () => {
   render(kit.host, gridView(), actions());
   const input = kit.host.querySelector<HTMLInputElement>(".dial-search-input");
   assert.ok(input);
-  assert.equal(input.getAttribute("aria-label"), "Find a dial");
-  assert.equal(input.placeholder, "Find…");
+  assert.equal(input.getAttribute("aria-label"), t("search_aria_label"));
+  assert.equal(input.placeholder, t("search_placeholder"));
   assert.ok(kit.host.querySelector(".dial-search-hint"));
 });
 
@@ -161,5 +162,5 @@ test("searching hides the create tile and marks the search control active", () =
   );
   assert.ok(kit.host.querySelector(".dial-search.is-active"));
   assert.equal(kit.host.querySelector(".tile.add"), null);
-  assert.equal(kit.host.querySelector('[aria-label="Search results"]')?.tagName, "UL");
+  assert.equal(kit.host.querySelector(`[aria-label="${t("aria_search_results")}"]`)?.tagName, "UL");
 });

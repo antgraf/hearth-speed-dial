@@ -28,7 +28,7 @@ Chrome and Firefox, Manifest V3. Load unpacked from `dist/chrome/` (Chrome) or `
 
 Default install permissions stay narrow: `bookmarks`, `storage`, `unlimitedStorage` (local dial pictures only — lifts the default shared quota; no network, no sync of blobs), `contextMenus`, and `activeTab` (temporary tab title for **Add to Hearth…** after the context-menu gesture). **Chrome** also installs `favicon` (profile favicon cache for title-strip icons only — no network). **Firefox** omits `favicon`. Host access and `tabs` are **optional** (see Permissions).
 
-Out of scope for now: refresh one dial; favicon-as-dial-face fallback; Firefox title-strip favicons (no local-only API without host permissions); full `_locales` / i18n extract (separate Pre-publish item — packaging does not require it yet).
+Out of scope for now: refresh one dial; favicon-as-dial-face fallback; Firefox title-strip favicons (no local-only API without host permissions). English `_locales` scaffolding is in (`_locales/en/messages.json` + runtime `t()` via `browser.i18n` / `chrome.i18n`); additional languages remain out of scope.
 
 ## Permissions
 

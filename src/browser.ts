@@ -1,4 +1,5 @@
 import type { BookmarkNode } from "./model.ts";
+import { t } from "./i18n.ts";
 import {
   collectImages,
   dataUrlByteLength,
@@ -104,7 +105,7 @@ export function chromeBookmarks(): BookmarksApi {
     async remove(id) {
       const nodes = await api.bookmarks.get(id);
       const node = nodes[0];
-      if (!node) throw new Error("That bookmark is no longer available.");
+      if (!node) throw new Error(t("error_bookmark_gone"));
       if (node.url !== undefined) await api.bookmarks.remove(id);
       else await api.bookmarks.removeTree(id);
     },
@@ -171,7 +172,7 @@ export function chromeSettings(): SettingsApi {
         return;
       }
       const valid = readThemeBackgroundDataUrl(dataUrl);
-      if (!valid) throw new Error("That file could not be stored as a background image.");
+      if (!valid) throw new Error(t("error_background_store"));
       try {
         await extensionApi().storage.local.set({ [THEME_BACKGROUND_KEY]: valid });
       } catch (error) {
@@ -215,7 +216,7 @@ export function chromeImages(): ImagesApi {
     },
     async setImage(bookmarkId, dataUrl) {
       const valid = readImageDataUrl(dataUrl);
-      if (!valid) throw new Error("That file could not be stored as an image.");
+      if (!valid) throw new Error(t("error_image_store"));
       try {
         await extensionApi().storage.local.set({ [imageStorageKey(bookmarkId)]: valid });
       } catch (error) {
@@ -425,11 +426,9 @@ export function chromeCapture(): CaptureApi {
           quality: 72,
         });
         const valid = readImageDataUrl(dataUrl);
-        if (!valid) throw new Error("The page screenshot could not be stored as an image.");
+        if (!valid) throw new Error(t("error_screenshot_store"));
         if (dataUrlByteLength(valid) > MAX_IMAGE_BYTES) {
-          throw new Error(
-            "That screenshot is too large to store. Try a simpler page, or attach a smaller image file.",
-          );
+          throw new Error(t("error_screenshot_too_large"));
         }
         return valid;
       } finally {
@@ -452,7 +451,7 @@ async function openCaptureWindow(pageUrl: string): Promise<number> {
     height: 720,
   });
   const windowId = created?.id;
-  if (windowId === undefined) throw new Error("Could not open a window to capture that page.");
+  if (windowId === undefined) throw new Error(t("error_capture_window"));
   return windowId;
 }
 

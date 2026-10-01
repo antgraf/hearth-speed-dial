@@ -1,3 +1,5 @@
+import { t } from "./i18n.ts";
+
 /**
  * Cross-browser extension API entry point.
  *
@@ -34,7 +36,7 @@ export function tryExtensionApi(): ExtensionApi | null {
 export function extensionApi(): ExtensionApi {
   const api = tryExtensionApi();
   if (!api) {
-    throw new Error("Hearth requires a Chromium or Firefox extension API (browser / chrome).");
+    throw new Error(t("error_extension_api_missing"));
   }
   return api;
 }

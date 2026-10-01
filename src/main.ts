@@ -1,10 +1,13 @@
 import { start } from "./app.ts";
 import { chromeBookmarks, chromeCapture, chromeImages, chromePermissions, chromeSettings } from "./browser.ts";
+import { t } from "./i18n.ts";
 import {
   extensionBookmarksReady,
   extensionStorageReady,
   tryExtensionApi,
 } from "./webext.ts";
+
+document.title = t("page_title_new_tab");
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
@@ -28,9 +31,8 @@ if (bookmarksReady && storageReady) {
   const ports = previewPorts();
   start(host, {
     ...ports,
-    banner: previewBanner,
+    banner: previewBanner(),
   });
 } else {
-  host.textContent =
-    "Open Hearth from a new tab after loading the extension in Chrome or Firefox.";
+  host.textContent = t("boot_extension_required");
 }

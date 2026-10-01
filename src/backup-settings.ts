@@ -1,13 +1,14 @@
+import { t } from "./i18n.ts";
 /**
  * Settings “Backup” category — export / import dial pictures + non-bookmark prefs.
  * Placed before Danger Zone (which must remain last).
  */
 
 import {
-  EXPORT_HELP,
-  EXPORT_TITLE,
-  IMPORT_HELP,
-  IMPORT_TITLE,
+  exportHelp,
+  exportTitle,
+  importHelp,
+  importTitle,
 } from "./backup.ts";
 
 export type BackupCategoryHandle = {
@@ -23,18 +24,18 @@ export type BackupCategoryOptions = {
 
 /** Build the Settings Backup category (download / restore JSON). */
 export function buildBackupCategory(options: BackupCategoryOptions): BackupCategoryHandle {
-  const root = settingsCategory("Backup");
+  const root = settingsCategory(t("cat_backup"));
   let busy = Boolean(options.disabled);
 
   const help = document.createElement("span");
   help.className = "settings-help";
-  help.textContent = EXPORT_HELP;
+  help.textContent = exportHelp();
   root.append(help);
 
-  const importHelp = document.createElement("span");
-  importHelp.className = "settings-help";
-  importHelp.textContent = IMPORT_HELP;
-  root.append(importHelp);
+  const importHelpEl = document.createElement("span");
+  importHelpEl.className = "settings-help";
+  importHelpEl.textContent = importHelp();
+  root.append(importHelpEl);
 
   const actions = document.createElement("div");
   actions.className = "settings-backup-actions";
@@ -42,15 +43,15 @@ export function buildBackupCategory(options: BackupCategoryOptions): BackupCateg
   const exportBtn = document.createElement("button");
   exportBtn.type = "button";
   exportBtn.className = "settings-backup-export";
-  exportBtn.textContent = "Export…";
-  exportBtn.setAttribute("aria-label", EXPORT_TITLE);
+  exportBtn.textContent = t("btn_export");
+  exportBtn.setAttribute("aria-label", exportTitle());
   exportBtn.disabled = busy;
 
   const importBtn = document.createElement("button");
   importBtn.type = "button";
   importBtn.className = "settings-backup-import";
-  importBtn.textContent = "Import…";
-  importBtn.setAttribute("aria-label", IMPORT_TITLE);
+  importBtn.textContent = t("btn_import");
+  importBtn.setAttribute("aria-label", importTitle());
   importBtn.disabled = busy;
 
   actions.append(exportBtn, importBtn);

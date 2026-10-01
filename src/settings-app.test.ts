@@ -3,6 +3,7 @@ import { before, test } from "node:test";
 import { Window } from "happy-dom";
 import type { BookmarksApi } from "./browser.ts";
 import { dialStorageUsageLabel, type ImagesApi } from "./images.ts";
+import { t } from "./i18n.ts";
 import type { BookmarkNode } from "./model.ts";
 import { DEFAULT_LAYOUT, type SettingsApi } from "./settings.ts";
 import { startSettings } from "./settings-app.ts";
@@ -121,8 +122,7 @@ test("settings Pictures shows a labeled Dial picture storage readout", async () 
   assert.equal(title.textContent, dialStorageUsageLabel());
   assert.match(value.textContent ?? "", /About .+ used in this profile/i);
   assert.ok(
-    host.querySelector(".settings-category")?.textContent?.includes("Pictures") ||
-      [...host.querySelectorAll(".settings-category-title")].some((el) => el.textContent === "Pictures"),
+    [...host.querySelectorAll(".settings-category-title")].some((el) => el.textContent === t("cat_pictures")),
   );
 });
 
@@ -133,7 +133,7 @@ test("settings Theme category exposes mode, accent, and local wallpaper controls
   await settle();
 
   const titles = [...host.querySelectorAll(".settings-category-title")].map((el) => el.textContent);
-  assert.ok(titles.includes("Theme"));
+  assert.ok(titles.includes(t("cat_theme")));
   assert.ok(host.querySelector('select[name="themeMode"]'));
   assert.ok(host.querySelector('input[name="page-theme-accent"]'));
   assert.ok(host.querySelector('input[name="themeBackgroundColor"]'));
@@ -152,8 +152,8 @@ test("settings Backup category sits before Danger Zone with export/import", asyn
   await settle();
 
   const titles = [...host.querySelectorAll(".settings-category-title")].map((el) => el.textContent);
-  const backupIdx = titles.indexOf("Backup");
-  const dangerIdx = titles.indexOf("Danger Zone");
+  const backupIdx = titles.indexOf(t("cat_backup"));
+  const dangerIdx = titles.indexOf(t("cat_danger"));
   assert.ok(backupIdx >= 0, "expected Backup category");
   assert.ok(dangerIdx >= 0, "expected Danger Zone category");
   assert.ok(backupIdx < dangerIdx, "Backup must come before Danger Zone");

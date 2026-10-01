@@ -1,8 +1,10 @@
 import { startAdd } from "./add-app.ts";
 import { chromeBookmarks, chromeSettings } from "./browser.ts";
+import { t } from "./i18n.ts";
 import { extensionBookmarksReady, tryExtensionApi } from "./webext.ts";
 
 document.documentElement.classList.add("add-page");
+document.title = t("page_title_add");
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
@@ -21,6 +23,5 @@ if (bookmarksReady) {
     },
   });
 } else {
-  host.textContent =
-    "Open Add to Hearth from the extension context menu in Chrome or Firefox.";
+  host.textContent = t("boot_add_required");
 }

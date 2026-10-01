@@ -6,6 +6,7 @@ import {
   THEME_BACKGROUND_KEY,
   type ThemeSettings,
 } from "./theme.ts";
+import { t } from "./i18n.ts";
 
 const STORAGE_KEY = "hearth.settings";
 
@@ -94,15 +95,29 @@ export type DangerZoneResult = {
   themeBackground: string | null;
 };
 
-export const RESET_DEFAULTS_TITLE = "Reset to defaults?";
-export const RESET_DEFAULTS_MESSAGE =
-  "Restore layout, display, theme, and picture preferences to product defaults. Your bookmarks and dial pictures stay.";
-export const RESET_DEFAULTS_CONFIRM = "Reset";
+export function resetDefaultsTitle(): string {
+  return t("reset_defaults_title");
+}
 
-export const ERASE_ALL_TITLE = "Erase all data?";
-export const ERASE_ALL_MESSAGE =
-  "Permanently clear all Hearth settings, theme wallpaper, and stored dial pictures in this browser profile. Your Chrome bookmarks are not deleted.";
-export const ERASE_ALL_CONFIRM = "Erase all data";
+export function resetDefaultsMessage(): string {
+  return t("reset_defaults_message");
+}
+
+export function resetDefaultsConfirm(): string {
+  return t("reset_defaults_confirm");
+}
+
+export function eraseAllTitle(): string {
+  return t("erase_all_title");
+}
+
+export function eraseAllMessage(): string {
+  return t("erase_all_message");
+}
+
+export function eraseAllConfirm(): string {
+  return t("erase_all_confirm");
+}
 
 export function clampColumns(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_LAYOUT.columns;
@@ -298,7 +313,7 @@ export function previewSettings(): SettingsApi {
         return;
       }
       const valid = readThemeBackgroundDataUrl(dataUrl);
-      if (!valid) throw new Error("That file could not be stored as a background image.");
+      if (!valid) throw new Error(t("error_background_store"));
       localStorage.setItem(THEME_BACKGROUND_KEY, valid);
     },
     async resetToDefaults() {

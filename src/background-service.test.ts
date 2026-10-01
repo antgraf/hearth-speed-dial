@@ -12,6 +12,7 @@ import {
   startBackground,
   type BackgroundChrome,
 } from "./background-service.ts";
+import { t } from "./i18n.ts";
 
 type FakeChrome = BackgroundChrome & {
   calls: string[];
@@ -110,13 +111,13 @@ test("ensureMenu registers Add and Refresh All with the expected patterns", asyn
   assert.equal(api.menus.length, 2);
   assert.deepEqual(api.menus[0], {
     id: ADD_MENU_ID,
-    title: "Add to Hearth…",
+    title: t("context_add_to_hearth"),
     contexts: ["page", "link"],
     documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
   });
   assert.deepEqual(api.menus[1], {
     id: REFRESH_ALL_MENU_ID,
-    title: "Refresh All Thumbnails",
+    title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
     documentUrlPatterns: ["chrome-extension://hearth-test/index.html"],
   });

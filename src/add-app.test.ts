@@ -3,6 +3,7 @@ import { before, test } from "node:test";
 import { Window } from "happy-dom";
 import { startAdd, type AddPorts } from "./add-app.ts";
 import type { BookmarksApi } from "./browser.ts";
+import { t } from "./i18n.ts";
 import type { BookmarkNode } from "./model.ts";
 import type { SettingsApi } from "./settings.ts";
 
@@ -164,7 +165,7 @@ test("P2-1 invalid page shows cannot-be-added copy", async () => {
   assert.equal(host.querySelector("form"), null);
   const close = host.querySelector("button.quiet");
   assert.ok(close);
-  assert.equal(close.textContent, "Close");
+  assert.equal(close.textContent, t("btn_close"));
   stop();
   host.remove();
 });
@@ -222,7 +223,7 @@ test("P2-1 submit re-validates tree, clears stale parentId, and shows error", as
   assert.deepEqual(bookmarks.createCalls, []);
   const alert = host.querySelector(".error");
   assert.ok(alert);
-  assert.equal(alert.textContent, "Choose a folder inside Bookmarks.");
+  assert.equal(alert.textContent, t("error_choose_folder_inside"));
 
   const stale = host.querySelector('input[name="parentId"][value="1"]');
   assert.equal(stale, null);

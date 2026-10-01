@@ -1,3 +1,5 @@
+import { t } from "./i18n.ts";
+
 /**
  * Local dial pictures live in extension storage (chrome.storage.local), keyed by
  * bookmark id. They do not sync and never leave the browser profile.
@@ -121,11 +123,11 @@ export function dialImageStorageKeys(storedKeys: readonly string[]): string[] {
 
 export function imageTooLargeMessage(): string {
   const mb = MAX_IMAGE_BYTES / 1_000_000;
-  return `Choose an image under ${mb} MB.`;
+  return t("error_image_too_large", String(mb));
 }
 
 export function imageTypeMessage(): string {
-  return "Choose a JPEG, PNG, GIF, or WebP image.";
+  return t("error_image_type");
 }
 
 /** True when Chrome / localStorage rejected a write for quota / space. */
@@ -143,9 +145,9 @@ export function isStorageQuotaError(error: unknown): boolean {
  */
 export function imageStorageWriteFailedMessage(error?: unknown): string {
   if (error !== undefined && isStorageQuotaError(error)) {
-    return "This browser profile is out of space for dial pictures. Remove some pictures or free disk space, then try again.";
+    return t("error_storage_quota");
   }
-  return "Could not save that dial picture. Check that this profile has free disk space, then try again.";
+  return t("error_storage_write");
 }
 
 /** Drop huge Chromium unlimited sentinels so Settings does not show fake %. */
@@ -158,13 +160,13 @@ export function meaningfulStorageQuotaBytes(quota: number | null | undefined): n
 /** Format bytes for the Settings usage line (binary megabytes). */
 export function formatStorageBytes(bytes: number): string {
   const safe = Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
-  if (safe < 1024) return `${Math.max(0, Math.round(safe))} B`;
+  if (safe < 1024) return t("unit_bytes", String(Math.max(0, Math.round(safe))));
   if (safe < 1024 * 1024) {
     const kb = safe / 1024;
-    return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
+    return t("unit_kb", String(kb < 10 ? kb.toFixed(1) : Math.round(kb)));
   }
   const mb = safe / (1024 * 1024);
-  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+  return t("unit_mb", String(mb < 10 ? mb.toFixed(1) : Math.round(mb)));
 }
 
 /** Body copy under the Settings “Dial picture storage” label. */
@@ -172,14 +174,14 @@ export function formatDialStorageUsage(usage: ImageStorageUsage): string {
   const used = formatStorageBytes(usage.bytesUsed);
   const quota = meaningfulStorageQuotaBytes(usage.bytesQuota);
   if (quota == null) {
-    return `About ${used} used in this profile. No fixed size cap — still limited by free disk.`;
+    return t("dial_storage_used_unlimited", used);
   }
-  return `About ${used} of ${formatStorageBytes(quota)} available in this profile.`;
+  return t("dial_storage_used_quota", [used, formatStorageBytes(quota)]);
 }
 
 /** Label for the Settings dial-picture storage readout. */
 export function dialStorageUsageLabel(): string {
-  return "Dial picture storage";
+  return t("dial_storage_label");
 }
 
 /**
@@ -195,12 +197,12 @@ export function estimateDialImageBytes(images: Record<string, string>): number {
 }
 
 export function imageUrlInvalidMessage(): string {
-  return "Enter an http:// or https:// image address.";
+  return t("error_image_url_invalid");
 }
 
 export function imageDownloadFailedMessage(status?: number): string {
-  if (status) return `Could not download that image (${status}).`;
-  return "Could not download that image.";
+  if (status) return t("error_image_download_status", String(status));
+  return t("error_image_download");
 }
 
 /**
@@ -274,7 +276,7 @@ export async function blobToDataUrl(blob: Blob, type: string): Promise<string> {
   }
   const dataUrl = `data:${type};base64,${btoa(binary)}`;
   const valid = readImageDataUrl(dataUrl);
-  if (!valid) throw new Error("That file could not be read as an image.");
+  if (!valid) throw new Error(t("error_image_read"));
   return valid;
 }
 
@@ -318,7 +320,7 @@ export function previewImages(): ImagesApi {
     },
     async setImage(bookmarkId, dataUrl) {
       const valid = readImageDataUrl(dataUrl);
-      if (!valid) throw new Error("That file could not be stored as an image.");
+      if (!valid) throw new Error(t("error_image_store"));
       const map = await this.getAll();
       map[bookmarkId] = valid;
       try {

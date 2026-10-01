@@ -21,6 +21,7 @@ import {
   type ThemeSettings,
 } from "./theme.ts";
 import { imagePickerAccept } from "./images.ts";
+import { t } from "./i18n.ts";
 
 export type ThemeCategoryHandle = {
   root: HTMLElement;
@@ -46,13 +47,13 @@ export type ThemeCategoryOptions = {
 /** Build the Settings “Theme” category with mode, accent, color, and local wallpaper. */
 export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategoryHandle {
   const prefix = options.idPrefix ?? "theme";
-  const root = settingsCategory("Theme");
+  const root = settingsCategory(t("cat_theme"));
   let backgroundImage = options.backgroundImage ?? null;
   let busy = Boolean(options.disabled);
 
   const mode = document.createElement("select");
   mode.name = "themeMode";
-  mode.setAttribute("aria-label", "Appearance");
+  mode.setAttribute("aria-label", t("label_appearance"));
   for (const value of THEME_MODES) {
     const option = document.createElement("option");
     option.value = value;
@@ -60,21 +61,21 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
     mode.append(option);
   }
   mode.value = options.theme.mode;
-  root.append(settingsField("Appearance", mode));
+  root.append(settingsField(t("label_appearance"), mode));
   const modeHelp = document.createElement("span");
   modeHelp.className = "settings-help";
   modeHelp.textContent =
-    "Auto (default) follows your system light/dark preference. Light and Dark lock the look.";
+    t("help_appearance");
   root.append(modeHelp);
 
   const accentField = document.createElement("div");
   accentField.className = "settings-field";
   const accentCaption = document.createElement("span");
-  accentCaption.textContent = "Accent";
+  accentCaption.textContent = t("label_accent");
   const accentRow = document.createElement("div");
   accentRow.className = "settings-accent-row";
   accentRow.setAttribute("role", "radiogroup");
-  accentRow.setAttribute("aria-label", "Accent");
+  accentRow.setAttribute("aria-label", t("label_accent"));
   const accentInputs: HTMLInputElement[] = [];
   for (const accent of THEME_ACCENTS) {
     const label = document.createElement("label");
@@ -100,48 +101,48 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
   const accentHelp = document.createElement("span");
   accentHelp.className = "settings-help";
   accentHelp.textContent =
-    "A small warm palette that keeps Hearth’s ember identity — not a full recolor.";
+    t("help_accent");
   root.append(accentHelp);
 
   const colorField = document.createElement("div");
   colorField.className = "settings-field";
   const colorCaption = document.createElement("span");
-  colorCaption.textContent = "Page color override";
+  colorCaption.textContent = t("label_page_color");
   const colorActions = document.createElement("div");
   colorActions.className = "settings-theme-actions";
   const color = document.createElement("input");
   color.type = "color";
   color.name = "themeBackgroundColor";
-  color.setAttribute("aria-label", "Page color override");
+  color.setAttribute("aria-label", t("label_page_color"));
   color.value = options.theme.backgroundColor ?? accentDefaultBg(options.theme.accent, options.theme.mode);
   const clearColor = document.createElement("button");
   clearColor.type = "button";
   clearColor.className = "quiet";
-  clearColor.textContent = "Use accent default";
+  clearColor.textContent = t("btn_use_accent_default");
   colorActions.append(color, clearColor);
   colorField.append(colorCaption, colorActions);
   root.append(colorField);
   const colorHelp = document.createElement("span");
   colorHelp.className = "settings-help";
   colorHelp.textContent =
-    "Optional solid page wash override. Leave cleared so Appearance + Accent set the dial, Settings, and Add windows.";
+    t("help_page_color");
   root.append(colorHelp);
 
   const wallpaperField = document.createElement("div");
   wallpaperField.className = "settings-field settings-theme-wallpaper";
   const wallpaperCaption = document.createElement("span");
-  wallpaperCaption.textContent = "Background image";
+  wallpaperCaption.textContent = t("label_background_image");
 
   const preview = document.createElement("div");
   preview.className = "settings-theme-preview";
   preview.setAttribute("role", "img");
-  preview.setAttribute("aria-label", "Background image preview");
+  preview.setAttribute("aria-label", t("aria_background_preview"));
   const previewImg = document.createElement("img");
   previewImg.alt = "";
   previewImg.draggable = false;
   const previewEmpty = document.createElement("span");
   previewEmpty.className = "settings-theme-preview-empty";
-  previewEmpty.textContent = "No background image";
+  previewEmpty.textContent = t("background_preview_empty");
   preview.append(previewImg, previewEmpty);
 
   const wallpaperActions = document.createElement("div");
@@ -149,18 +150,18 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
   const pickWallpaper = document.createElement("button");
   pickWallpaper.type = "button";
   pickWallpaper.className = "settings-theme-btn";
-  pickWallpaper.textContent = "Add image";
+  pickWallpaper.textContent = t("btn_add_image");
   const clearWallpaper = document.createElement("button");
   clearWallpaper.type = "button";
   clearWallpaper.className = "settings-theme-btn";
-  clearWallpaper.textContent = "Remove image";
+  clearWallpaper.textContent = t("btn_remove_image");
   wallpaperActions.append(pickWallpaper, clearWallpaper);
   wallpaperField.append(wallpaperCaption, preview, wallpaperActions);
   root.append(wallpaperField);
   const wallpaperHelp = document.createElement("span");
   wallpaperHelp.className = "settings-help";
   wallpaperHelp.textContent =
-    "Stored in this browser profile only (same local store as dial pictures). No remote wallpapers.";
+    t("help_wallpaper");
   root.append(wallpaperHelp);
 
   const fileInput = document.createElement("input");
@@ -174,27 +175,32 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
 
   const fit = document.createElement("select");
   fit.name = "themeBackgroundFit";
-  fit.setAttribute("aria-label", "Background fit");
+  fit.setAttribute("aria-label", t("aria_background_fit"));
   for (const value of THEME_BACKGROUND_FITS) {
     const option = document.createElement("option");
     option.value = value;
-    option.textContent = value === "cover" ? "Cover" : "Contain";
+    option.textContent = value === "cover" ? t("fit_cover") : t("fit_contain");
     fit.append(option);
   }
   fit.value = options.theme.backgroundFit;
-  imageControls.append(settingsField("Fit", fit));
+  imageControls.append(settingsField(t("label_fit"), fit));
 
   const position = document.createElement("select");
   position.name = "themeBackgroundPosition";
-  position.setAttribute("aria-label", "Background position");
+  position.setAttribute("aria-label", t("aria_background_position"));
   for (const value of THEME_BACKGROUND_POSITIONS) {
     const option = document.createElement("option");
     option.value = value;
-    option.textContent = value[0]!.toUpperCase() + value.slice(1);
+    const positionKeys = {
+      center: "position_center",
+      top: "position_top",
+      bottom: "position_bottom",
+    } as const;
+    option.textContent = t(positionKeys[value]);
     position.append(option);
   }
   position.value = options.theme.backgroundPosition;
-  imageControls.append(settingsField("Position", position));
+  imageControls.append(settingsField(t("label_position"), position));
 
   const opacity = document.createElement("input");
   opacity.name = "themeBackgroundOpacity";
@@ -204,12 +210,12 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
     step: THEME_LIMITS.backgroundOpacity.step,
     value: options.theme.backgroundOpacity,
   });
-  opacity.setAttribute("aria-label", "Background opacity");
-  imageControls.append(settingsField("Opacity", opacity));
+  opacity.setAttribute("aria-label", t("aria_background_opacity"));
+  imageControls.append(settingsField(t("label_opacity"), opacity));
   syncRangeInputValue(opacity, options.theme.backgroundOpacity);
   const opacityHelp = document.createElement("span");
   opacityHelp.className = "settings-help";
-  opacityHelp.textContent = "How strongly the local wallpaper shows behind the dial (0–100%).";
+  opacityHelp.textContent = t("help_opacity");
   imageControls.append(opacityHelp);
   root.append(imageControls);
 
@@ -218,11 +224,11 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
     if (backgroundImage) {
       previewImg.src = backgroundImage;
       preview.classList.remove("is-empty");
-      preview.setAttribute("aria-label", "Background image preview");
+      preview.setAttribute("aria-label", t("aria_background_preview"));
     } else {
       previewImg.removeAttribute("src");
       preview.classList.add("is-empty");
-      preview.setAttribute("aria-label", "No background image");
+      preview.setAttribute("aria-label", t("background_preview_empty"));
     }
     clearWallpaper.disabled = busy || !hasBackground;
     imageControls.hidden = !hasBackground;

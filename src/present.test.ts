@@ -11,6 +11,7 @@ import {
   type AppState,
 } from "./present.ts";
 import { DEFAULT_LAYOUT } from "./settings.ts";
+import { t } from "./i18n.ts";
 
 const tree: BookmarkNode[] = [
   {
@@ -95,7 +96,7 @@ test("an open folder uses the same grid and can add tiles", () => {
 test("an empty folder explains that it has no bookmarks", () => {
   const screen = present(state({ currentId: "12" }));
   if (screen.name !== "grid") throw new Error("expected the grid");
-  assert.equal(screen.empty, "This folder has no bookmarks yet.");
+  assert.equal(screen.empty, t("empty_folder"));
   assert.equal(screen.canCreate, true);
   assert.deepEqual(
     screen.crumbs.map((crumb) => crumb.title),
@@ -112,7 +113,7 @@ test("a missing bookmark tree explains that bookmarks are unavailable", () => {
 test("unavailable falls back to the default message when error is null", () => {
   const screen = present(state({ tree: [], status: "failed", error: null }));
   if (screen.name !== "unavailable") throw new Error("expected an unavailable screen");
-  assert.equal(screen.message, "Hearth could not read Chrome bookmarks.");
+  assert.equal(screen.message, t("unavailable_default"));
 });
 
 test("grid falls back to the root when currentId is a bookmark or deleted", () => {
@@ -200,7 +201,7 @@ test("search filters the open folder and nested dials by title or URL", () => {
 
   const none = present(state({ tree: nested, currentId: "1", searchQuery: "zzzz" }));
   if (none.name !== "grid") throw new Error("expected the grid");
-  assert.equal(none.empty, "No dials match “zzzz”.");
+  assert.equal(none.empty, t("empty_search", "zzzz"));
   assert.deepEqual(none.items, []);
 });
 
@@ -247,14 +248,18 @@ test("delete confirm messages warn harder for non-empty folders", () => {
   if (!link || !empty || !filled) throw new Error("expected sample nodes");
   assert.equal(folderHasContents(empty), false);
   assert.equal(folderHasContents(filled), true);
-  assert.match(deleteConfirmMessage(link), /Delete “Example”/);
-  assert.match(deleteConfirmMessage(empty), /empty folder “News”/);
-  assert.match(deleteConfirmMessage(filled), /everything inside it/);
+  assert.equal(deleteConfirmMessage(link), t("delete_link_confirm", "Example"));
+  assert.equal(deleteConfirmMessage(empty), t("delete_folder_empty_confirm", "News"));
+  assert.equal(deleteConfirmMessage(filled), t("delete_folder_filled_confirm", "Bookmarks bar"));
 });
 
 test("refresh-all confirm mentions count and nested-folder scope", () => {
-  assert.match(refreshAllThumbnailsConfirmMessage(1), /1 bookmark/);
-  assert.match(refreshAllThumbnailsConfirmMessage(3), /3 bookmarks/);
-  assert.match(refreshAllThumbnailsConfirmMessage(3), /Nested folders are not included/);
-  assert.match(refreshAllThumbnailsConfirmMessage(3), /replaced/);
+  assert.equal(
+    refreshAllThumbnailsConfirmMessage(1),
+    t("refresh_all_message", ["1", t("noun_bookmark")]),
+  );
+  assert.equal(
+    refreshAllThumbnailsConfirmMessage(3),
+    t("refresh_all_message", ["3", t("noun_bookmarks")]),
+  );
 });

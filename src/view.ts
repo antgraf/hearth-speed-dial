@@ -1,4 +1,5 @@
 import type { CreateKind, ViewModel } from "./present.ts";
+import { t } from "./i18n.ts";
 import {
   choiceDialog,
   confirmDialog,
@@ -21,13 +22,13 @@ import {
 } from "./model.ts";
 import {
   bindRangeInput,
-  ERASE_ALL_CONFIRM,
-  ERASE_ALL_MESSAGE,
-  ERASE_ALL_TITLE,
+  eraseAllConfirm,
+  eraseAllMessage,
+  eraseAllTitle,
   LAYOUT_LIMITS,
-  RESET_DEFAULTS_CONFIRM,
-  RESET_DEFAULTS_MESSAGE,
-  RESET_DEFAULTS_TITLE,
+  resetDefaultsConfirm,
+  resetDefaultsMessage,
+  resetDefaultsTitle,
   syncRangeInputValue,
   type DangerZoneResult,
   type LayoutSettings,
@@ -36,11 +37,11 @@ import { applyThemeToDocument } from "./theme.ts";
 import { buildThemeCategory } from "./theme-settings.ts";
 import { buildBackupCategory } from "./backup-settings.ts";
 import {
-  IMPORT_INVALID_MESSAGE,
-  IMPORT_MERGE_LABEL,
-  IMPORT_MODE_MESSAGE,
-  IMPORT_MODE_TITLE,
-  IMPORT_OVERWRITE_LABEL,
+  importInvalidMessage,
+  importMergeLabel,
+  importModeMessage,
+  importModeTitle,
+  importOverwriteLabel,
   parseBackup,
   pickBackupFile,
   type ImportMode,
@@ -136,11 +137,11 @@ export function render(host: HTMLElement, view: ViewModel, actions: ViewActions)
   host.append(frame);
 
   if (view.name === "loading") {
-    frame.append(paragraph("Loading bookmarks…"));
+    frame.append(paragraph(t("loading_bookmarks")));
     return;
   }
   if (view.name === "unavailable") {
-    frame.append(brand(), heading("Bookmarks"), paragraph(view.message, "error"));
+    frame.append(brand(), heading(t("unavailable_heading")), paragraph(view.message, "error"));
     return;
   }
 
@@ -180,7 +181,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
 
   const nav = document.createElement("nav");
   nav.className = "crumbs";
-  nav.setAttribute("aria-label", "Folder");
+  nav.setAttribute("aria-label", t("aria_folder_nav"));
   view.crumbs.forEach((crumb, index) => {
     if (index > 0) {
       const separator = document.createElement("span");
@@ -197,7 +198,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       title.textContent = crumb.title;
       current.append(title);
       current.append(
-        menuButton(`Actions for ${crumb.title}`, view.saving, (button) => {
+        menuButton(t("actions_for", crumb.title), view.saving, (button) => {
           openCurrentFolderMenu(view, actions, button);
         }),
       );
@@ -225,7 +226,7 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
 
   const list = document.createElement("ul");
   list.className = "grid";
-  list.setAttribute("aria-label", view.searching ? "Search results" : "Speed dial");
+  list.setAttribute("aria-label", view.searching ? t("aria_search_results") : t("aria_speed_dial"));
   const canDrag = !view.saving && !view.searching && view.items.length > 0;
   const reverseOrder = view.layout.reverseOrder;
   for (const item of view.items) {
@@ -297,8 +298,8 @@ function searchField(
   input.type = "search";
   input.className = "dial-search-input";
   input.value = view.searchQuery;
-  input.placeholder = "Find…";
-  input.setAttribute("aria-label", "Find a dial");
+  input.placeholder = t("search_placeholder");
+  input.setAttribute("aria-label", t("search_aria_label"));
   input.autocomplete = "off";
   input.spellcheck = false;
   input.disabled = view.saving;
@@ -319,7 +320,7 @@ function searchField(
   const hint = document.createElement("kbd");
   hint.className = "dial-search-hint";
   hint.textContent = "/";
-  hint.title = "Press / to find";
+  hint.title = t("search_hint_title");
   hint.setAttribute("aria-hidden", "true");
 
   wrap.append(input);
@@ -336,8 +337,8 @@ function settingsGear(
   const button = document.createElement("button");
   button.type = "button";
   button.className = "settings-gear";
-  button.setAttribute("aria-label", "Settings");
-  button.title = "Settings";
+  button.setAttribute("aria-label", t("settings_title"));
+  button.title = t("settings_title");
   button.append(iconGear());
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -375,7 +376,7 @@ function openSettingsDialog(
   const body = document.createElement("form");
   body.className = "dialog-form settings-dialog-form";
 
-  const layoutCategory = settingsCategory("Layout");
+  const layoutCategory = settingsCategory(t("cat_layout"));
 
   const columns = document.createElement("input");
   columns.name = "columns";
@@ -385,12 +386,12 @@ function openSettingsDialog(
     step: 1,
     value: layout.columns,
   });
-  columns.setAttribute("aria-label", "Columns");
-  layoutCategory.append(settingsField("Columns", columns));
+  columns.setAttribute("aria-label", t("label_columns"));
+  layoutCategory.append(settingsField(t("label_columns"), columns));
   syncRangeInputValue(columns, layout.columns);
   const columnsHelp = document.createElement("span");
   columnsHelp.className = "settings-help";
-  columnsHelp.textContent = "Number of dial columns (1–8).";
+  columnsHelp.textContent = t("help_columns");
   layoutCategory.append(columnsHelp);
 
   const tileSize = document.createElement("input");
@@ -401,18 +402,18 @@ function openSettingsDialog(
     step: 1,
     value: layout.tileSize,
   });
-  tileSize.setAttribute("aria-label", "Tile size");
-  layoutCategory.append(settingsField("Tile size", tileSize));
+  tileSize.setAttribute("aria-label", t("label_tile_size"));
+  layoutCategory.append(settingsField(t("label_tile_size"), tileSize));
   // Re-apply after the control is in the tree so Chromium positions the thumb
   // against the intended min/max instead of the default midpoint.
   syncRangeInputValue(tileSize, layout.tileSize);
   const tileHelp = document.createElement("span");
   tileHelp.className = "settings-help";
-  tileHelp.textContent = "Width of each dial face (96–576px). Faces use a 16:9 aspect ratio.";
+  tileHelp.textContent = t("help_tile_size");
   layoutCategory.append(tileHelp);
   body.append(layoutCategory);
 
-  const displayCategory = settingsCategory("Display");
+  const displayCategory = settingsCategory(t("cat_display"));
 
   const reverse = document.createElement("input");
   reverse.type = "checkbox";
@@ -421,15 +422,15 @@ function openSettingsDialog(
   reverse.id = "settings-reverseOrder";
   reverse.setAttribute("role", "switch");
   displayCategory.append(
-    settingsSwitch(reverse, "Show last bookmarks first", "Newest or last-listed bookmarks appear at the start of the grid."),
+    settingsSwitch(reverse, t("switch_reverse_title"), t("switch_reverse_help")),
   );
 
   const defaultFolder = document.createElement("select");
   defaultFolder.name = "defaultFolderId";
-  defaultFolder.setAttribute("aria-label", "Default folder for new windows");
+  defaultFolder.setAttribute("aria-label", t("label_default_folder"));
   const unsetOption = document.createElement("option");
   unsetOption.value = "";
-  unsetOption.textContent = "Last open folder (default)";
+  unsetOption.textContent = t("option_last_open_folder");
   defaultFolder.append(unsetOption);
   const knownIds = new Set(defaultFolderOptions.map((option) => option.id));
   for (const option of defaultFolderOptions) {
@@ -443,17 +444,17 @@ function openSettingsDialog(
   } else if (defaultFolderId && !knownIds.has(defaultFolderId)) {
     const missing = document.createElement("option");
     missing.value = defaultFolderId;
-    missing.textContent = "Missing folder (will fall back)";
+    missing.textContent = t("option_missing_folder");
     defaultFolder.append(missing);
     defaultFolder.value = defaultFolderId;
   } else {
     defaultFolder.value = "";
   }
-  displayCategory.append(settingsFieldSelect("Default folder for new windows", defaultFolder));
+  displayCategory.append(settingsFieldSelect(t("label_default_folder"), defaultFolder));
   const folderHelp = document.createElement("span");
   folderHelp.className = "settings-help";
   folderHelp.textContent =
-    "Unset keeps recalling the last folder you had open. Set a folder and each new window / new tab starts there; navigating still updates last-open for when this is unset.";
+    t("help_default_folder");
   displayCategory.append(folderHelp);
   body.append(displayCategory);
 
@@ -490,7 +491,7 @@ function openSettingsDialog(
       // Keep Theme UI usable without wallpaper status.
     });
 
-  const picturesCategory = settingsCategory("Pictures");
+  const picturesCategory = settingsCategory(t("cat_pictures"));
 
   const thumbnails = document.createElement("input");
   thumbnails.type = "checkbox";
@@ -501,8 +502,8 @@ function openSettingsDialog(
   picturesCategory.append(
     settingsSwitch(
       thumbnails,
-      "Generate dial thumbnails",
-      "Off by default. The first time you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded.",
+      t("switch_thumbnails_title"),
+      t("switch_thumbnails_help"),
     ),
   );
 
@@ -515,8 +516,8 @@ function openSettingsDialog(
   picturesCategory.append(
     settingsSwitch(
       imageUrlFetch,
-      "Assign pictures from URLs",
-      "Off by default. The first time you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking.",
+      t("switch_image_url_title"),
+      t("switch_image_url_help"),
     ),
   );
 
@@ -528,15 +529,15 @@ function openSettingsDialog(
     step: LAYOUT_LIMITS.thumbnailWaitSeconds.step,
     value: layout.thumbnailWaitSeconds,
   });
-  thumbnailWait.setAttribute("aria-label", "Thumbnail wait (seconds)");
-  picturesCategory.append(settingsField("Thumbnail wait (seconds)", thumbnailWait));
+  thumbnailWait.setAttribute("aria-label", t("label_thumbnail_wait"));
+  picturesCategory.append(settingsField(t("label_thumbnail_wait"), thumbnailWait));
   syncRangeInputValue(thumbnailWait, layout.thumbnailWaitSeconds);
   const waitHelp = document.createElement("span");
   waitHelp.className = "settings-help";
   waitHelp.textContent =
-    "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
+    t("help_thumbnail_wait");
   picturesCategory.append(waitHelp);
-  const storageUsage = dialStorageUsageRow("Measuring…");
+  const storageUsage = dialStorageUsageRow(t("storage_measuring"));
   picturesCategory.append(storageUsage.root);
   void Promise.resolve(actions.getImageStorageUsage())
     .then((usage) => {
@@ -545,7 +546,7 @@ function openSettingsDialog(
     })
     .catch(() => {
       if (!storageUsage.root.isConnected) return;
-      storageUsage.setValue("Storage usage is unavailable right now.");
+      storageUsage.setValue(t("storage_unavailable"));
     });
   body.append(picturesCategory);
 
@@ -565,25 +566,25 @@ function openSettingsDialog(
           parseBackup(raw);
         } catch (error) {
           await confirmDialog({
-            title: "Import failed",
+            title: t("import_failed_title"),
             message:
               error instanceof Error && error.message.trim()
                 ? error.message
-                : IMPORT_INVALID_MESSAGE,
-            confirmLabel: "OK",
-            cancelLabel: "Close",
+                : importInvalidMessage(),
+            confirmLabel: t("btn_ok"),
+            cancelLabel: t("btn_close"),
             returnFocus: backupCategory.root,
           });
           return;
         }
         const mode = await choiceDialog<ImportMode>({
-          title: IMPORT_MODE_TITLE,
-          message: IMPORT_MODE_MESSAGE,
+          title: importModeTitle(),
+          message: importModeMessage(),
           choices: [
-            { value: "merge", label: IMPORT_MERGE_LABEL, primary: true },
-            { value: "overwrite", label: IMPORT_OVERWRITE_LABEL, danger: true },
+            { value: "merge", label: importMergeLabel(), primary: true },
+            { value: "overwrite", label: importOverwriteLabel(), danger: true },
           ],
-          cancelLabel: "Cancel",
+          cancelLabel: t("btn_cancel"),
           returnFocus: backupCategory.root,
         });
         if (!mode) return;
@@ -601,23 +602,23 @@ function openSettingsDialog(
   body.append(backupCategory.root);
 
   // Danger Zone must always remain last if new settings categories are added.
-  const dangerCategory = settingsCategory("Danger Zone");
+  const dangerCategory = settingsCategory(t("cat_danger"));
   dangerCategory.classList.add("settings-danger-zone");
   const dangerHelp = document.createElement("span");
   dangerHelp.className = "settings-help";
   dangerHelp.textContent =
-    "These actions only affect Hearth preferences and stored dial pictures — never your Chrome bookmarks.";
+    t("danger_help");
   dangerCategory.append(dangerHelp);
   const dangerActions = document.createElement("div");
   dangerActions.className = "settings-danger-actions";
   const resetBtn = document.createElement("button");
   resetBtn.type = "button";
   resetBtn.className = "settings-danger-reset";
-  resetBtn.textContent = "Reset to Defaults";
+  resetBtn.textContent = t("btn_reset_defaults");
   const eraseBtn = document.createElement("button");
   eraseBtn.type = "button";
   eraseBtn.className = "settings-danger-erase";
-  eraseBtn.textContent = "Erase All Data";
+  eraseBtn.textContent = t("btn_erase_all");
   dangerActions.append(resetBtn, eraseBtn);
   dangerCategory.append(dangerActions);
   body.append(dangerCategory);
@@ -678,10 +679,10 @@ function openSettingsDialog(
   resetBtn.addEventListener("click", () => {
     void (async () => {
       const confirmed = await confirmDialog({
-        title: RESET_DEFAULTS_TITLE,
-        message: RESET_DEFAULTS_MESSAGE,
-        confirmLabel: RESET_DEFAULTS_CONFIRM,
-        cancelLabel: "Cancel",
+        title: resetDefaultsTitle(),
+        message: resetDefaultsMessage(),
+        confirmLabel: resetDefaultsConfirm(),
+        cancelLabel: t("btn_cancel"),
         returnFocus: resetBtn,
       });
       if (!confirmed) return;
@@ -697,10 +698,10 @@ function openSettingsDialog(
   eraseBtn.addEventListener("click", () => {
     void (async () => {
       const confirmed = await confirmDialog({
-        title: ERASE_ALL_TITLE,
-        message: ERASE_ALL_MESSAGE,
-        confirmLabel: ERASE_ALL_CONFIRM,
-        cancelLabel: "Cancel",
+        title: eraseAllTitle(),
+        message: eraseAllMessage(),
+        confirmLabel: eraseAllConfirm(),
+        cancelLabel: t("btn_cancel"),
         danger: true,
         returnFocus: eraseBtn,
       });
@@ -733,14 +734,14 @@ function openSettingsDialog(
   const done = document.createElement("button");
   done.type = "submit";
   done.className = "primary";
-  done.textContent = "Done";
+  done.textContent = t("btn_done");
   done.setAttribute("form", "hearth-settings-form");
   body.id = "hearth-settings-form";
   footer.append(done);
 
   settingsOpen = true;
   settingsDialog = openDialog({
-    title: "Settings",
+    title: t("settings_title"),
     panelClass: "settings-dialog",
     body,
     footer,
@@ -868,7 +869,7 @@ function tileCaption(
   meta.textContent = item.meta;
   metaRow.append(
     meta,
-    menuButton(`Actions for ${item.title}`, disabled, (button) => {
+    menuButton(t("actions_for", item.title), disabled, (button) => {
       openActionMenu(item, actions, button, thumbnailsActive, imageUrlFetchActive);
     }),
   );
@@ -917,11 +918,11 @@ function openActionMenu(
     list.append(itemButton);
   };
 
-  addItem("Rename", iconRename(), () => actions.beginEdit(item.id));
-  addItem("Picture…", iconPicture(), () =>
+  addItem(t("menu_rename"), iconRename(), () => actions.beginEdit(item.id));
+  addItem(t("menu_picture"), iconPicture(), () =>
     openPictureMenu(item, actions, anchor, thumbnailsActive, imageUrlFetchActive),
   );
-  addItem("Delete", iconDelete(), () => actions.requestDelete(item.id), true);
+  addItem(t("menu_delete"), iconDelete(), () => actions.requestDelete(item.id), true);
 
   const handle = openDialog({
     panelClass: "dialog-menu",
@@ -973,10 +974,10 @@ function openCurrentFolderMenu(
   };
 
   if (view.canRenameCurrent) {
-    addItem("Rename", iconRename(), () => actions.beginEdit(view.currentFolder.id));
+    addItem(t("menu_rename"), iconRename(), () => actions.beginEdit(view.currentFolder.id));
   }
   if (view.canRenameCurrent || view.canDeleteCurrent) {
-    addItem("Picture…", iconPicture(), () =>
+    addItem(t("menu_picture"), iconPicture(), () =>
       openPictureMenu(
         view.currentFolder,
         actions,
@@ -989,19 +990,19 @@ function openCurrentFolderMenu(
 
   const count = refreshableCount(view.items);
   if (!view.thumbnailsActive) {
-    addItem("Refresh All Thumbnails (enable in Settings)", iconCamera(), () => undefined, {
+    addItem(t("menu_refresh_all_enable"), iconCamera(), () => undefined, {
       disabled: true,
     });
   } else if (count === 0) {
-    addItem("Refresh All Thumbnails (no http bookmarks)", iconCamera(), () => undefined, {
+    addItem(t("menu_refresh_all_none"), iconCamera(), () => undefined, {
       disabled: true,
     });
   } else {
-    addItem("Refresh All Thumbnails", iconCamera(), () => actions.refreshAllThumbnails());
+    addItem(t("menu_refresh_all"), iconCamera(), () => actions.refreshAllThumbnails());
   }
 
   if (view.canDeleteCurrent) {
-    addItem("Delete", iconDelete(), () => actions.requestDelete(view.currentFolder.id), {
+    addItem(t("menu_delete"), iconDelete(), () => actions.requestDelete(view.currentFolder.id), {
       danger: true,
     });
   }
@@ -1046,11 +1047,11 @@ function openPictureMenu(
     list.append(itemButton);
   };
 
-  addItem("Attach file…", iconPicture(), () => pickImageFile(item, actions));
+  addItem(t("menu_attach_file"), iconPicture(), () => pickImageFile(item, actions));
   if (imageUrlFetchActive) {
-    addItem("Image from URL…", iconLink(), () => promptImageUrl(item, actions, anchor));
+    addItem(t("menu_image_from_url"), iconLink(), () => promptImageUrl(item, actions, anchor));
   } else {
-    addItem("Image from URL… (enable in Settings)", iconLink(), () => undefined, {
+    addItem(t("menu_image_from_url_enable"), iconLink(), () => undefined, {
       disabled: true,
     });
   }
@@ -1059,16 +1060,16 @@ function openPictureMenu(
   const canCapture = Boolean(pageUrl && (pageUrl.startsWith("http:") || pageUrl.startsWith("https:")));
   if (canCapture) {
     if (thumbnailsActive) {
-      addItem("Capture thumbnail", iconCamera(), () => actions.captureThumbnail(item.id));
+      addItem(t("menu_capture_thumbnail"), iconCamera(), () => actions.captureThumbnail(item.id));
     } else {
-      addItem("Capture thumbnail (enable in Settings)", iconCamera(), () => undefined, {
+      addItem(t("menu_capture_thumbnail_enable"), iconCamera(), () => undefined, {
         disabled: true,
       });
     }
   }
 
   if (item.imageDataUrl) {
-    addItem("Clear picture", iconPicture(), () => actions.clearImage(item.id), { danger: true });
+    addItem(t("menu_clear_picture"), iconPicture(), () => actions.clearImage(item.id), { danger: true });
   }
 
   const handle = openDialog({
@@ -1088,21 +1089,21 @@ function promptImageUrl(item: MenuTarget, actions: ViewActions, returnFocus: HTM
   const input = document.createElement("input");
   input.type = "url";
   input.name = "imageUrl";
-  input.placeholder = "https://…";
+  input.placeholder = t("image_address_placeholder");
   input.autocomplete = "off";
   input.required = true;
-  input.setAttribute("aria-label", "Image address");
+  input.setAttribute("aria-label", t("field_image_address"));
 
   const label = document.createElement("label");
   const caption = document.createElement("span");
-  caption.textContent = "Image address";
+  caption.textContent = t("field_image_address");
   label.append(caption, input);
   body.append(label);
 
   const help = document.createElement("p");
   help.className = "dialog-message";
   help.textContent =
-    "Hearth downloads the image once and stores it locally. The dial does not keep linking to the remote URL.";
+    t("image_from_url_help");
   body.append(help);
 
   const footer = document.createElement("div");
@@ -1110,17 +1111,17 @@ function promptImageUrl(item: MenuTarget, actions: ViewActions, returnFocus: HTM
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "quiet";
-  cancel.textContent = "Cancel";
+  cancel.textContent = t("btn_cancel");
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "primary";
-  submit.textContent = "Use image";
+  submit.textContent = t("btn_use_image");
   submit.setAttribute("form", "hearth-image-url-form");
   footer.append(cancel, submit);
 
   let closedByAction = false;
   const handle = openDialog({
-    title: "Image from URL",
+    title: t("dialog_image_from_url_title"),
     body,
     footer,
     returnFocus,
@@ -1161,8 +1162,8 @@ function openCreateMenu(actions: ViewActions, anchor: HTMLElement): void {
     list.append(itemButton);
   };
 
-  addItem("New folder", iconFolder(), "folder");
-  addItem("New bookmark", iconBookmark(), "bookmark");
+  addItem(t("menu_new_folder"), iconFolder(), "folder");
+  addItem(t("menu_new_bookmark"), iconBookmark(), "bookmark");
 
   const handle = openDialog({
     panelClass: "dialog-menu",
@@ -1197,9 +1198,9 @@ function showEditDialog(
 
   const body = document.createElement("form");
   body.className = "dialog-form";
-  body.append(field(form.kind === "folder" ? "Folder name" : "Name", "title", form.title, view.saving));
+  body.append(field(form.kind === "folder" ? t("field_folder_name") : t("field_name"), "title", form.title, view.saving));
   if (form.kind === "bookmark") {
-    body.append(field("Address", "url", form.url, view.saving));
+    body.append(field(t("field_address"), "url", form.url, view.saving));
   }
 
   const footer = document.createElement("div");
@@ -1207,12 +1208,12 @@ function showEditDialog(
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "primary";
-  submit.textContent = form.kind === "folder" ? "Rename folder" : "Save bookmark";
+  submit.textContent = form.kind === "folder" ? t("btn_rename_folder") : t("btn_save_bookmark");
   submit.disabled = view.saving;
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "quiet";
-  cancel.textContent = "Cancel";
+  cancel.textContent = t("btn_cancel");
   cancel.disabled = view.saving;
   footer.append(cancel, submit);
 
@@ -1222,7 +1223,7 @@ function showEditDialog(
 
   let closedByAction = false;
   const handle = openDialog({
-    title: form.kind === "folder" ? "Rename folder" : "Rename bookmark",
+    title: form.kind === "folder" ? t("dialog_rename_folder") : t("dialog_rename_bookmark"),
     body,
     footer,
     closeOnBackdrop: !view.saving,
@@ -1366,19 +1367,19 @@ function composer(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActio
   if (!form || form.mode !== "create") throw new Error("Missing create form");
   const composerForm = document.createElement("form");
   composerForm.className = "composer";
-  composerForm.append(field(form.kind === "folder" ? "Folder name" : "Name", "title", form.title, view.saving));
+  composerForm.append(field(form.kind === "folder" ? t("field_folder_name") : t("field_name"), "title", form.title, view.saving));
   if (form.kind === "bookmark") {
-    composerForm.append(field("Address", "url", form.url, view.saving));
+    composerForm.append(field(t("field_address"), "url", form.url, view.saving));
   }
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "primary";
-  submit.textContent = form.kind === "folder" ? "Add folder" : "Add bookmark";
+  submit.textContent = form.kind === "folder" ? t("btn_add_folder") : t("btn_add_bookmark");
   submit.disabled = view.saving;
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "quiet";
-  cancel.textContent = "Cancel";
+  cancel.textContent = t("btn_cancel");
   cancel.disabled = view.saving;
   cancel.addEventListener("click", () => actions.cancelForm());
   composerForm.append(submit, cancel);
@@ -1421,7 +1422,7 @@ function createTile(actions: ViewActions, disabled: boolean): HTMLLIElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "tile-main";
-  button.setAttribute("aria-label", "Create dial");
+  button.setAttribute("aria-label", t("create_dial_aria"));
   button.setAttribute("aria-haspopup", "menu");
   button.disabled = disabled;
   button.addEventListener("click", () => {
@@ -1449,11 +1450,11 @@ function createCaption(): HTMLElement {
   titleRow.className = "tile-title-row";
   const title = document.createElement("span");
   title.className = "title";
-  title.textContent = "New";
+  title.textContent = t("tile_new_title");
   titleRow.append(title);
   const meta = document.createElement("span");
   meta.className = "meta";
-  meta.textContent = "Folder or bookmark";
+  meta.textContent = t("tile_new_meta");
   caption.append(titleRow, meta);
   return caption;
 }
@@ -1493,7 +1494,7 @@ function mark(text: string, folder: boolean): HTMLSpanElement {
 function brand(): HTMLElement {
   const name = document.createElement("p");
   name.className = "brand";
-  name.textContent = "Hearth";
+  name.textContent = t("brand_name");
   return name;
 }
 

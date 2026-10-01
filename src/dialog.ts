@@ -179,6 +179,8 @@ export function openDialog(options: OpenDialogOptions, mount?: ParentNode): Dial
   return handle;
 }
 
+import { t } from "./i18n.ts";
+
 export type ConfirmDialogOptions = {
   title: string;
   message: string;
@@ -202,12 +204,12 @@ export function confirmDialog(options: ConfirmDialogOptions, mount?: ParentNode)
     const cancel = doc.createElement("button");
     cancel.type = "button";
     cancel.className = "quiet";
-    cancel.textContent = options.cancelLabel ?? "Cancel";
+    cancel.textContent = options.cancelLabel ?? t("btn_cancel");
 
     const confirm = doc.createElement("button");
     confirm.type = "button";
     confirm.className = options.danger ? "primary danger" : "primary";
-    confirm.textContent = options.confirmLabel ?? "Confirm";
+    confirm.textContent = options.confirmLabel ?? t("btn_confirm");
 
     footer.append(cancel, confirm);
 
@@ -277,7 +279,7 @@ export function choiceDialog<T extends string>(
     const cancel = doc.createElement("button");
     cancel.type = "button";
     cancel.className = "quiet";
-    cancel.textContent = options.cancelLabel ?? "Cancel";
+    cancel.textContent = options.cancelLabel ?? t("btn_cancel");
     footer.append(cancel);
 
     const choiceButtons: { value: T; button: HTMLButtonElement }[] = [];

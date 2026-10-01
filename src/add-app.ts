@@ -1,4 +1,5 @@
 import type { BookmarksApi } from "./browser.ts";
+import { t } from "./i18n.ts";
 import {
   acceptsChildren,
   dialFolderTree,
@@ -36,7 +37,7 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
   const parsed = parseAddPageFields(ports.search);
   const state: AddState = {
     status: parsed ? "loading" : "invalid",
-    error: parsed ? null : "This page cannot be added as a dial.",
+    error: parsed ? null : t("add_invalid"),
     url: parsed?.url ?? "",
     title: parsed?.title ?? "",
     folderTree: [],
@@ -136,11 +137,11 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
       state.status = "ready";
       state.error = null;
       if (state.folderTree.length === 0) {
-        state.error = "No bookmark folders are available yet.";
+        state.error = t("add_no_folders_error");
       }
     } catch {
       state.status = "failed";
-      state.error = "Could not load bookmark folders.";
+      state.error = t("add_load_failed");
     }
     draw();
   };
@@ -149,12 +150,12 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
     if (state.saving || state.done || state.status !== "ready") return;
     const title = folderName(state.title);
     if (!title) {
-      state.error = "Enter a name.";
+      state.error = t("add_enter_name");
       draw();
       return;
     }
     if (!state.parentId) {
-      state.error = "Choose a folder.";
+      state.error = t("add_choose_folder");
       draw();
       return;
     }
@@ -166,13 +167,13 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
         ports.settings.getDefaultFolderId(),
       ]);
     } catch {
-      state.error = "Could not load bookmark folders.";
+      state.error = t("add_load_failed");
       draw();
       return;
     }
     const parent = nodeIndex(tree).get(state.parentId);
     if (!parent || !acceptsChildren(parent)) {
-      state.error = "Choose a folder inside Bookmarks.";
+      state.error = t("error_choose_folder_inside");
       applyTree(tree, defaultFolderId);
       state.parentId = null;
       draw();
@@ -189,7 +190,7 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
       ports.close();
     } catch {
       state.saving = false;
-      state.error = "Could not add that bookmark.";
+      state.error = t("add_create_failed");
       draw();
     }
   };
@@ -220,16 +221,16 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
   host.append(frame);
 
   const brand = el("p", "brand");
-  brand.textContent = "Hearth";
+  brand.textContent = t("brand_name");
   frame.append(brand);
 
   const heading = el("h1");
-  heading.textContent = state.done ? "Added" : "Add to Hearth";
+  heading.textContent = state.done ? t("add_heading_done") : t("add_heading");
   frame.append(heading);
 
   if (state.status === "loading") {
     const note = el("p", "quiet");
-    note.textContent = "Loading folders…";
+    note.textContent = t("add_loading");
     frame.append(note);
     return;
   }
@@ -252,7 +253,7 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
   });
 
   const titleLabel = el("label");
-  titleLabel.textContent = "Name";
+  titleLabel.textContent = t("field_name");
   const titleInput = document.createElement("input");
   titleInput.type = "text";
   titleInput.name = "title";
@@ -265,7 +266,7 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
   form.append(titleLabel);
 
   const urlLabel = el("label");
-  urlLabel.textContent = "Address";
+  urlLabel.textContent = t("field_address");
   const urlInput = document.createElement("input");
   urlInput.type = "url";
   urlInput.name = "url";
@@ -277,17 +278,17 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
 
   const folderField = el("fieldset", "folder-picker");
   const legend = el("legend");
-  legend.textContent = "Folder";
+  legend.textContent = t("field_folder");
   folderField.append(legend);
 
   if (state.folderTree.length === 0) {
     const empty = el("p", "quiet");
-    empty.textContent = "No folders available.";
+    empty.textContent = t("add_no_folders_empty");
     folderField.append(empty);
   } else {
     const list = el("div", "folder-tree");
     list.setAttribute("role", "tree");
-    list.setAttribute("aria-label", "Destination folder");
+    list.setAttribute("aria-label", t("aria_destination_folder"));
     for (const node of state.folderTree) {
       list.append(renderFolderTreeNode(node, state, handlers));
     }
@@ -301,12 +302,12 @@ function renderAdd(host: HTMLElement, state: AddState, handlers: AddHandlers, fo
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "primary";
-  submit.textContent = state.saving ? "Adding…" : "Add bookmark";
+  submit.textContent = state.saving ? t("btn_adding") : t("btn_add_bookmark");
   submit.disabled = state.saving || state.done || !state.parentId || state.folderTree.length === 0;
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "quiet";
-  cancel.textContent = "Cancel";
+  cancel.textContent = t("btn_cancel");
   cancel.disabled = state.saving;
   cancel.addEventListener("click", () => handlers.cancel());
   actions.append(submit, cancel);
@@ -348,7 +349,7 @@ function renderFolderTreeNode(
     toggle.type = "button";
     toggle.className = "folder-tree-toggle";
     toggle.dataset.folderToggle = node.id;
-    toggle.setAttribute("aria-label", expanded ? `Collapse ${node.title}` : `Expand ${node.title}`);
+    toggle.setAttribute("aria-label", expanded ? t("aria_collapse_folder", node.title) : t("aria_expand_folder", node.title));
     toggle.textContent = expanded ? "▾" : "▸";
     toggle.disabled = state.saving || state.done;
     toggle.addEventListener("click", (event) => {
@@ -394,7 +395,7 @@ function cancelButton(handlers: AddHandlers): HTMLButtonElement {
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "quiet";
-  cancel.textContent = "Close";
+  cancel.textContent = t("btn_close");
   cancel.addEventListener("click", () => handlers.cancel());
   return cancel;
 }
