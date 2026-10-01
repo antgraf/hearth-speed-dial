@@ -20,7 +20,7 @@ Optional permissions (not requested at install or on first new-tab open):
 - **Tabs** and **site access (`<all_urls>`)** — only when you turn on **Generate dial thumbnails** in Settings. That lets Hearth open a page briefly, capture a screenshot, store it locally as a dial picture, and close the temporary window.
 - **Host access (`http://*/*`, `https://*/*`)** — only when you turn on **Assign pictures from URLs** in Settings. That lets Hearth download an image once from a link and store it as a local data URL. Turning the toggle off drops those grants. If thumbnails already granted `<all_urls>`, URL fetch can use that access while its own toggle is on.
 
-Dial pictures are JPEG, PNG, GIF, or WebP (about 1.5 MB each), stored as data URLs in extension `storage.local` with install-time `unlimitedStorage` so picture count is not artificially capped by the default shared quota. Capture and URL assign use the same local image store as file attach.
+Dial pictures are JPEG, PNG, GIF, or WebP. Large or high-resolution files are resized and compressed on ingest (tiles up to 1280×720, wallpapers up to 2560×1440) and stored as data URLs under about 1.5 MB each in extension `storage.local`, with install-time `unlimitedStorage` so picture count is not artificially capped by the default shared quota. Capture and URL assign use the same local image store as file attach. Decode or store failures show an error instead of failing silently.
 
 The extension does not add an account, analytics, or a server of its own.
 

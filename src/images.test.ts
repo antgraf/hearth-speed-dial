@@ -9,28 +9,73 @@ import {
   estimateDialImageBytes,
   fetchImageAsDataUrl,
   fileToDataUrl,
+  fitWithinBounds,
   formatDialStorageUsage,
   formatStorageBytes,
+  IMAGE_INGEST_LIMITS,
   IMAGE_KEY_PREFIX,
+  imageDecodeFailedMessage,
   imageDownloadFailedMessage,
+  imageEncodeFailedMessage,
   imagePickerAccept,
   imageSourceUrl,
+  imageStillTooLargeMessage,
   imageStorageKey,
   imageStorageWriteFailedMessage,
   imageTooLargeMessage,
   imageTypeMessage,
   imageUrlInvalidMessage,
+  ingestImageBlob,
+  ingestMaxSize,
   isAllowedImageType,
   isImageDataUrl,
   isStorageQuotaError,
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
+  MAX_SOURCE_IMAGE_BYTES,
   meaningfulStorageQuotaBytes,
   mimeFromContentType,
+  mimeFromFileName,
+  mimeFromMagicBytes,
   orphanImageKeys,
   readImageDataUrl,
+  type ImageIngestCodec,
 } from "./images.ts";
 import { t } from "./i18n.ts";
+
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+function tinyPngBytes(): Uint8Array<ArrayBuffer> {
+  const raw = atob(TINY_PNG_BASE64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+  return bytes;
+}
+
+/** Codec that reports fixed source dimensions and emits controllable JPEG blobs. */
+function fakeCodec(options: {
+  width: number;
+  height: number;
+  /** Encoded blob size returned for each encode call (cycles if shorter than attempts). */
+  encodeSizes: number[];
+}): ImageIngestCodec {
+  let encodeIndex = 0;
+  return {
+    async decode() {
+      return { width: options.width, height: options.height };
+    },
+    async encode(_bitmap, _width, _height, mime) {
+      const size = options.encodeSizes[Math.min(encodeIndex, options.encodeSizes.length - 1)]!;
+      encodeIndex += 1;
+      // Minimal payload; size is what ingest checks.
+      const bytes = new Uint8Array(Math.max(1, size));
+      bytes[0] = 0xff;
+      bytes[1] = 0xd8;
+      return new Blob([bytes], { type: mime });
+    },
+  };
+}
 
 test("image storage keys round-trip bookmark ids", () => {
   assert.equal(imageStorageKey("42"), `${IMAGE_KEY_PREFIX}42`);
@@ -111,6 +156,33 @@ test("mimeFromContentType strips parameters", () => {
   assert.equal(mimeFromContentType(undefined), "");
 });
 
+test("mimeFromMagicBytes and mimeFromFileName recover common types", () => {
+  assert.equal(mimeFromMagicBytes(Uint8Array.of(0xff, 0xd8, 0xff, 0xe0)), "image/jpeg");
+  assert.equal(
+    mimeFromMagicBytes(Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)),
+    "image/png",
+  );
+  assert.equal(mimeFromMagicBytes(Uint8Array.of(0x47, 0x49, 0x46, 0x38, 0x39, 0x61)), "image/gif");
+  assert.equal(
+    mimeFromMagicBytes(
+      Uint8Array.of(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50),
+    ),
+    "image/webp",
+  );
+  assert.equal(mimeFromMagicBytes(Uint8Array.of(1, 2, 3)), null);
+  assert.equal(mimeFromFileName("photo.JPG"), "image/jpeg");
+  assert.equal(mimeFromFileName("x.webp"), "image/webp");
+  assert.equal(mimeFromFileName("notes.txt"), null);
+});
+
+test("fitWithinBounds never upscales and respects both axes", () => {
+  assert.deepEqual(fitWithinBounds(800, 600, 1280, 720), { width: 800, height: 600 });
+  assert.deepEqual(fitWithinBounds(4000, 3000, 1280, 720), { width: 960, height: 720 });
+  assert.deepEqual(fitWithinBounds(5000, 1000, 1280, 720), { width: 1280, height: 256 });
+  assert.deepEqual(ingestMaxSize("tile"), IMAGE_INGEST_LIMITS.tile);
+  assert.deepEqual(ingestMaxSize("background"), IMAGE_INGEST_LIMITS.background);
+});
+
 test("dataUrlByteLength estimates payload size", () => {
   // "QQ==" is one byte (0x41)
   assert.equal(dataUrlByteLength("data:image/jpeg;base64,QQ=="), 1);
@@ -118,9 +190,7 @@ test("dataUrlByteLength estimates payload size", () => {
 });
 
 test("fetchImageAsDataUrl stores a remote image as a local data URL", async () => {
-  const pngBase64 =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+  const bytes = tinyPngBytes();
   const fakeFetch: typeof fetch = async () =>
     new Response(bytes, {
       status: 200,
@@ -155,8 +225,8 @@ test("fetchImageAsDataUrl maps a thrown fetch to the download-failed message", a
   );
 });
 
-test("fetchImageAsDataUrl rejects oversized remote images", async () => {
-  const oversized = new Uint8Array(MAX_IMAGE_BYTES + 1);
+test("fetchImageAsDataUrl rejects source files over the ingest input cap", async () => {
+  const oversized = new Uint8Array(MAX_SOURCE_IMAGE_BYTES + 1);
   const fakeFetch: typeof fetch = async () =>
     new Response(oversized, {
       status: 200,
@@ -169,9 +239,7 @@ test("fetchImageAsDataUrl rejects oversized remote images", async () => {
 });
 
 test("fetchImageAsDataUrl falls back to Content-Type when the blob has no type", async () => {
-  const pngBase64 =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+  const bytes = tinyPngBytes();
   const fakeFetch: typeof fetch = async () => {
     const response = new Response(bytes, {
       status: 200,
@@ -189,12 +257,10 @@ test("fetchImageAsDataUrl falls back to Content-Type when the blob has no type",
   assert.match(dataUrl, /^data:image\/png;base64,/i);
 });
 
-test("fileToDataUrl accepts a local PNG file", async () => {
-  const pngBase64 =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0));
+test("fileToDataUrl accepts a local PNG file that already fits limits", async () => {
+  const bytes = tinyPngBytes();
   const file = new File([bytes], "dot.png", { type: "image/png" });
-  const dataUrl = await fileToDataUrl(file);
+  const dataUrl = await fileToDataUrl(file, "tile", fakeCodec({ width: 1, height: 1, encodeSizes: [1] }));
   assert.match(dataUrl, /^data:image\/png;base64,/i);
   assert.ok(isImageDataUrl(dataUrl));
 });
@@ -209,13 +275,122 @@ test("fileToDataUrl rejects SVG with the type message", async () => {
   );
 });
 
-test("fileToDataUrl rejects oversized files with the size message", async () => {
-  const oversized = new Uint8Array(MAX_IMAGE_BYTES + 1);
+test("fileToDataUrl rejects source files over the ingest input cap", async () => {
+  const oversized = new Uint8Array(MAX_SOURCE_IMAGE_BYTES + 1);
   const file = new File([oversized], "big.png", { type: "image/png" });
   await assert.rejects(
     () => fileToDataUrl(file),
     (error: unknown) => error instanceof Error && error.message === imageTooLargeMessage(),
   );
+  assert.match(imageTooLargeMessage(), /40/);
+});
+
+test("ingestImageBlob downscales oversized dimensions and stores JPEG under the cap", async () => {
+  // Bytes larger than MAX_IMAGE_BYTES so the skip-reencode path is not taken.
+  const source = new Uint8Array(MAX_IMAGE_BYTES + 50_000);
+  source[0] = 0xff;
+  source[1] = 0xd8;
+  source[2] = 0xff;
+  const blob = new Blob([source], { type: "image/jpeg" });
+  const dataUrl = await ingestImageBlob(blob, "tile", {
+    codec: fakeCodec({
+      width: 4000,
+      height: 3000,
+      encodeSizes: [MAX_IMAGE_BYTES + 10, 120_000],
+    }),
+  });
+  assert.match(dataUrl, /^data:image\/jpeg;base64,/i);
+  assert.ok(dataUrlByteLength(dataUrl) <= MAX_IMAGE_BYTES);
+});
+
+test("ingestImageBlob uses background max dimensions", async () => {
+  const source = new Uint8Array(MAX_IMAGE_BYTES + 10);
+  source[0] = 0xff;
+  source[1] = 0xd8;
+  source[2] = 0xff;
+  let seenWidth = 0;
+  let seenHeight = 0;
+  const codec: ImageIngestCodec = {
+    async decode() {
+      return { width: 5000, height: 4000 };
+    },
+    async encode(_bitmap, width, height, mime) {
+      seenWidth = width;
+      seenHeight = height;
+      return new Blob([new Uint8Array(80_000)], { type: mime });
+    },
+  };
+  await ingestImageBlob(new Blob([source], { type: "image/jpeg" }), "background", { codec });
+  const expected = fitWithinBounds(
+    5000,
+    4000,
+    IMAGE_INGEST_LIMITS.background.maxWidth,
+    IMAGE_INGEST_LIMITS.background.maxHeight,
+  );
+  assert.equal(seenWidth, expected.width);
+  assert.equal(seenHeight, expected.height);
+});
+
+test("ingestImageBlob surfaces decode and still-too-large failures", async () => {
+  const jpegHeader = Uint8Array.of(0xff, 0xd8, 0xff, 0xe0);
+  const blob = new Blob([jpegHeader], { type: "image/jpeg" });
+
+  await assert.rejects(
+    () =>
+      ingestImageBlob(blob, "tile", {
+        codec: {
+          async decode() {
+            throw new Error("boom");
+          },
+          async encode() {
+            throw new Error("unused");
+          },
+        },
+      }),
+    (error: unknown) => error instanceof Error && error.message === imageDecodeFailedMessage(),
+  );
+
+  const large = new Uint8Array(MAX_IMAGE_BYTES + 20);
+  large[0] = 0xff;
+  large[1] = 0xd8;
+  large[2] = 0xff;
+  await assert.rejects(
+    () =>
+      ingestImageBlob(new Blob([large], { type: "image/jpeg" }), "tile", {
+        codec: fakeCodec({
+          width: 2000,
+          height: 2000,
+          encodeSizes: [MAX_IMAGE_BYTES + 1],
+        }),
+      }),
+    (error: unknown) => error instanceof Error && error.message === imageStillTooLargeMessage(),
+  );
+
+  await assert.rejects(
+    () =>
+      ingestImageBlob(new Blob([large], { type: "image/jpeg" }), "tile", {
+        codec: {
+          async decode() {
+            return { width: 2000, height: 2000 };
+          },
+          async encode() {
+            throw new Error("canvas failed");
+          },
+        },
+      }),
+    (error: unknown) => error instanceof Error && error.message === imageEncodeFailedMessage(),
+  );
+});
+
+test("fileToDataUrl recovers MIME from filename when type is empty", async () => {
+  const bytes = tinyPngBytes();
+  const file = new File([bytes], "dot.png", { type: "" });
+  const dataUrl = await fileToDataUrl(
+    file,
+    "tile",
+    fakeCodec({ width: 1, height: 1, encodeSizes: [1] }),
+  );
+  assert.match(dataUrl, /^data:image\/png;base64,/i);
 });
 
 test("isStorageQuotaError recognizes Chromium and DOM quota failures", () => {

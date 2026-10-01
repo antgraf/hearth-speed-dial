@@ -2,11 +2,10 @@ import type { BookmarkNode } from "./model.ts";
 import { t } from "./i18n.ts";
 import {
   collectImages,
-  dataUrlByteLength,
   dialImageStorageKeys,
   imageStorageKey,
   imageStorageWriteFailedMessage,
-  MAX_IMAGE_BYTES,
+  ingestDataUrl,
   meaningfulStorageQuotaBytes,
   orphanImageKeys,
   readImageDataUrl,
@@ -427,10 +426,8 @@ export function chromeCapture(): CaptureApi {
         });
         const valid = readImageDataUrl(dataUrl);
         if (!valid) throw new Error(t("error_screenshot_store"));
-        if (dataUrlByteLength(valid) > MAX_IMAGE_BYTES) {
-          throw new Error(t("error_screenshot_too_large"));
-        }
-        return valid;
+        // Same on-ingest resize budget as file attach (tile role).
+        return ingestDataUrl(valid, "tile");
       } finally {
         try {
           await extensionApi().windows.remove(windowId);

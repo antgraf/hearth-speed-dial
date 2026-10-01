@@ -530,12 +530,24 @@
     "placeholders": {
       "mb": {
         "content": "$1",
-        "example": "1.5"
+        "example": "40"
       }
     }
   },
+  "error_image_still_too_large": {
+    "message": "That image is still too large after resizing. Try a smaller or simpler file."
+  },
+  "error_image_decode": {
+    "message": "That file could not be decoded as an image."
+  },
+  "error_image_encode": {
+    "message": "That image could not be prepared for storage."
+  },
   "error_image_type": {
     "message": "Choose a JPEG, PNG, GIF, or WebP image."
+  },
+  "background_failed_title": {
+    "message": "Background image"
   },
   "error_storage_quota": {
     "message": "This browser profile is out of space for dial pictures. Remove some pictures or free disk space, then try again."
@@ -740,7 +752,7 @@
     "message": "Background image preview"
   },
   "help_wallpaper": {
-    "message": "Stored in this browser profile only (same local store as dial pictures). No remote wallpapers."
+    "message": "Stored in this browser profile only (same local store as dial pictures). Large images are resized before saving. No remote wallpapers."
   },
   "label_fit": {
     "message": "Fit"

@@ -39,7 +39,7 @@ Manual pass after a production build. Agents do not run browser automation — A
 - [ ] **Theme → Appearance**: Auto (system) is the default; Light and Dark lock the look. Switching updates the dial immediately.
 - [ ] **Theme → Accent**: Ember / Brass / Clay / Moss visibly tint page wash, tile surfaces, titles, domain/meta labels, breadcrumbs, gear/⋮ icons, and CTAs (still a small warm palette — not a full arbitrary recolor).
 - [ ] **Theme → Page color override**: optional solid override; **Use accent default** restores the Appearance+Accent wash (shared by dial, Settings, and Add).
-- [ ] **Theme → Background image**: full-width preview above **Add image** / **Remove image** buttons; choose a local JPEG/PNG/GIF/WebP; fit / position / opacity appear when an image is set; **Remove image** clears it. No remote wallpaper URL field.
+- [ ] **Theme → Background image**: full-width preview above **Add image** / **Remove image** buttons; choose a local JPEG/PNG/GIF/WebP (a large stock photo should resize and apply — not silently fail; a corrupt file shows a dialog error); fit / position / opacity appear when an image is set; **Remove image** clears it. No remote wallpaper URL field.
 - [ ] **Thumbnail wait** defaults to 2s (range 1–15); raising it delays the screenshot so slow pages can paint.
 - [ ] **Default folder for new windows** unset → new tab recalls last open; set to a folder → new tab / new window opens there; navigating still updates last-open; missing folder falls back gracefully.
 - [ ] Toggle **Show last bookmarks first**; grid order reverses without changing the browser’s bookmark manager order.
@@ -51,7 +51,7 @@ Manual pass after a production build. Agents do not run browser automation — A
 
 ## Local pictures / URL / thumbnails
 
-- [ ] Oversized or non-image file shows an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.
+- [ ] Oversized source files (within ~40 MB) are resized/compressed on ingest and applied; files over the source cap or non-images show an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.
 - [ ] Settings **Pictures** shows a labeled **Dial picture storage** readout (not just help text under wait); updates after Erase All Data clears pictures.
 - [ ] If the browser rejects a picture write (full disk / remaining storage limits), the dial shows a clear error — not a silent miss.
 - [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. First turn on → browser prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL.
