@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, before, test } from "node:test";
 import { Window } from "happy-dom";
-import { confirmDialog, openDialog, tabCycleIndex } from "./dialog.ts";
+import { choiceDialog, confirmDialog, openDialog, tabCycleIndex } from "./dialog.ts";
 
 test("tabCycleIndex wraps forward from the last item or outside", () => {
   assert.equal(tabCycleIndex(2, 3, false), 0);
@@ -118,6 +118,45 @@ test("confirmDialog resolves false on backdrop click", async () => {
   backdrop.click();
   assert.equal(await pending, false);
   assert.equal(kit.document.activeElement, kit.returnFocus);
+});
+
+test("choiceDialog resolves the selected value and null on Cancel", async () => {
+  kit.returnFocus.focus();
+  const pending = choiceDialog(
+    {
+      title: "Import",
+      message: "How?",
+      choices: [
+        { value: "merge", label: "Merge", primary: true },
+        { value: "overwrite", label: "Overwrite", danger: true },
+      ],
+      returnFocus: kit.returnFocus,
+    },
+    kit.mount,
+  );
+  await settle();
+  const overwrite = [...kit.mount.querySelectorAll("button")].find(
+    (el) => el.textContent === "Overwrite",
+  );
+  assert.ok(overwrite);
+  overwrite.click();
+  assert.equal(await pending, "overwrite");
+  assert.equal(kit.document.activeElement, kit.returnFocus);
+
+  const cancelled = choiceDialog(
+    {
+      title: "Import",
+      message: "How?",
+      choices: [{ value: "merge", label: "Merge", primary: true }],
+      returnFocus: kit.returnFocus,
+    },
+    kit.mount,
+  );
+  await settle();
+  const cancel = [...kit.mount.querySelectorAll("button")].find((el) => el.textContent === "Cancel");
+  assert.ok(cancel);
+  cancel.click();
+  assert.equal(await cancelled, null);
 });
 
 test("openDialog fires onClose once and restores focus", async () => {

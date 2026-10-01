@@ -803,6 +803,38 @@ h1 {
   opacity: 0.65;
 }
 
+.settings-backup-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.settings-backup-export,
+.settings-backup-import {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  text-align: center;
+  font: inherit;
+}
+
+.settings-backup-export:hover,
+.settings-backup-export:focus-visible,
+.settings-backup-import:hover,
+.settings-backup-import:focus-visible {
+  border-color: var(--brass);
+}
+
+.settings-backup-export:disabled,
+.settings-backup-import:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
 .settings-dialog-form .settings-switch {
   display: flex;
   flex-direction: row;

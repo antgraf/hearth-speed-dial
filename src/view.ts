@@ -1,5 +1,10 @@
 import type { CreateKind, ViewModel } from "./present.ts";
-import { confirmDialog, openDialog, type DialogHandle } from "./dialog.ts";
+import {
+  choiceDialog,
+  confirmDialog,
+  openDialog,
+  type DialogHandle,
+} from "./dialog.ts";
 import {
   dialStorageUsageLabel,
   formatDialStorageUsage,
@@ -29,6 +34,17 @@ import {
 } from "./settings.ts";
 import { applyThemeToDocument } from "./theme.ts";
 import { buildThemeCategory } from "./theme-settings.ts";
+import { buildBackupCategory } from "./backup-settings.ts";
+import {
+  IMPORT_INVALID_MESSAGE,
+  IMPORT_MERGE_LABEL,
+  IMPORT_MODE_MESSAGE,
+  IMPORT_MODE_TITLE,
+  IMPORT_OVERWRITE_LABEL,
+  parseBackup,
+  pickBackupFile,
+  type ImportMode,
+} from "./backup.ts";
 
 export type ViewActions = {
   openFolder(id: string): void;
@@ -58,6 +74,16 @@ export type ViewActions = {
   resetToDefaults(): void | Promise<DangerZoneResult>;
   /** Clear extension settings + dial pictures (never bookmarks). */
   eraseAllData(): void | Promise<DangerZoneResult>;
+  /** Download dial pictures + non-bookmark prefs as JSON. */
+  exportPicturesAndSettings(): void | Promise<void>;
+  /**
+   * Apply a validated backup JSON string. Never touches Chrome bookmarks.
+   * Returns the layout/default-folder state to sync into the Settings form.
+   */
+  importPicturesAndSettings(
+    rawJson: string,
+    mode: ImportMode,
+  ): void | Promise<DangerZoneResult>;
   /** Local dial-picture storage footprint for the Settings usage line. */
   getImageStorageUsage(): Promise<ImageStorageUsage>;
   /** Find-a-dial filter query (titles + URLs in the open folder subtree). */
@@ -523,6 +549,57 @@ function openSettingsDialog(
     });
   body.append(picturesCategory);
 
+  const backupCategory = buildBackupCategory({
+    onExport: () => {
+      void Promise.resolve(actions.exportPicturesAndSettings()).catch(() => {
+        // Errors surface via the dial banner on redraw.
+      });
+    },
+    onImport: () => {
+      void (async () => {
+        const file = await pickBackupFile();
+        if (!file) return;
+        let raw: string;
+        try {
+          raw = await file.text();
+          parseBackup(raw);
+        } catch (error) {
+          await confirmDialog({
+            title: "Import failed",
+            message:
+              error instanceof Error && error.message.trim()
+                ? error.message
+                : IMPORT_INVALID_MESSAGE,
+            confirmLabel: "OK",
+            cancelLabel: "Close",
+            returnFocus: backupCategory.root,
+          });
+          return;
+        }
+        const mode = await choiceDialog<ImportMode>({
+          title: IMPORT_MODE_TITLE,
+          message: IMPORT_MODE_MESSAGE,
+          choices: [
+            { value: "merge", label: IMPORT_MERGE_LABEL, primary: true },
+            { value: "overwrite", label: IMPORT_OVERWRITE_LABEL, danger: true },
+          ],
+          cancelLabel: "Cancel",
+          returnFocus: backupCategory.root,
+        });
+        if (!mode) return;
+        try {
+          const result = await Promise.resolve(
+            actions.importPicturesAndSettings(raw, mode),
+          );
+          if (result) syncForm(result);
+        } catch {
+          // Errors surface via the dial banner on redraw.
+        }
+      })();
+    },
+  });
+  body.append(backupCategory.root);
+
   // Danger Zone must always remain last if new settings categories are added.
   const dangerCategory = settingsCategory("Danger Zone");
   dangerCategory.classList.add("settings-danger-zone");
@@ -564,10 +641,10 @@ function openSettingsDialog(
     syncRangeInputValue(thumbnailWait, result.layout.thumbnailWaitSeconds);
     defaultFolder.value = result.defaultFolderId ?? "";
     themeControls.syncTheme(result.layout.theme);
-    themeBackground = null;
-    themeControls.setBackgroundImage(null);
+    themeBackground = result.themeBackground;
+    themeControls.setBackgroundImage(result.themeBackground);
     applyThemeToDocument(document.documentElement, result.layout.theme, {
-      backgroundImage: null,
+      backgroundImage: result.themeBackground,
     });
   };
 

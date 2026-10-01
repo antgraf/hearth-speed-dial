@@ -1,4 +1,15 @@
 import {
+  backupFilename,
+  bookmarkIdsByUrl,
+  bookmarkUrlsById,
+  buildBackup,
+  downloadTextFile,
+  parseBackup,
+  planBackupApply,
+  serializeBackup,
+  type ImportMode,
+} from "./backup.ts";
+import {
   acceptsChildren,
   alreadyInFolder,
   bookmarkRoot,
@@ -177,6 +188,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       setThemeBackground: (file) => saveThemeBackground(file),
       resetToDefaults: () => resetToDefaults(),
       eraseAllData: () => eraseAllData(),
+      exportPicturesAndSettings: () => exportPicturesAndSettings(),
+      importPicturesAndSettings: (raw, mode) => importPicturesAndSettings(raw, mode),
       getImageStorageUsage: () => ports.images.getUsage(),
       getThemeBackground: () => Promise.resolve(state.themeBackground),
       setSearchQuery: (query) => {
@@ -546,7 +559,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.error = errorText(error);
       draw();
     }
-    return { layout, defaultFolderId: null };
+    return { layout, defaultFolderId: null, themeBackground: null };
   };
 
   const eraseAllData = async (): Promise<DangerZoneResult> => {
@@ -568,7 +581,93 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.error = errorText(error);
       draw();
     }
-    return { layout, defaultFolderId: null };
+    return { layout, defaultFolderId: null, themeBackground: null };
+  };
+
+  const exportPicturesAndSettings = async (): Promise<void> => {
+    try {
+      const openFolderId = await ports.settings.getOpenFolderId();
+      const urls = bookmarkUrlsById(state.tree);
+      const backup = buildBackup({
+        layout: state.layout,
+        defaultFolderId: state.defaultFolderId,
+        openFolderId,
+        themeBackground: state.themeBackground,
+        images: state.images,
+        imageUrls: urls,
+      });
+      downloadTextFile(backupFilename(), serializeBackup(backup));
+      state.error = null;
+      draw();
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+    }
+  };
+
+  const importPicturesAndSettings = async (
+    rawJson: string,
+    mode: ImportMode,
+  ): Promise<DangerZoneResult> => {
+    const backup = parseBackup(rawJson);
+    const existingIds = new Set(nodeIndex(state.tree).keys());
+    const plan = planBackupApply(backup, mode, {
+      existingIds,
+      urlToId: bookmarkIdsByUrl(state.tree),
+    });
+
+    const previous = state.layout;
+    // Drop optional grants only for features the import turns off.
+    await revokeOptionalFeaturePermissions(
+      {
+        ...previous,
+        thumbnailsEnabled: previous.thumbnailsEnabled && !plan.layout.thumbnailsEnabled,
+        imageUrlFetchEnabled:
+          previous.imageUrlFetchEnabled && !plan.layout.imageUrlFetchEnabled,
+      },
+      ports.permissions,
+    );
+
+    try {
+      if (plan.clearAllImages) await ports.images.clearAll();
+      for (const [id, dataUrl] of Object.entries(plan.imagesToSet)) {
+        await ports.images.setImage(id, dataUrl);
+      }
+      await ports.settings.setLayout(plan.layout);
+      await ports.settings.setDefaultFolderId(plan.defaultFolderId);
+      if (plan.openFolderId) await ports.settings.setOpenFolderId(plan.openFolderId);
+      if (plan.themeBackground !== undefined) {
+        await ports.settings.setThemeBackground(plan.themeBackground);
+        state.themeBackground = plan.themeBackground;
+      }
+
+      state.layout = plan.layout;
+      state.defaultFolderId = plan.defaultFolderId;
+      if (plan.clearAllImages) {
+        state.images = { ...plan.imagesToSet };
+      } else {
+        state.images = { ...state.images, ...plan.imagesToSet };
+      }
+      await syncThumbnailActive(plan.layout.thumbnailsEnabled);
+      await syncImageUrlFetchActive(plan.layout.imageUrlFetchEnabled);
+      state.error = null;
+
+      if (plan.openFolderId && nodeIndex(state.tree).has(plan.openFolderId)) {
+        state.currentId = plan.openFolderId;
+        state.searchQuery = "";
+      }
+      draw();
+    } catch (error) {
+      state.error = errorText(error);
+      draw();
+      throw error;
+    }
+
+    return {
+      layout: state.layout,
+      defaultFolderId: state.defaultFolderId,
+      themeBackground: state.themeBackground,
+    };
   };
 
   const saveForm = async (input: { title: string; url: string }) => {

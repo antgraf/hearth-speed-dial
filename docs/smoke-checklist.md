@@ -17,7 +17,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 - [ ] **Picture…** offers **Attach file…**, **Image from URL…**, and (for http(s) bookmarks) **Capture thumbnail** — URL and capture items disabled with “enable in Settings” until each opt-in is on.
 - [ ] Current-folder breadcrumb **⋮** offers Rename / Picture / Delete when allowed, plus **Refresh All Thumbnails** (disabled with “enable in Settings” when thumbnails are off; disabled when the open folder has no http(s) bookmarks). Chrome root shows the ⋮ menu for Refresh All (no Rename/Delete).
 - [ ] **Refresh All Thumbnails** confirms before replacing dial pictures; runs the same capture path as per-tile Capture thumbnail, sequentially, for direct http(s) children only (not nested folders).
-- [ ] New-tab **gear** opens Settings in the in-page dialog overlay (categorized: layout sliders, display switches / default folder, **Theme** mode / accent / local background, picture switches + wait slider). `settings.html` remains available as the extension options page.
+- [ ] New-tab **gear** opens Settings in the in-page dialog overlay (categorized: layout sliders, display switches / default folder, **Theme** mode / accent / local background, picture switches + wait slider, **Backup** export/import, Danger Zone). `settings.html` remains available as the extension options page.
 
 ## Drag
 
@@ -27,7 +27,7 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 
 ## Grid settings
 
-- [ ] In the Settings overlay: **Layout / Display / Theme / Pictures** categories; panel scrolls when content is tall.
+- [ ] In the Settings overlay: **Layout / Display / Theme / Pictures / Backup / Danger Zone** categories; Danger Zone stays last; panel scrolls when content is tall.
 - [ ] **Columns**, **Tile size**, and **Thumbnail wait** are all sliders (columns 1–8; wait 1–15; tile size unchanged). Layout updates on the open new tab.
 - [ ] Close and reopen Settings: **Tile size** (and other) sliders sit at the saved values (not the middle/default).
 - [ ] Boolean prefs use switch toggles (not checkboxes): reverse order, thumbnails, URL pictures.
@@ -41,6 +41,9 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 - [ ] Dial face / photo corner radius is subtle (~2% of tile width), not a large rounded rect.
 - [ ] Dragging **Tile size** up grows the dial face / preview image steadily (grid gap stays ~16px; faces do not grow-then-shrink).
 - [ ] **Reset to Defaults** restores theme prefs and clears the wallpaper (keeps dial pictures); **Erase All Data** also clears dial pictures and the wallpaper (never bookmarks).
+- [ ] **Backup → Export…** downloads a JSON file (dial pictures, theme wallpaper, layout/theme prefs). Chrome bookmarks are not in the file.
+- [ ] **Backup → Import…** rejects a non-Hearth file; for a valid backup, offers **Merge** (keep local pictures not in the file) or **Overwrite** (replace Hearth settings + all dial pictures). Neither path changes Chrome bookmarks.
+
 ## Local pictures / URL / thumbnails
 
 - [ ] Oversized or non-image file shows an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.

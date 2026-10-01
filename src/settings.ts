@@ -86,10 +86,12 @@ export type SettingsApi = {
   clearAll(): Promise<void>;
 };
 
-/** Result applied to Settings UI after Reset or Erase. */
+/** Result applied to Settings UI after Reset, Erase, or Import. */
 export type DangerZoneResult = {
   layout: LayoutSettings;
   defaultFolderId: string | null;
+  /** Local wallpaper after the action; null clears the preview. */
+  themeBackground: string | null;
 };
 
 export const RESET_DEFAULTS_TITLE = "Reset to defaults?";

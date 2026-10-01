@@ -144,3 +144,21 @@ test("settings Theme category exposes mode, accent, and local wallpaper controls
   assert.ok(host.querySelector(".settings-theme-preview"));
   assert.ok(host.querySelector("button.settings-theme-btn"));
 });
+
+test("settings Backup category sits before Danger Zone with export/import", async () => {
+  const host = kit.document.createElement("div");
+  kit.document.body.replaceChildren(host);
+  startSettings(host, fakeSettings(), null, undefined, fakeBookmarks(), fakeImages());
+  await settle();
+
+  const titles = [...host.querySelectorAll(".settings-category-title")].map((el) => el.textContent);
+  const backupIdx = titles.indexOf("Backup");
+  const dangerIdx = titles.indexOf("Danger Zone");
+  assert.ok(backupIdx >= 0, "expected Backup category");
+  assert.ok(dangerIdx >= 0, "expected Danger Zone category");
+  assert.ok(backupIdx < dangerIdx, "Backup must come before Danger Zone");
+  assert.ok(host.querySelector("button.settings-backup-export"));
+  assert.ok(host.querySelector("button.settings-backup-import"));
+  assert.match(host.textContent ?? "", /Chrome bookmarks are not included/i);
+  assert.match(host.textContent ?? "", /overwrite/i);
+});
