@@ -1,0 +1,106 @@
+# Chrome extension release: bump version, build, pack zip, tag, GitHub Release.
+# Firefox pack can be added later (separate asset) once Firefox is in the SPEC.
+# Docs: docs/VERSIONING.md
+
+name: Release Chrome
+
+on:
+  workflow_dispatch:
+    inputs:
+      major:
+        description: "Bump major version (breaking / store-reinstall class changes)"
+        type: boolean
+        default: false
+      patch:
+        description: "Bump patch instead of minor (hotfix only; ignored if major is true)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-chrome
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Resolve bump kind
+        id: bump
+        run: |
+          if [ "${{ inputs.major }}" = "true" ]; then
+            echo "kind=major" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.patch }}" = "true" ]; then
+            echo "kind=patch" >> "$GITHUB_OUTPUT"
+          else
+            echo "kind=minor" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump version
+        id: version
+        run: node scripts/bump-version.mjs "--${{ steps.bump.outputs.kind }}"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack Chrome zip
+        run: npm run pack:chrome
+
+      - name: Commit, tag, and push
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json manifest.json
+          git commit -m "Release v${VERSION}"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push origin HEAD:main
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: antgraf/hearth-speed-dial
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          KIND="${{ steps.bump.outputs.kind }}"
+          ZIP="artifacts/hearth-speed-dial-chrome-v${VERSION}.zip"
+          NOTES="$(printf '%s\n' \
+            "Chrome extension **v${VERSION}** (\`${KIND}\` bump)." \
+            "" \
+            "- Artifact: \`hearth-speed-dial-chrome-v${VERSION}.zip\` (CWS / sideload; unzip → Load unpacked, or upload zip to CWS)." \
+            "- Version files committed to \`main\` and tagged \`v${VERSION}\`." \
+            "- See [docs/VERSIONING.md](https://github.com/antgraf/hearth-speed-dial/blob/main/docs/VERSIONING.md) and run [docs/smoke-checklist.md](https://github.com/antgraf/hearth-speed-dial/blob/main/docs/smoke-checklist.md) before store upload." \
+            "" \
+            "Firefox packaging is not included yet.")"
+          gh release create "v${VERSION}" "$ZIP" \
+            --repo antgraf/hearth-speed-dial \
+            --title "v${VERSION}" \
+            --notes "$NOTES"

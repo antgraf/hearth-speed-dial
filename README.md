@@ -69,6 +69,8 @@ Manual Chrome checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 
 Do not ship `node_modules`, `src`, or the Vite preview into the package. `dist/` is gitignored; always build before load-unpacked or packaging a zip of `dist`.
 
+After a production build, `npm run pack:chrome` writes `artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip` (manifest at zip root) for CWS or sideload. Versioning and the GitHub Release Action: [docs/VERSIONING.md](docs/VERSIONING.md).
+
 ## License
 
 [MIT](LICENSE)
