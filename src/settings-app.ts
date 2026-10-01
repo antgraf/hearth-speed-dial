@@ -1,4 +1,5 @@
 import type { BookmarksApi } from "./browser.ts";
+import { t } from "./i18n.ts";
 import { choiceDialog, confirmDialog } from "./dialog.ts";
 import {
   bookmarkIdsByUrl,
@@ -6,11 +7,11 @@ import {
   backupFilename,
   buildBackup,
   downloadTextFile,
-  IMPORT_INVALID_MESSAGE,
-  IMPORT_MERGE_LABEL,
-  IMPORT_MODE_MESSAGE,
-  IMPORT_MODE_TITLE,
-  IMPORT_OVERWRITE_LABEL,
+  importInvalidMessage,
+  importMergeLabel,
+  importModeMessage,
+  importModeTitle,
+  importOverwriteLabel,
   parseBackup,
   pickBackupFile,
   planBackupApply,
@@ -29,13 +30,13 @@ import {
 import {
   bindRangeInput,
   DEFAULT_LAYOUT,
-  ERASE_ALL_CONFIRM,
-  ERASE_ALL_MESSAGE,
-  ERASE_ALL_TITLE,
+  eraseAllConfirm,
+  eraseAllMessage,
+  eraseAllTitle,
   LAYOUT_LIMITS,
-  RESET_DEFAULTS_CONFIRM,
-  RESET_DEFAULTS_MESSAGE,
-  RESET_DEFAULTS_TITLE,
+  resetDefaultsConfirm,
+  resetDefaultsMessage,
+  resetDefaultsTitle,
   syncRangeInputValue,
   type LayoutSettings,
   type SettingsApi,
@@ -81,17 +82,17 @@ export function startSettings(
 
     const brand = document.createElement("p");
     brand.className = "brand";
-    brand.textContent = "Hearth";
+    brand.textContent = t("brand_name");
     frame.append(brand);
 
     const title = document.createElement("h1");
-    title.textContent = "Settings";
+    title.textContent = t("settings_title");
     frame.append(title);
 
     const intro = document.createElement("p");
     intro.className = "settings-intro";
     intro.textContent =
-      "Layout and theme preferences stay in this browser profile. Bookmark order in Chrome is unchanged — reverse only affects how the dial grid is shown.";
+      t("settings_intro");
     frame.append(intro);
 
     if (error) {
@@ -108,7 +109,7 @@ export function startSettings(
       void save();
     });
 
-    const layoutCategory = category("Layout");
+    const layoutCategory = category(t("cat_layout"));
 
     const columns = document.createElement("input");
     columns.name = "columns";
@@ -119,12 +120,12 @@ export function startSettings(
       value: layout.columns,
     });
     columns.disabled = saving;
-    columns.setAttribute("aria-label", "Columns");
-    layoutCategory.append(labeled("Columns", columns));
+    columns.setAttribute("aria-label", t("label_columns"));
+    layoutCategory.append(labeled(t("label_columns"), columns));
     syncRangeInputValue(columns, layout.columns);
     const columnsHelp = document.createElement("span");
     columnsHelp.className = "settings-help";
-    columnsHelp.textContent = "Number of dial columns (1–8).";
+    columnsHelp.textContent = t("help_columns");
     layoutCategory.append(columnsHelp);
 
     const tileSize = document.createElement("input");
@@ -136,17 +137,17 @@ export function startSettings(
       value: layout.tileSize,
     });
     tileSize.disabled = saving;
-    tileSize.setAttribute("aria-label", "Tile size");
-    layoutCategory.append(labeled("Tile size", tileSize));
+    tileSize.setAttribute("aria-label", t("label_tile_size"));
+    layoutCategory.append(labeled(t("label_tile_size"), tileSize));
     syncRangeInputValue(tileSize, layout.tileSize);
     const tileHelp = document.createElement("span");
     tileHelp.className = "settings-help";
     tileHelp.textContent =
-      "Width of each dial face (96–576px). Faces use a 16:9 aspect ratio.";
+      t("help_tile_size");
     layoutCategory.append(tileHelp);
     form.append(layoutCategory);
 
-    const displayCategory = category("Display");
+    const displayCategory = category(t("cat_display"));
 
     const reverse = document.createElement("input");
     reverse.type = "checkbox";
@@ -158,18 +159,18 @@ export function startSettings(
     displayCategory.append(
       switchControl(
         reverse,
-        "Show last bookmarks first",
-        "Newest or last-listed bookmarks appear at the start of the grid.",
+        t("switch_reverse_title"),
+        t("switch_reverse_help"),
       ),
     );
 
     const defaultFolder = document.createElement("select");
     defaultFolder.name = "defaultFolderId";
     defaultFolder.disabled = saving || folderOptions.length === 0;
-    defaultFolder.setAttribute("aria-label", "Default folder for new windows");
+    defaultFolder.setAttribute("aria-label", t("label_default_folder"));
     const unsetOption = document.createElement("option");
     unsetOption.value = "";
-    unsetOption.textContent = "Last open folder (default)";
+    unsetOption.textContent = t("option_last_open_folder");
     defaultFolder.append(unsetOption);
     const knownIds = new Set(folderOptions.map((option) => option.id));
     for (const option of folderOptions) {
@@ -183,17 +184,17 @@ export function startSettings(
     } else if (defaultFolderId && !knownIds.has(defaultFolderId)) {
       const missing = document.createElement("option");
       missing.value = defaultFolderId;
-      missing.textContent = "Missing folder (will fall back)";
+      missing.textContent = t("option_missing_folder");
       defaultFolder.append(missing);
       defaultFolder.value = defaultFolderId;
     } else {
       defaultFolder.value = "";
     }
-    displayCategory.append(labeledSelect("Default folder for new windows", defaultFolder));
+    displayCategory.append(labeledSelect(t("label_default_folder"), defaultFolder));
     const folderHelp = document.createElement("span");
     folderHelp.className = "settings-help";
     folderHelp.textContent =
-      "Unset keeps recalling the last folder you had open. Set a folder and each new window / new tab starts there; navigating still updates last-open for when this is unset.";
+      t("help_default_folder");
     displayCategory.append(folderHelp);
     form.append(displayCategory);
 
@@ -219,14 +220,14 @@ export function startSettings(
             }
             themeControls?.setBackgroundImage(themeBackground);
             applyTheme();
-            savedNote = "Background image updated.";
+            savedNote = t("note_background_updated");
             error = null;
             draw();
           } catch (caught) {
             error =
               caught instanceof Error && caught.message.trim()
                 ? caught.message
-                : "Could not update background image.";
+                : t("error_update_background");
             draw();
           }
         })();
@@ -242,7 +243,7 @@ export function startSettings(
     }
     form.append(themeControls.root);
 
-    const picturesCategory = category("Pictures");
+    const picturesCategory = category(t("cat_pictures"));
 
     const thumbnails = document.createElement("input");
     thumbnails.type = "checkbox";
@@ -254,8 +255,8 @@ export function startSettings(
     picturesCategory.append(
       switchControl(
         thumbnails,
-        "Generate dial thumbnails",
-        "Off by default. The first time you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded.",
+        t("switch_thumbnails_title"),
+        t("switch_thumbnails_help"),
       ),
     );
 
@@ -269,8 +270,8 @@ export function startSettings(
     picturesCategory.append(
       switchControl(
         imageUrlFetch,
-        "Assign pictures from URLs",
-        "Off by default. The first time you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking.",
+        t("switch_image_url_title"),
+        t("switch_image_url_help"),
       ),
     );
 
@@ -283,17 +284,17 @@ export function startSettings(
       value: layout.thumbnailWaitSeconds,
     });
     thumbnailWait.disabled = saving;
-    thumbnailWait.setAttribute("aria-label", "Thumbnail wait (seconds)");
-    picturesCategory.append(labeled("Thumbnail wait (seconds)", thumbnailWait));
+    thumbnailWait.setAttribute("aria-label", t("label_thumbnail_wait"));
+    picturesCategory.append(labeled(t("label_thumbnail_wait"), thumbnailWait));
     syncRangeInputValue(thumbnailWait, layout.thumbnailWaitSeconds);
     const waitHelp = document.createElement("span");
     waitHelp.className = "settings-help";
     waitHelp.textContent =
-      "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites.";
+      t("help_thumbnail_wait");
     picturesCategory.append(waitHelp);
     if (images) {
-      let valueText = "Measuring…";
-      if (storageUsageError) valueText = "Storage usage is unavailable right now.";
+      let valueText = t("storage_measuring");
+      if (storageUsageError) valueText = t("storage_unavailable");
       else if (storageUsage) valueText = formatDialStorageUsage(storageUsage);
       picturesCategory.append(dialStorageUsageRow(valueText));
     }
@@ -311,24 +312,24 @@ export function startSettings(
     form.append(backupCategory.root);
 
     // Danger Zone must always remain last if new settings categories are added.
-    const dangerCategory = category("Danger Zone");
+    const dangerCategory = category(t("cat_danger"));
     dangerCategory.classList.add("settings-danger-zone");
     const dangerHelp = document.createElement("span");
     dangerHelp.className = "settings-help";
     dangerHelp.textContent =
-      "These actions only affect Hearth preferences and stored dial pictures — never your Chrome bookmarks.";
+      t("danger_help");
     dangerCategory.append(dangerHelp);
     const dangerActions = document.createElement("div");
     dangerActions.className = "settings-danger-actions";
     const resetBtn = document.createElement("button");
     resetBtn.type = "button";
     resetBtn.className = "settings-danger-reset";
-    resetBtn.textContent = "Reset to Defaults";
+    resetBtn.textContent = t("btn_reset_defaults");
     resetBtn.disabled = saving;
     const eraseBtn = document.createElement("button");
     eraseBtn.type = "button";
     eraseBtn.className = "settings-danger-erase";
-    eraseBtn.textContent = "Erase All Data";
+    eraseBtn.textContent = t("btn_erase_all");
     eraseBtn.disabled = saving;
     dangerActions.append(resetBtn, eraseBtn);
     dangerCategory.append(dangerActions);
@@ -346,7 +347,7 @@ export function startSettings(
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.className = "primary";
-    submit.textContent = saving ? "Saving…" : "Save";
+    submit.textContent = saving ? t("btn_saving") : t("btn_save");
     submit.disabled = saving;
     actions.append(submit);
     form.append(actions);
@@ -373,10 +374,10 @@ export function startSettings(
   const resetToDefaults = async (returnFocus: HTMLElement) => {
     if (saving) return;
     const confirmed = await confirmDialog({
-      title: RESET_DEFAULTS_TITLE,
-      message: RESET_DEFAULTS_MESSAGE,
-      confirmLabel: RESET_DEFAULTS_CONFIRM,
-      cancelLabel: "Cancel",
+      title: resetDefaultsTitle(),
+      message: resetDefaultsMessage(),
+      confirmLabel: resetDefaultsConfirm(),
+      cancelLabel: t("btn_cancel"),
       returnFocus,
     });
     if (!confirmed) return;
@@ -390,14 +391,14 @@ export function startSettings(
       defaultFolderId = null;
       themeBackground = null;
       saving = false;
-      savedNote = "Reset to defaults. Open a new tab to see layout changes.";
+      savedNote = t("note_reset");
       draw();
     } catch (caught) {
       saving = false;
       error =
         caught instanceof Error && caught.message.trim()
           ? caught.message
-          : "Could not reset settings.";
+          : t("error_reset_settings");
       draw();
     }
   };
@@ -405,10 +406,10 @@ export function startSettings(
   const eraseAllData = async (returnFocus: HTMLElement) => {
     if (saving) return;
     const confirmed = await confirmDialog({
-      title: ERASE_ALL_TITLE,
-      message: ERASE_ALL_MESSAGE,
-      confirmLabel: ERASE_ALL_CONFIRM,
-      cancelLabel: "Cancel",
+      title: eraseAllTitle(),
+      message: eraseAllMessage(),
+      confirmLabel: eraseAllConfirm(),
+      cancelLabel: t("btn_cancel"),
       danger: true,
       returnFocus,
     });
@@ -426,14 +427,14 @@ export function startSettings(
       themeBackground = null;
       await refreshStorageUsage();
       saving = false;
-      savedNote = "All Hearth data erased. Open a new tab to see the dial.";
+      savedNote = t("note_erased");
       draw();
     } catch (caught) {
       saving = false;
       error =
         caught instanceof Error && caught.message.trim()
           ? caught.message
-          : "Could not erase data.";
+          : t("error_erase_data");
       draw();
     }
   };
@@ -465,14 +466,14 @@ export function startSettings(
       });
       downloadTextFile(backupFilename(), serializeBackup(backup));
       saving = false;
-      savedNote = "Backup downloaded. Chrome bookmarks are not included.";
+      savedNote = t("note_backup_downloaded");
       draw();
     } catch (caught) {
       saving = false;
       error =
         caught instanceof Error && caught.message.trim()
           ? caught.message
-          : "Could not export backup.";
+          : t("error_export_backup");
       draw();
     }
   };
@@ -489,19 +490,19 @@ export function startSettings(
       error =
         caught instanceof Error && caught.message.trim()
           ? caught.message
-          : IMPORT_INVALID_MESSAGE;
+          : importInvalidMessage();
       savedNote = null;
       draw();
       return;
     }
     const mode = await choiceDialog<ImportMode>({
-      title: IMPORT_MODE_TITLE,
-      message: IMPORT_MODE_MESSAGE,
+      title: importModeTitle(),
+      message: importModeMessage(),
       choices: [
-        { value: "merge", label: IMPORT_MERGE_LABEL, primary: true },
-        { value: "overwrite", label: IMPORT_OVERWRITE_LABEL, danger: true },
+        { value: "merge", label: importMergeLabel(), primary: true },
+        { value: "overwrite", label: importOverwriteLabel(), danger: true },
       ],
-      cancelLabel: "Cancel",
+      cancelLabel: t("btn_cancel"),
     });
     if (!mode) return;
 
@@ -554,15 +555,15 @@ export function startSettings(
       saving = false;
       savedNote =
         mode === "overwrite"
-          ? "Backup imported (overwrite). Open a new tab to see the dial."
-          : "Backup imported (merge). Open a new tab to see the dial.";
+          ? t("note_import_overwrite")
+          : t("note_import_merge");
       draw();
     } catch (caught) {
       saving = false;
       error =
         caught instanceof Error && caught.message.trim()
           ? caught.message
-          : "Could not import backup.";
+          : t("error_import_backup");
       draw();
     }
   };
@@ -598,7 +599,7 @@ export function startSettings(
         error =
           caught instanceof Error && caught.message.trim()
             ? caught.message
-            : "Could not save settings.";
+            : t("error_save_settings");
         draw();
       }
       return;
@@ -611,11 +612,11 @@ export function startSettings(
       await settings.setLayout(result.next);
       await settings.setDefaultFolderId(nextDefault);
       saving = false;
-      if (!result.error) savedNote = "Saved. Open a new tab to see layout changes.";
+      if (!result.error) savedNote = t("note_saved");
       draw();
     } catch (caught) {
       saving = false;
-      error = caught instanceof Error && caught.message.trim() ? caught.message : "Could not save settings.";
+      error = caught instanceof Error && caught.message.trim() ? caught.message : t("error_save_settings");
       draw();
     }
   };
@@ -651,7 +652,7 @@ export function startSettings(
       await refreshStorageUsage();
       applyTheme();
     } catch (caught) {
-      error = caught instanceof Error && caught.message.trim() ? caught.message : "Could not load settings.";
+      error = caught instanceof Error && caught.message.trim() ? caught.message : t("error_load_settings");
     }
     draw();
   })();

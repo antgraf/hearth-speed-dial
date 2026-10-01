@@ -110,5 +110,5 @@ Manual product checks after load: [smoke-checklist.md](smoke-checklist.md).
 
 ## Follow-ups (not blocking Firefox)
 
-- **`_locales` scaffolding** — English message extract for store locale fields and later translations is a separate Pre-publish item. Firefox packaging does not require it yet.
+- **Additional languages** — English `_locales` scaffolding and runtime `t()` wiring are in; translations beyond `en` remain a separate Pre-publish item.
 - AMO listing screenshots, privacy policy text, and reviewer permissions narrative are separate Pre-publish lanes.

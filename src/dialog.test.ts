@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, before, test } from "node:test";
 import { Window } from "happy-dom";
 import { choiceDialog, confirmDialog, openDialog, tabCycleIndex } from "./dialog.ts";
+import { t } from "./i18n.ts";
 
 test("tabCycleIndex wraps forward from the last item or outside", () => {
   assert.equal(tabCycleIndex(2, 3, false), 0);
@@ -153,7 +154,7 @@ test("choiceDialog resolves the selected value and null on Cancel", async () => 
     kit.mount,
   );
   await settle();
-  const cancel = [...kit.mount.querySelectorAll("button")].find((el) => el.textContent === "Cancel");
+  const cancel = [...kit.mount.querySelectorAll("button")].find((el) => el.textContent === t("btn_cancel"));
   assert.ok(cancel);
   cancel.click();
   assert.equal(await cancelled, null);

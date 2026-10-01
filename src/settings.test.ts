@@ -9,7 +9,7 @@ import {
   clampThumbnailWaitSeconds,
   clampTileSize,
   DEFAULT_LAYOUT,
-  ERASE_ALL_CONFIRM,
+  eraseAllConfirm,
   LAYOUT_LIMITS,
   readColumns,
   readDefaultFolderId,
@@ -20,7 +20,7 @@ import {
   readThumbnailWaitSeconds,
   readThumbnailsEnabled,
   readTileSize,
-  RESET_DEFAULTS_CONFIRM,
+  resetDefaultsConfirm,
   TILE_ASPECT,
   syncRangeInputValue,
   thumbnailWaitMs,
@@ -53,7 +53,7 @@ test("CSS --tile-aspect matches TILE_ASPECT (16:9 dial faces)", () => {
 });
 
 test("danger zone confirm labels distinguish reset from erase", () => {
-  assert.notEqual(RESET_DEFAULTS_CONFIRM, ERASE_ALL_CONFIRM);
+  assert.notEqual(resetDefaultsConfirm(), eraseAllConfirm());
 });
 
 test("columns and tile size clamp to the allowed ranges", () => {

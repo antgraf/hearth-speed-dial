@@ -5,6 +5,7 @@
  */
 
 import { readImageDataUrl } from "./images.ts";
+import { t } from "./i18n.ts";
 
 /** Storage key for the optional local wallpaper (data URL). */
 export const THEME_BACKGROUND_KEY = "hearth.theme.background";
@@ -47,26 +48,26 @@ export const THEME_BACKGROUND_POSITIONS: readonly ThemeBackgroundPosition[] = [
   "bottom",
 ];
 
-const ACCENT_LABELS: Record<ThemeAccent, string> = {
-  ember: "Ember",
-  brass: "Brass",
-  clay: "Clay",
-  moss: "Moss",
+const ACCENT_LABEL_KEYS: Record<ThemeAccent, "accent_ember" | "accent_brass" | "accent_clay" | "accent_moss"> = {
+  ember: "accent_ember",
+  brass: "accent_brass",
+  clay: "accent_clay",
+  moss: "accent_moss",
 };
 
-const MODE_LABELS: Record<ThemeMode, string> = {
-  light: "Light",
-  dark: "Dark",
-  auto: "Auto (system)",
+const MODE_LABEL_KEYS: Record<ThemeMode, "mode_light" | "mode_dark" | "mode_auto"> = {
+  light: "mode_light",
+  dark: "mode_dark",
+  auto: "mode_auto",
 };
 
 /** Short labels for Settings accent swatches. */
 export function themeAccentLabel(accent: ThemeAccent): string {
-  return ACCENT_LABELS[accent];
+  return t(ACCENT_LABEL_KEYS[accent]);
 }
 
 export function themeModeLabel(mode: ThemeMode): string {
-  return MODE_LABELS[mode];
+  return t(MODE_LABEL_KEYS[mode]);
 }
 
 export function clampBackgroundOpacity(value: number): number {

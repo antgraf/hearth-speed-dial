@@ -2,6 +2,7 @@ import type { BookmarkNode } from "./model.ts";
 import { moveIntoFolderError } from "./model.ts";
 import type { BookmarksApi } from "./browser.ts";
 import { previewImages, type ImagesApi } from "./images.ts";
+import { t } from "./i18n.ts";
 import type { CaptureApi, PermissionsApi } from "./permissions.ts";
 import { previewSettings, type SettingsApi } from "./settings.ts";
 
@@ -35,8 +36,9 @@ const sampleTree = (): BookmarkNode[] => [
   },
 ];
 
-export const previewBanner =
-  "Preview with sample bookmarks. After you load the extension, a new tab uses your Chrome folders.";
+export function previewBanner(): string {
+  return t("preview_dial_banner");
+}
 
 const PREVIEW_TREE_KEY = "hearth.previewTree";
 const PREVIEW_TREE_VERSION = 1;

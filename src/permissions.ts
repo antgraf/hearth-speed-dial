@@ -31,6 +31,8 @@
  * Firefox optional-permission UX can differ (may re-prompt more often).
  */
 
+import { t } from "./i18n.ts";
+
 export const OPTIONAL_TABS_PERMISSION = "tabs" as const;
 
 /** Host pattern required for captureVisibleTab on arbitrary dial URLs. */
@@ -220,17 +222,17 @@ export type CaptureApi = {
 };
 
 export function thumbnailPermissionDeniedMessage(): string {
-  return "Thumbnail capture needs permission to open pages and take a screenshot. You can enable it again in Settings.";
+  return t("error_thumbnail_permission_denied");
 }
 
 export function imageUrlPermissionDeniedMessage(): string {
-  return "Downloading an image from a URL needs permission. You can enable it again in Settings.";
+  return t("error_image_url_permission_denied");
 }
 
 export function thumbnailUnavailableMessage(): string {
-  return "Turn on “Generate dial thumbnails” in Settings first.";
+  return t("error_thumbnail_unavailable");
 }
 
 export function imageUrlUnavailableMessage(): string {
-  return "Turn on “Assign pictures from URLs” in Settings first.";
+  return t("error_image_url_unavailable");
 }

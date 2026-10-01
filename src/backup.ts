@@ -24,6 +24,7 @@ import {
 } from "./theme.ts";
 import type { BookmarkNode } from "./model.ts";
 import { classify } from "./model.ts";
+import { t } from "./i18n.ts";
 
 export const BACKUP_FORMAT = "hearth-speed-dial-backup";
 export const BACKUP_VERSION = 1 as const;
@@ -82,23 +83,41 @@ export type ApplyBackupResult = {
   imagesToSet: Record<string, string>;
 };
 
-export const EXPORT_TITLE = "Export pictures & settings";
-export const IMPORT_TITLE = "Import pictures & settings";
+export function exportTitle(): string {
+  return t("export_title");
+}
 
-export const EXPORT_HELP =
-  "Download a JSON file of dial pictures, theme wallpaper, and layout preferences. Chrome bookmarks are not included — the browser already syncs those.";
+export function importTitle(): string {
+  return t("import_title");
+}
 
-export const IMPORT_HELP =
-  "Restore from a Hearth backup file. Choose overwrite (replace local Hearth data) or merge (keep pictures not in the file). Bookmarks are never changed.";
+export function exportHelp(): string {
+  return t("export_help");
+}
 
-export const IMPORT_MODE_TITLE = "How should import apply?";
-export const IMPORT_MODE_MESSAGE =
-  "Overwrite replaces Hearth settings, theme wallpaper, and all dial pictures with the file. Merge updates settings and adds or replaces pictures from the file, keeping local pictures that are not in the backup. Chrome bookmarks are never changed.";
-export const IMPORT_OVERWRITE_LABEL = "Overwrite";
-export const IMPORT_MERGE_LABEL = "Merge";
+export function importHelp(): string {
+  return t("import_help");
+}
 
-export const IMPORT_INVALID_MESSAGE =
-  "That file is not a valid Hearth Speed Dial backup.";
+export function importModeTitle(): string {
+  return t("import_mode_title");
+}
+
+export function importModeMessage(): string {
+  return t("import_mode_message");
+}
+
+export function importOverwriteLabel(): string {
+  return t("import_overwrite");
+}
+
+export function importMergeLabel(): string {
+  return t("import_merge");
+}
+
+export function importInvalidMessage(): string {
+  return t("import_invalid");
+}
 
 export function backupFilename(now: Date = new Date()): string {
   const y = now.getFullYear();
@@ -190,29 +209,29 @@ export function serializeBackup(backup: HearthBackupV1): string {
 
 /**
  * Parse and validate a backup JSON string.
- * Throws Error with IMPORT_INVALID_MESSAGE (or a more specific message) on failure.
+ * Throws Error with importInvalidMessage() (or a more specific message) on failure.
  */
 export function parseBackup(raw: string): HearthBackupV1 {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error(IMPORT_INVALID_MESSAGE);
+    throw new Error(importInvalidMessage());
   }
   return readBackup(parsed);
 }
 
 export function readBackup(value: unknown): HearthBackupV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(IMPORT_INVALID_MESSAGE);
+    throw new Error(importInvalidMessage());
   }
   const record = value as Record<string, unknown>;
   if (record.format !== BACKUP_FORMAT) {
-    throw new Error(IMPORT_INVALID_MESSAGE);
+    throw new Error(importInvalidMessage());
   }
   if (record.version !== BACKUP_VERSION) {
     throw new Error(
-      `Unsupported backup version (${String(record.version)}). This build reads version ${BACKUP_VERSION}.`,
+      t("import_unsupported_version", [String(record.version), String(BACKUP_VERSION)]),
     );
   }
 
@@ -236,7 +255,7 @@ export function readBackup(value: unknown): HearthBackupV1 {
 
 function readBackupSettings(value: unknown): BackupSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(IMPORT_INVALID_MESSAGE);
+    throw new Error(importInvalidMessage());
   }
   const record = value as Record<string, unknown>;
   const theme: ThemeSettings = readTheme(record.theme);
@@ -257,10 +276,10 @@ function readBackupSettings(value: unknown): BackupSettings {
 
 function readBackupThemeBackground(value: unknown): string | null {
   if (value == null) return null;
-  if (typeof value !== "string") throw new Error(IMPORT_INVALID_MESSAGE);
+  if (typeof value !== "string") throw new Error(importInvalidMessage());
   if (value.trim() === "") return null;
   const dataUrl = readThemeBackgroundDataUrl(value);
-  if (!dataUrl) throw new Error(IMPORT_INVALID_MESSAGE);
+  if (!dataUrl) throw new Error(importInvalidMessage());
   return dataUrl;
 }
 
@@ -272,29 +291,29 @@ function readBackupImages(value: unknown): BackupImageEntry[] {
     for (const [bookmarkId, raw] of Object.entries(value as Record<string, unknown>)) {
       if (!bookmarkId) continue;
       if (typeof raw !== "string" || !isImageDataUrl(raw)) {
-        throw new Error(IMPORT_INVALID_MESSAGE);
+        throw new Error(importInvalidMessage());
       }
       const dataUrl = readImageDataUrl(raw);
-      if (!dataUrl) throw new Error(IMPORT_INVALID_MESSAGE);
+      if (!dataUrl) throw new Error(importInvalidMessage());
       entries.push({ bookmarkId, dataUrl });
     }
     return entries;
   }
-  if (!Array.isArray(value)) throw new Error(IMPORT_INVALID_MESSAGE);
+  if (!Array.isArray(value)) throw new Error(importInvalidMessage());
   const entries: BackupImageEntry[] = [];
   for (const item of value) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw new Error(IMPORT_INVALID_MESSAGE);
+      throw new Error(importInvalidMessage());
     }
     const row = item as Record<string, unknown>;
     if (typeof row.bookmarkId !== "string" || !row.bookmarkId) {
-      throw new Error(IMPORT_INVALID_MESSAGE);
+      throw new Error(importInvalidMessage());
     }
     if (typeof row.dataUrl !== "string" || !isImageDataUrl(row.dataUrl)) {
-      throw new Error(IMPORT_INVALID_MESSAGE);
+      throw new Error(importInvalidMessage());
     }
     const dataUrl = readImageDataUrl(row.dataUrl);
-    if (!dataUrl) throw new Error(IMPORT_INVALID_MESSAGE);
+    if (!dataUrl) throw new Error(importInvalidMessage());
     const entry: BackupImageEntry = { bookmarkId: row.bookmarkId, dataUrl };
     if (typeof row.url === "string" && row.url.trim()) entry.url = row.url.trim();
     entries.push(entry);

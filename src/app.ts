@@ -29,8 +29,8 @@ import {
   canRenameNode,
   deleteConfirmMessage,
   present,
-  REFRESH_ALL_THUMBNAILS_CONFIRM,
-  REFRESH_ALL_THUMBNAILS_TITLE,
+  refreshAllThumbnailsConfirm,
+  refreshAllThumbnailsTitle,
   refreshAllThumbnailsConfirmMessage,
   type AppState,
   type CreateKind,
@@ -38,6 +38,7 @@ import {
 import type { BookmarksApi } from "./browser.ts";
 import { confirmDialog, type ConfirmDialogOptions } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
+import { t } from "./i18n.ts";
 import { isRefreshAllThumbnailsMessage } from "./messages.ts";
 import {
   imageUrlPermissionDeniedMessage,
@@ -248,10 +249,10 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (!canDeleteNode(node) || !node) return;
     const kind = classify(node);
     const confirmed = await confirm({
-      title: kind === "folder" ? "Delete folder" : "Delete bookmark",
+      title: kind === "folder" ? t("delete_folder_title") : t("delete_bookmark_title"),
       message: deleteConfirmMessage(node),
-      confirmLabel: "Delete",
-      cancelLabel: "Cancel",
+      confirmLabel: t("btn_delete"),
+      cancelLabel: t("btn_cancel"),
       danger: true,
     });
     if (!confirmed) return;
@@ -375,7 +376,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (!node || classify(node) !== "link" || !node.url) return;
     const pageUrl = openableUrl(node.url);
     if (!pageUrl || pageUrl.startsWith("file:")) {
-      state.error = "Thumbnails work for http:// and https:// bookmarks only.";
+      state.error = t("error_thumbnails_http_only");
       draw();
       return;
     }
@@ -400,16 +401,16 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (!folder || classify(folder) !== "folder") return;
     const targets = refreshableThumbnailTargets(folder);
     if (targets.length === 0) {
-      state.error = "This folder has no http:// or https:// bookmarks to refresh.";
+      state.error = t("error_refresh_none");
       draw();
       return;
     }
     if (!(await ensureThumbnailCaptureReady())) return;
     const confirmed = await confirm({
-      title: REFRESH_ALL_THUMBNAILS_TITLE,
+      title: refreshAllThumbnailsTitle(),
       message: refreshAllThumbnailsConfirmMessage(targets.length),
-      confirmLabel: REFRESH_ALL_THUMBNAILS_CONFIRM,
-      cancelLabel: "Cancel",
+      confirmLabel: refreshAllThumbnailsConfirm(),
+      cancelLabel: t("btn_cancel"),
       danger: true,
     });
     if (!confirmed) return;
@@ -686,7 +687,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     const url = kind === "bookmark" ? bookmarkUrl(input.url) : null;
     if (!title || (kind === "bookmark" && !url)) {
       state.form = { mode: "create", kind, title: input.title, url: input.url };
-      state.error = kind === "folder" ? "Name the folder." : "Name the bookmark and enter its address.";
+      state.error = kind === "folder" ? t("error_name_folder") : t("error_name_bookmark");
       draw();
       return;
     }
@@ -716,7 +717,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     const url = kind === "bookmark" ? bookmarkUrl(input.url) : null;
     if (!title || (kind === "bookmark" && !url)) {
       state.form = { mode: "edit", id: state.form.id, kind, title: input.title, url: input.url };
-      state.error = kind === "folder" ? "Name the folder." : "Name the bookmark and enter its address.";
+      state.error = kind === "folder" ? t("error_name_folder") : t("error_name_bookmark");
       draw();
       return;
     }
@@ -932,5 +933,5 @@ function isInside(tree: readonly BookmarkNode[], rootId: string, id: string): bo
 
 function errorText(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message;
-  return "Something went wrong while reading bookmarks.";
+  return t("error_generic_bookmarks");
 }

@@ -1,0 +1,781 @@
+{
+  "ext_name": {
+    "message": "Hearth Speed Dial",
+    "description": "Extension name for store and browser UI"
+  },
+  "ext_description": {
+    "message": "New tab speed dial for one folder of your bookmarks.",
+    "description": "Extension description for store listing"
+  },
+  "page_title_new_tab": {
+    "message": "New tab"
+  },
+  "page_title_settings": {
+    "message": "Hearth settings"
+  },
+  "page_title_add": {
+    "message": "Add to Hearth"
+  },
+  "brand_name": {
+    "message": "Hearth"
+  },
+  "loading_bookmarks": {
+    "message": "Loading bookmarks…"
+  },
+  "unavailable_heading": {
+    "message": "Bookmarks"
+  },
+  "unavailable_default": {
+    "message": "Hearth could not read Chrome bookmarks."
+  },
+  "empty_folder": {
+    "message": "This folder has no bookmarks yet."
+  },
+  "empty_search": {
+    "message": "No dials match “$1”.",
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "news"
+      }
+    }
+  },
+  "aria_folder_nav": {
+    "message": "Folder"
+  },
+  "aria_speed_dial": {
+    "message": "Speed dial"
+  },
+  "aria_search_results": {
+    "message": "Search results"
+  },
+  "search_placeholder": {
+    "message": "Find…"
+  },
+  "search_aria_label": {
+    "message": "Find a dial"
+  },
+  "search_hint_title": {
+    "message": "Press / to find"
+  },
+  "settings_title": {
+    "message": "Settings"
+  },
+  "actions_for": {
+    "message": "Actions for $1",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "News"
+      }
+    }
+  },
+  "tile_new_title": {
+    "message": "New"
+  },
+  "tile_new_meta": {
+    "message": "Folder or bookmark"
+  },
+  "create_dial_aria": {
+    "message": "Create dial"
+  },
+  "meta_folder": {
+    "message": "Folder"
+  },
+  "meta_unavailable_link": {
+    "message": "Unavailable link"
+  },
+  "fallback_untitled": {
+    "message": "Untitled"
+  },
+  "fallback_untitled_folder": {
+    "message": "Untitled folder"
+  },
+  "fallback_bookmarks_root": {
+    "message": "Bookmarks"
+  },
+  "boot_extension_required": {
+    "message": "Open Hearth from a new tab after loading the extension in Chrome or Firefox."
+  },
+  "menu_rename": {
+    "message": "Rename"
+  },
+  "menu_picture": {
+    "message": "Picture…"
+  },
+  "menu_delete": {
+    "message": "Delete"
+  },
+  "menu_refresh_all": {
+    "message": "Refresh All Thumbnails"
+  },
+  "menu_refresh_all_enable": {
+    "message": "Refresh All Thumbnails (enable in Settings)"
+  },
+  "menu_refresh_all_none": {
+    "message": "Refresh All Thumbnails (no http bookmarks)"
+  },
+  "menu_attach_file": {
+    "message": "Attach file…"
+  },
+  "menu_image_from_url": {
+    "message": "Image from URL…"
+  },
+  "menu_image_from_url_enable": {
+    "message": "Image from URL… (enable in Settings)"
+  },
+  "menu_capture_thumbnail": {
+    "message": "Capture thumbnail"
+  },
+  "menu_capture_thumbnail_enable": {
+    "message": "Capture thumbnail (enable in Settings)"
+  },
+  "menu_clear_picture": {
+    "message": "Clear picture"
+  },
+  "menu_new_folder": {
+    "message": "New folder"
+  },
+  "menu_new_bookmark": {
+    "message": "New bookmark"
+  },
+  "field_folder_name": {
+    "message": "Folder name"
+  },
+  "field_name": {
+    "message": "Name"
+  },
+  "field_address": {
+    "message": "Address"
+  },
+  "field_folder": {
+    "message": "Folder"
+  },
+  "field_image_address": {
+    "message": "Image address"
+  },
+  "image_address_placeholder": {
+    "message": "https://…"
+  },
+  "image_from_url_help": {
+    "message": "Hearth downloads the image once and stores it locally. The dial does not keep linking to the remote URL."
+  },
+  "dialog_image_from_url_title": {
+    "message": "Image from URL"
+  },
+  "btn_use_image": {
+    "message": "Use image"
+  },
+  "btn_rename_folder": {
+    "message": "Rename folder"
+  },
+  "btn_save_bookmark": {
+    "message": "Save bookmark"
+  },
+  "dialog_rename_folder": {
+    "message": "Rename folder"
+  },
+  "dialog_rename_bookmark": {
+    "message": "Rename bookmark"
+  },
+  "btn_add_folder": {
+    "message": "Add folder"
+  },
+  "btn_add_bookmark": {
+    "message": "Add bookmark"
+  },
+  "btn_cancel": {
+    "message": "Cancel"
+  },
+  "btn_confirm": {
+    "message": "Confirm"
+  },
+  "btn_delete": {
+    "message": "Delete"
+  },
+  "btn_ok": {
+    "message": "OK"
+  },
+  "btn_close": {
+    "message": "Close"
+  },
+  "btn_done": {
+    "message": "Done"
+  },
+  "btn_save": {
+    "message": "Save"
+  },
+  "btn_saving": {
+    "message": "Saving…"
+  },
+  "btn_adding": {
+    "message": "Adding…"
+  },
+  "btn_export": {
+    "message": "Export…"
+  },
+  "btn_import": {
+    "message": "Import…"
+  },
+  "btn_reset_defaults": {
+    "message": "Reset to Defaults"
+  },
+  "btn_erase_all": {
+    "message": "Erase All Data"
+  },
+  "btn_add_image": {
+    "message": "Add image"
+  },
+  "btn_remove_image": {
+    "message": "Remove image"
+  },
+  "btn_use_accent_default": {
+    "message": "Use accent default"
+  },
+  "error_name_folder": {
+    "message": "Name the folder."
+  },
+  "error_name_bookmark": {
+    "message": "Name the bookmark and enter its address."
+  },
+  "error_generic_bookmarks": {
+    "message": "Something went wrong while reading bookmarks."
+  },
+  "error_thumbnails_http_only": {
+    "message": "Thumbnails work for http:// and https:// bookmarks only."
+  },
+  "error_refresh_none": {
+    "message": "This folder has no http:// or https:// bookmarks to refresh."
+  },
+  "cat_layout": {
+    "message": "Layout"
+  },
+  "cat_display": {
+    "message": "Display"
+  },
+  "cat_pictures": {
+    "message": "Pictures"
+  },
+  "cat_theme": {
+    "message": "Theme"
+  },
+  "cat_backup": {
+    "message": "Backup"
+  },
+  "cat_danger": {
+    "message": "Danger Zone"
+  },
+  "label_columns": {
+    "message": "Columns"
+  },
+  "help_columns": {
+    "message": "Number of dial columns (1–8)."
+  },
+  "label_tile_size": {
+    "message": "Tile size"
+  },
+  "help_tile_size": {
+    "message": "Width of each dial face (96–576px). Faces use a 16:9 aspect ratio."
+  },
+  "switch_reverse_title": {
+    "message": "Show last bookmarks first"
+  },
+  "switch_reverse_help": {
+    "message": "Newest or last-listed bookmarks appear at the start of the grid."
+  },
+  "label_default_folder": {
+    "message": "Default folder for new windows"
+  },
+  "option_last_open_folder": {
+    "message": "Last open folder (default)"
+  },
+  "option_missing_folder": {
+    "message": "Missing folder (will fall back)"
+  },
+  "help_default_folder": {
+    "message": "Unset keeps recalling the last folder you had open. Set a folder and each new window / new tab starts there; navigating still updates last-open for when this is unset."
+  },
+  "switch_thumbnails_title": {
+    "message": "Generate dial thumbnails"
+  },
+  "switch_thumbnails_help": {
+    "message": "Off by default. The first time you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded."
+  },
+  "switch_image_url_title": {
+    "message": "Assign pictures from URLs"
+  },
+  "switch_image_url_help": {
+    "message": "Off by default. The first time you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking."
+  },
+  "label_thumbnail_wait": {
+    "message": "Thumbnail wait (seconds)"
+  },
+  "help_thumbnail_wait": {
+    "message": "How long capture waits after opening the page before taking the screenshot (1–15s, default 2). Raise this for slow sites."
+  },
+  "storage_measuring": {
+    "message": "Measuring…"
+  },
+  "storage_unavailable": {
+    "message": "Storage usage is unavailable right now."
+  },
+  "danger_help": {
+    "message": "These actions only affect Hearth preferences and stored dial pictures — never your Chrome bookmarks."
+  },
+  "settings_intro": {
+    "message": "Layout and theme preferences stay in this browser profile. Bookmark order in Chrome is unchanged — reverse only affects how the dial grid is shown."
+  },
+  "note_saved": {
+    "message": "Saved. Open a new tab to see layout changes."
+  },
+  "note_reset": {
+    "message": "Reset to defaults. Open a new tab to see layout changes."
+  },
+  "note_erased": {
+    "message": "All Hearth data erased. Open a new tab to see the dial."
+  },
+  "note_background_updated": {
+    "message": "Background image updated."
+  },
+  "note_backup_downloaded": {
+    "message": "Backup downloaded. Chrome bookmarks are not included."
+  },
+  "note_import_overwrite": {
+    "message": "Backup imported (overwrite). Open a new tab to see the dial."
+  },
+  "note_import_merge": {
+    "message": "Backup imported (merge). Open a new tab to see the dial."
+  },
+  "error_save_settings": {
+    "message": "Could not save settings."
+  },
+  "error_load_settings": {
+    "message": "Could not load settings."
+  },
+  "error_reset_settings": {
+    "message": "Could not reset settings."
+  },
+  "error_erase_data": {
+    "message": "Could not erase data."
+  },
+  "error_update_background": {
+    "message": "Could not update background image."
+  },
+  "error_export_backup": {
+    "message": "Could not export backup."
+  },
+  "error_import_backup": {
+    "message": "Could not import backup."
+  },
+  "boot_settings_required": {
+    "message": "Open Hearth settings from the extension after loading it in Chrome or Firefox."
+  },
+  "preview_settings_banner": {
+    "message": "Preview mode — settings save in this browser’s localStorage."
+  },
+  "preview_dial_banner": {
+    "message": "Preview with sample bookmarks. After you load the extension, a new tab uses your Chrome folders."
+  },
+  "dial_storage_label": {
+    "message": "Dial picture storage"
+  },
+  "dial_storage_used_unlimited": {
+    "message": "About $1 used in this profile. No fixed size cap — still limited by free disk.",
+    "placeholders": {
+      "used": {
+        "content": "$1",
+        "example": "2.1 MB"
+      }
+    }
+  },
+  "dial_storage_used_quota": {
+    "message": "About $1 of $2 available in this profile.",
+    "placeholders": {
+      "used": {
+        "content": "$1",
+        "example": "2.1 MB"
+      },
+      "quota": {
+        "content": "$2",
+        "example": "10 MB"
+      }
+    }
+  },
+  "unit_bytes": {
+    "message": "$1 B",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "512"
+      }
+    }
+  },
+  "unit_kb": {
+    "message": "$1 KB",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "unit_mb": {
+    "message": "$1 MB",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "1.5"
+      }
+    }
+  },
+  "delete_folder_title": {
+    "message": "Delete folder"
+  },
+  "delete_bookmark_title": {
+    "message": "Delete bookmark"
+  },
+  "delete_link_confirm": {
+    "message": "Delete “$1”? This removes the bookmark from Chrome.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "Example"
+      }
+    }
+  },
+  "delete_folder_filled_confirm": {
+    "message": "Delete folder “$1” and everything inside it? This cannot be undone from Hearth.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "News"
+      }
+    }
+  },
+  "delete_folder_empty_confirm": {
+    "message": "Delete empty folder “$1”?",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "News"
+      }
+    }
+  },
+  "refresh_all_title": {
+    "message": "Refresh All Thumbnails"
+  },
+  "refresh_all_confirm_btn": {
+    "message": "Refresh"
+  },
+  "refresh_all_message": {
+    "message": "Recapture thumbnails for $1 $2 in this folder? Existing dial pictures for those bookmarks will be replaced. Nested folders are not included.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      },
+      "noun": {
+        "content": "$2",
+        "example": "bookmarks"
+      }
+    }
+  },
+  "noun_bookmark": {
+    "message": "bookmark"
+  },
+  "noun_bookmarks": {
+    "message": "bookmarks"
+  },
+  "reset_defaults_title": {
+    "message": "Reset to defaults?"
+  },
+  "reset_defaults_message": {
+    "message": "Restore layout, display, theme, and picture preferences to product defaults. Your bookmarks and dial pictures stay."
+  },
+  "reset_defaults_confirm": {
+    "message": "Reset"
+  },
+  "erase_all_title": {
+    "message": "Erase all data?"
+  },
+  "erase_all_message": {
+    "message": "Permanently clear all Hearth settings, theme wallpaper, and stored dial pictures in this browser profile. Your Chrome bookmarks are not deleted."
+  },
+  "erase_all_confirm": {
+    "message": "Erase all data"
+  },
+  "import_failed_title": {
+    "message": "Import failed"
+  },
+  "context_add_to_hearth": {
+    "message": "Add to Hearth…"
+  },
+  "context_refresh_all_thumbnails": {
+    "message": "Refresh All Thumbnails"
+  },
+  "error_thumbnail_permission_denied": {
+    "message": "Thumbnail capture needs permission to open pages and take a screenshot. You can enable it again in Settings."
+  },
+  "error_image_url_permission_denied": {
+    "message": "Downloading an image from a URL needs permission. You can enable it again in Settings."
+  },
+  "error_thumbnail_unavailable": {
+    "message": "Turn on “Generate dial thumbnails” in Settings first."
+  },
+  "error_image_url_unavailable": {
+    "message": "Turn on “Assign pictures from URLs” in Settings first."
+  },
+  "error_image_too_large": {
+    "message": "Choose an image under $1 MB.",
+    "placeholders": {
+      "mb": {
+        "content": "$1",
+        "example": "1.5"
+      }
+    }
+  },
+  "error_image_type": {
+    "message": "Choose a JPEG, PNG, GIF, or WebP image."
+  },
+  "error_storage_quota": {
+    "message": "This browser profile is out of space for dial pictures. Remove some pictures or free disk space, then try again."
+  },
+  "error_storage_write": {
+    "message": "Could not save that dial picture. Check that this profile has free disk space, then try again."
+  },
+  "error_image_url_invalid": {
+    "message": "Enter an http:// or https:// image address."
+  },
+  "error_image_download": {
+    "message": "Could not download that image."
+  },
+  "error_image_download_status": {
+    "message": "Could not download that image ($1).",
+    "placeholders": {
+      "status": {
+        "content": "$1",
+        "example": "404"
+      }
+    }
+  },
+  "error_image_read": {
+    "message": "That file could not be read as an image."
+  },
+  "error_image_store": {
+    "message": "That file could not be stored as an image."
+  },
+  "error_background_store": {
+    "message": "That file could not be stored as a background image."
+  },
+  "error_bookmark_gone": {
+    "message": "That bookmark is no longer available."
+  },
+  "error_root_cannot_move": {
+    "message": "The bookmarks root cannot be moved."
+  },
+  "error_drop_onto_folder": {
+    "message": "Drop onto a folder."
+  },
+  "error_choose_folder_inside": {
+    "message": "Choose a folder inside Bookmarks."
+  },
+  "error_folder_into_self": {
+    "message": "A folder cannot be moved into itself."
+  },
+  "error_folder_into_descendant": {
+    "message": "A folder cannot be moved into one of its subfolders."
+  },
+  "error_screenshot_store": {
+    "message": "The page screenshot could not be stored as an image."
+  },
+  "error_screenshot_too_large": {
+    "message": "That screenshot is too large to store. Try a simpler page, or attach a smaller image file."
+  },
+  "error_capture_window": {
+    "message": "Could not open a window to capture that page."
+  },
+  "error_extension_api_missing": {
+    "message": "Hearth requires a Chromium or Firefox extension API (browser / chrome)."
+  },
+  "import_invalid": {
+    "message": "That file is not a valid Hearth Speed Dial backup."
+  },
+  "import_unsupported_version": {
+    "message": "Unsupported backup version ($1). This build reads version $2.",
+    "placeholders": {
+      "found": {
+        "content": "$1",
+        "example": "2"
+      },
+      "expected": {
+        "content": "$2",
+        "example": "1"
+      }
+    }
+  },
+  "add_heading": {
+    "message": "Add to Hearth"
+  },
+  "add_heading_done": {
+    "message": "Added"
+  },
+  "add_loading": {
+    "message": "Loading folders…"
+  },
+  "add_invalid": {
+    "message": "This page cannot be added as a dial."
+  },
+  "add_no_folders_error": {
+    "message": "No bookmark folders are available yet."
+  },
+  "add_load_failed": {
+    "message": "Could not load bookmark folders."
+  },
+  "add_enter_name": {
+    "message": "Enter a name."
+  },
+  "add_choose_folder": {
+    "message": "Choose a folder."
+  },
+  "add_create_failed": {
+    "message": "Could not add that bookmark."
+  },
+  "add_no_folders_empty": {
+    "message": "No folders available."
+  },
+  "aria_destination_folder": {
+    "message": "Destination folder"
+  },
+  "aria_expand_folder": {
+    "message": "Expand $1",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "News"
+      }
+    }
+  },
+  "aria_collapse_folder": {
+    "message": "Collapse $1",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "News"
+      }
+    }
+  },
+  "boot_add_required": {
+    "message": "Open Add to Hearth from the extension context menu in Chrome or Firefox."
+  },
+  "export_title": {
+    "message": "Export pictures & settings"
+  },
+  "import_title": {
+    "message": "Import pictures & settings"
+  },
+  "export_help": {
+    "message": "Download a JSON file of dial pictures, theme wallpaper, and layout preferences. Chrome bookmarks are not included — the browser already syncs those."
+  },
+  "import_help": {
+    "message": "Restore from a Hearth backup file. Choose overwrite (replace local Hearth data) or merge (keep pictures not in the file). Bookmarks are never changed."
+  },
+  "import_mode_title": {
+    "message": "How should import apply?"
+  },
+  "import_mode_message": {
+    "message": "Overwrite replaces Hearth settings, theme wallpaper, and all dial pictures with the file. Merge updates settings and adds or replaces pictures from the file, keeping local pictures that are not in the backup. Chrome bookmarks are never changed."
+  },
+  "import_overwrite": {
+    "message": "Overwrite"
+  },
+  "import_merge": {
+    "message": "Merge"
+  },
+  "label_appearance": {
+    "message": "Appearance"
+  },
+  "mode_auto": {
+    "message": "Auto (system)"
+  },
+  "mode_light": {
+    "message": "Light"
+  },
+  "mode_dark": {
+    "message": "Dark"
+  },
+  "help_appearance": {
+    "message": "Auto (default) follows your system light/dark preference. Light and Dark lock the look."
+  },
+  "label_accent": {
+    "message": "Accent"
+  },
+  "accent_ember": {
+    "message": "Ember"
+  },
+  "accent_brass": {
+    "message": "Brass"
+  },
+  "accent_clay": {
+    "message": "Clay"
+  },
+  "accent_moss": {
+    "message": "Moss"
+  },
+  "help_accent": {
+    "message": "A small warm palette that keeps Hearth’s ember identity — not a full recolor."
+  },
+  "label_page_color": {
+    "message": "Page color override"
+  },
+  "help_page_color": {
+    "message": "Optional solid page wash override. Leave cleared so Appearance + Accent set the dial, Settings, and Add windows."
+  },
+  "label_background_image": {
+    "message": "Background image"
+  },
+  "background_preview_empty": {
+    "message": "No background image"
+  },
+  "aria_background_preview": {
+    "message": "Background image preview"
+  },
+  "help_wallpaper": {
+    "message": "Stored in this browser profile only (same local store as dial pictures). No remote wallpapers."
+  },
+  "label_fit": {
+    "message": "Fit"
+  },
+  "fit_cover": {
+    "message": "Cover"
+  },
+  "fit_contain": {
+    "message": "Contain"
+  },
+  "label_position": {
+    "message": "Position"
+  },
+  "position_center": {
+    "message": "Center"
+  },
+  "position_top": {
+    "message": "Top"
+  },
+  "position_bottom": {
+    "message": "Bottom"
+  },
+  "label_opacity": {
+    "message": "Opacity"
+  },
+  "aria_background_fit": {
+    "message": "Background fit"
+  },
+  "aria_background_position": {
+    "message": "Background position"
+  },
+  "aria_background_opacity": {
+    "message": "Background opacity"
+  },
+  "help_opacity": {
+    "message": "How strongly the local wallpaper shows behind the dial (0–100%)."
+  }
+}

@@ -30,7 +30,15 @@ function assertDistReady() {
   if (!existsSync(distFirefox)) {
     throw new Error("dist/firefox/ missing — run npm run build:firefox first");
   }
-  for (const required of ["manifest.json", "background.js", "index.html", "settings.html", "add.html", "icons"]) {
+  for (const required of [
+    "manifest.json",
+    "background.js",
+    "index.html",
+    "settings.html",
+    "add.html",
+    "icons",
+    "_locales/en/messages.json",
+  ]) {
     if (!existsSync(resolve(distFirefox, required))) {
       throw new Error(`dist/firefox/ missing required ${required}`);
     }

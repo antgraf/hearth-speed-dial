@@ -53,12 +53,34 @@ function copyExtensionFiles(): Plugin {
       const distManifest = resolve(dist, "manifest.json");
       cpSync(resolve(projectRoot, "manifest.json"), distManifest);
       cpSync(resolve(projectRoot, "icons"), resolve(dist, "icons"), { recursive: true });
-      for (const required of ["settings.html", "index.html", "add.html", "background.js", "manifest.json"]) {
+      cpSync(resolve(projectRoot, "_locales"), resolve(dist, "_locales"), { recursive: true });
+      for (const required of [
+        "settings.html",
+        "index.html",
+        "add.html",
+        "background.js",
+        "manifest.json",
+        "_locales/en/messages.json",
+      ]) {
         if (!existsSync(resolve(dist, required))) {
           throw new Error(`Extension build missing required dist/chrome/${required}`);
         }
       }
       assertDistManifestOptionalPermissions(distManifest);
+      const distLocaleManifest = JSON.parse(readFileSync(distManifest, "utf8")) as {
+        default_locale?: string;
+        name?: string;
+        description?: string;
+      };
+      if (distLocaleManifest.default_locale !== "en") {
+        throw new Error("dist/chrome/manifest.json missing default_locale en");
+      }
+      if (distLocaleManifest.name !== "__MSG_ext_name__") {
+        throw new Error("dist/chrome/manifest.json name must use __MSG_ext_name__");
+      }
+      if (distLocaleManifest.description !== "__MSG_ext_description__") {
+        throw new Error("dist/chrome/manifest.json description must use __MSG_ext_description__");
+      }
     },
   };
 }

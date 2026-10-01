@@ -31,7 +31,15 @@ function assertDistReady() {
   if (!existsSync(dist)) {
     throw new Error("dist/chrome/ missing — run npm run build:chrome first");
   }
-  for (const required of ["manifest.json", "background.js", "index.html", "settings.html", "add.html", "icons"]) {
+  for (const required of [
+    "manifest.json",
+    "background.js",
+    "index.html",
+    "settings.html",
+    "add.html",
+    "icons",
+    "_locales/en/messages.json",
+  ]) {
     if (!existsSync(resolve(dist, required))) {
       throw new Error(`dist/chrome/ missing required ${required}`);
     }

@@ -11,7 +11,7 @@ import {
   planBackupApply,
   readBackup,
   serializeBackup,
-  IMPORT_INVALID_MESSAGE,
+  importInvalidMessage,
 } from "./backup.ts";
 import { DEFAULT_LAYOUT } from "./settings.ts";
 import { DEFAULT_THEME } from "./theme.ts";
@@ -115,10 +115,10 @@ describe("backup format", () => {
   });
 
   test("parseBackup rejects garbage and wrong format", () => {
-    assert.throws(() => parseBackup("{"), (err: Error) => err.message === IMPORT_INVALID_MESSAGE);
+    assert.throws(() => parseBackup("{"), (err: Error) => err.message === importInvalidMessage());
     assert.throws(
       () => parseBackup(JSON.stringify({ format: "other", version: 1 })),
-      (err: Error) => err.message === IMPORT_INVALID_MESSAGE,
+      (err: Error) => err.message === importInvalidMessage(),
     );
     assert.throws(
       () =>

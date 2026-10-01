@@ -1,3 +1,5 @@
+import { t } from "./i18n.ts";
+
 export type BookmarkNode = {
   id: string;
   parentId?: string;
@@ -82,11 +84,11 @@ export function parentIds(roots: readonly BookmarkNode[]): Map<string, string | 
 export function displayTitle(title: string, kind: "folder" | "link"): string {
   const trimmed = title.trim();
   if (trimmed) return trimmed;
-  return kind === "folder" ? "Untitled folder" : "Untitled";
+  return kind === "folder" ? t("fallback_untitled_folder") : t("fallback_untitled");
 }
 
 export function folderLabel(node: { id: string; title: string }): string {
-  if (node.id === "0") return "Bookmarks";
+  if (node.id === "0") return t("fallback_bookmarks_root");
   return displayTitle(node.title, "folder");
 }
 
@@ -215,7 +217,7 @@ export function parseAddPageFields(search: string): AddPageFields | null {
   const params = new URLSearchParams(raw);
   const url = bookmarkUrl(params.get("url") ?? "");
   if (!url) return null;
-  const title = (params.get("title") ?? "").trim() || siteLabel(url) || "Untitled";
+  const title = (params.get("title") ?? "").trim() || siteLabel(url) || t("fallback_untitled");
   return { url, title };
 }
 
@@ -352,16 +354,16 @@ export function moveIntoFolderError(
   const nodes = nodeIndex(roots);
   const parents = parentIds(roots);
   const dragged = nodes.get(draggedId);
-  if (!dragged) return "That bookmark is no longer available.";
-  if (draggedId === "0") return "The bookmarks root cannot be moved.";
+  if (!dragged) return t("error_bookmark_gone");
+  if (draggedId === "0") return t("error_root_cannot_move");
 
   const target = nodes.get(targetFolderId);
-  if (!target || classify(target) !== "folder") return "Drop onto a folder.";
-  if (!acceptsChildren(target)) return "Choose a folder inside Bookmarks.";
+  if (!target || classify(target) !== "folder") return t("error_drop_onto_folder");
+  if (!acceptsChildren(target)) return t("error_choose_folder_inside");
 
-  if (draggedId === targetFolderId) return "A folder cannot be moved into itself.";
+  if (draggedId === targetFolderId) return t("error_folder_into_self");
   if (isUnderAncestor(parents, targetFolderId, draggedId)) {
-    return "A folder cannot be moved into one of its subfolders.";
+    return t("error_folder_into_descendant");
   }
   return null;
 }
@@ -389,14 +391,14 @@ function dialItemFromNode(node: BookmarkNode, parentTitle?: string): DialItem | 
       title,
       kind: "folder",
       url: null,
-      meta: parentTitle || "Folder",
+      meta: parentTitle || t("meta_folder"),
       monogram: monogram(title),
       imageDataUrl: null,
     };
   }
   const href = node.url ? openableUrl(node.url) : null;
-  const title = node.title.trim() || (href ? siteLabel(href) : "") || "Untitled";
-  const site = href ? siteLabel(href) : "Unavailable link";
+  const title = node.title.trim() || (href ? siteLabel(href) : "") || t("fallback_untitled");
+  const site = href ? siteLabel(href) : t("meta_unavailable_link");
   return {
     id: node.id,
     title,
@@ -432,7 +434,7 @@ export function dialMatchesQuery(node: BookmarkNode, normalizedQuery: string): b
     return folderLabel(node).toLocaleLowerCase().includes(normalizedQuery);
   }
   const href = node.url ? openableUrl(node.url) : null;
-  const title = node.title.trim() || (href ? siteLabel(href) : "") || "Untitled";
+  const title = node.title.trim() || (href ? siteLabel(href) : "") || t("fallback_untitled");
   if (title.toLocaleLowerCase().includes(normalizedQuery)) return true;
   if (node.url && node.url.toLocaleLowerCase().includes(normalizedQuery)) return true;
   if (href && href.toLocaleLowerCase().includes(normalizedQuery)) return true;

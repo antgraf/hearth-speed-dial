@@ -17,6 +17,7 @@ import {
   type FolderOption,
 } from "./model.ts";
 import type { LayoutSettings } from "./settings.ts";
+import { t } from "./i18n.ts";
 
 export type CreateKind = "folder" | "bookmark";
 
@@ -119,23 +120,28 @@ export function deleteConfirmMessage(node: BookmarkNode): string {
   const kind = classify(node);
   if (kind === "link") {
     const title = displayTitle(node.title, "link");
-    return `Delete “${title}”? This removes the bookmark from Chrome.`;
+    return t("delete_link_confirm", title);
   }
   const title = folderLabel(node);
   if (folderHasContents(node)) {
-    return `Delete folder “${title}” and everything inside it? This cannot be undone from Hearth.`;
+    return t("delete_folder_filled_confirm", title);
   }
-  return `Delete empty folder “${title}”?`;
+  return t("delete_folder_empty_confirm", title);
 }
 
-export const REFRESH_ALL_THUMBNAILS_TITLE = "Refresh All Thumbnails";
-export const REFRESH_ALL_THUMBNAILS_CONFIRM = "Refresh";
+export function refreshAllThumbnailsTitle(): string {
+  return t("refresh_all_title");
+}
+
+export function refreshAllThumbnailsConfirm(): string {
+  return t("refresh_all_confirm_btn");
+}
 
 /** Confirm copy before batch-recapturing dial pictures in the open folder. */
 export function refreshAllThumbnailsConfirmMessage(count: number): string {
   const n = Math.max(0, Math.floor(count));
-  const noun = n === 1 ? "bookmark" : "bookmarks";
-  return `Recapture thumbnails for ${n} ${noun} in this folder? Existing dial pictures for those bookmarks will be replaced. Nested folders are not included.`;
+  const noun = n === 1 ? t("noun_bookmark") : t("noun_bookmarks");
+  return t("refresh_all_message", [String(n), noun]);
 }
 
 export function present(state: AppState): ViewModel {
@@ -146,7 +152,7 @@ export function present(state: AppState): ViewModel {
     return {
       name: "unavailable",
       banner: state.banner,
-      message: state.error ?? "Hearth could not read Chrome bookmarks.",
+      message: state.error ?? t("unavailable_default"),
     };
   }
 
@@ -164,8 +170,8 @@ export function present(state: AppState): ViewModel {
   let empty: string | null = null;
   if (items.length === 0) {
     empty = searching
-      ? `No dials match “${searchQuery.trim()}”.`
-      : "This folder has no bookmarks yet.";
+      ? t("empty_search", searchQuery.trim())
+      : t("empty_folder");
   }
   return {
     name: "grid",

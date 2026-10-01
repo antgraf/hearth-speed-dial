@@ -33,6 +33,7 @@ import {
   siteLabel,
   type BookmarkNode,
 } from "./model.ts";
+import { t } from "./i18n.ts";
 
 const tree: BookmarkNode[] = [
   {
@@ -106,7 +107,7 @@ test("dial items keep bookmark order and drop separators", () => {
     [
       ["link", "Example", "https://www.example.com/path", "example.com"],
       ["link", "developer.mozilla.org", "https://developer.mozilla.org/", "developer.mozilla.org"],
-      ["link", "Script", null, "Unavailable link"],
+      ["link", "Script", null, t("meta_unavailable_link")],
     ],
   );
 });
@@ -250,16 +251,16 @@ test("moveIntoFolderError rejects self, descendants, non-folders, and root", () 
   assert.equal(moveIntoFolderError(tree, "11", "10"), null);
   assert.equal(alreadyInFolder(tree, "11", "10"), true);
   assert.equal(alreadyInFolder(tree, "11", "2"), false);
-  assert.equal(moveIntoFolderError(tree, "10", "10"), "A folder cannot be moved into itself.");
-  assert.equal(moveIntoFolderError(tree, "11", "12"), "Drop onto a folder.");
+  assert.equal(moveIntoFolderError(tree, "10", "10"), t("error_folder_into_self"));
+  assert.equal(moveIntoFolderError(tree, "11", "12"), t("error_drop_onto_folder"));
   assert.equal(
     moveIntoFolderError(tree, "1", "10"),
-    "A folder cannot be moved into one of its subfolders.",
+    t("error_folder_into_descendant"),
   );
-  assert.equal(moveIntoFolderError(tree, "11", "0"), "Choose a folder inside Bookmarks.");
+  assert.equal(moveIntoFolderError(tree, "11", "0"), t("error_choose_folder_inside"));
   assert.equal(moveIntoFolderError(tree, "11", "20"), null);
-  assert.equal(moveIntoFolderError(tree, "11", "missing"), "Drop onto a folder.");
-  assert.equal(moveIntoFolderError(tree, "0", "1"), "The bookmarks root cannot be moved.");
+  assert.equal(moveIntoFolderError(tree, "11", "missing"), t("error_drop_onto_folder"));
+  assert.equal(moveIntoFolderError(tree, "0", "1"), t("error_root_cannot_move"));
 });
 
 test("dialFolderOptions lists nested folders and skips the chrome root", () => {

@@ -5,6 +5,7 @@ import {
   collectImages,
   dataUrlByteLength,
   dialImageStorageKeys,
+  dialStorageUsageLabel,
   estimateDialImageBytes,
   fetchImageAsDataUrl,
   fileToDataUrl,
@@ -29,6 +30,7 @@ import {
   orphanImageKeys,
   readImageDataUrl,
 } from "./images.ts";
+import { t } from "./i18n.ts";
 
 test("image storage keys round-trip bookmark ids", () => {
   assert.equal(imageStorageKey("42"), `${IMAGE_KEY_PREFIX}42`);
@@ -243,14 +245,16 @@ test("meaningfulStorageQuotaBytes drops unlimited sentinels", () => {
 });
 
 test("formatDialStorageUsage describes used space with and without a quota", () => {
-  assert.match(
+  assert.equal(
     formatDialStorageUsage({ bytesUsed: 0, bytesQuota: null }),
-    /About 0 B used in this profile.*No fixed size cap/i,
+    t("dial_storage_used_unlimited", t("unit_bytes", "0")),
   );
-  assert.match(
-    formatDialStorageUsage({ bytesUsed: 2 * 1024 * 1024, bytesQuota: 10_485_760 }),
-    /About 2(\.0)? MB of /,
+  const used2MiB = 2 * 1024 * 1024;
+  assert.equal(
+    formatDialStorageUsage({ bytesUsed: used2MiB, bytesQuota: 10_485_760 }),
+    t("dial_storage_used_quota", [formatStorageBytes(used2MiB), formatStorageBytes(10_485_760)]),
   );
-  assert.equal(formatStorageBytes(512), "512 B");
+  assert.equal(formatStorageBytes(512), t("unit_bytes", "512"));
+  assert.equal(dialStorageUsageLabel(), t("dial_storage_label"));
   assert.equal(estimateDialImageBytes({ a: "data:image/png;base64,aa==" }), "data:image/png;base64,aa==".length);
 });

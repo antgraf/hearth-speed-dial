@@ -5,6 +5,7 @@
 
 import { addPageQuery } from "./model.ts";
 import { refreshAllThumbnailsMessage } from "./messages.ts";
+import { t } from "./i18n.ts";
 
 export const ADD_MENU_ID = "add-to-hearth";
 export const REFRESH_ALL_MENU_ID = "refresh-all-thumbnails";
@@ -57,13 +58,13 @@ export async function ensureMenu(api: BackgroundChrome): Promise<void> {
   await clearContextMenus(api);
   api.contextMenus.create({
     id: ADD_MENU_ID,
-    title: "Add to Hearth…",
+    title: t("context_add_to_hearth"),
     contexts: ["page", "link"],
     documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
   });
   api.contextMenus.create({
     id: REFRESH_ALL_MENU_ID,
-    title: "Refresh All Thumbnails",
+    title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
     documentUrlPatterns: dialDocumentPatterns(api.runtime.getURL),
   });
