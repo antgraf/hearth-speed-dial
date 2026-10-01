@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   applyThemeToDocument,
   clampBackgroundOpacity,
@@ -81,6 +84,18 @@ test("resolveThemeMode maps auto to system preference", () => {
   assert.equal(resolveThemeMode("dark", false), "dark");
   assert.equal(resolveThemeMode("auto", true), "dark");
   assert.equal(resolveThemeMode("auto", false), "light");
+});
+
+test("accent CSS remaps title, mark face, and hover tokens", () => {
+  const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "style.css"), "utf8");
+  for (const accent of ["ember", "brass", "clay", "moss"]) {
+    assert.match(css, new RegExp(`\\[data-hearth-accent="${accent}"\\][^{]*\\{[^}]*--title:`));
+    assert.match(css, new RegExp(`\\[data-hearth-accent="${accent}"\\][^{]*\\{[^}]*--mark-bg:`));
+    assert.match(css, new RegExp(`\\[data-hearth-accent="${accent}"\\][^{]*\\{[^}]*--hover:`));
+  }
+  assert.match(css, /\.title\s*\{[^}]*color:\s*var\(--title\)/);
+  assert.match(css, /\.tile:hover\s*\{[^}]*background:\s*var\(--hover\)/);
+  assert.match(css, /\.mark\s*\{[^}]*color:\s*var\(--mark\)/);
 });
 
 test("applyThemeToDocument sets data attributes and CSS variables", () => {
