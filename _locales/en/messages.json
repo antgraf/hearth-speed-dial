@@ -244,6 +244,36 @@
   "error_thumbnails_http_only": {
     "message": "Thumbnails work for http:// and https:// bookmarks only."
   },
+  "error_refresh_partial": {
+    "message": "Could not refresh $1 of $2 thumbnails. $3",
+    "placeholders": {
+      "failed": {
+        "content": "$1",
+        "example": "1"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      },
+      "detail": {
+        "content": "$3",
+        "example": "Could not open a window to capture that page."
+      }
+    }
+  },
+  "error_refresh_partial_no_detail": {
+    "message": "Could not refresh $1 of $2 thumbnails.",
+    "placeholders": {
+      "failed": {
+        "content": "$1",
+        "example": "1"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
   "error_refresh_none": {
     "message": "This folder has no http:// or https:// bookmarks to refresh."
   },

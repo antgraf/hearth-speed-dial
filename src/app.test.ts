@@ -266,11 +266,17 @@ function fakePermissions(overrides: Partial<PermissionsApi> = {}): PermissionsAp
   return { ...base, ...overrides, calls };
 }
 
-function fakeCapture(): CaptureApi {
+function fakeCapture(
+  overrides: Partial<CaptureApi> = {},
+): CaptureApi & { calls: CallLog } {
+  const calls: CallLog = [];
   return {
-    async capturePage() {
+    calls,
+    async capturePage(pageUrl, waitMs) {
+      calls.push(`capturePage:${pageUrl}:${waitMs ?? ""}`);
       throw new Error("unexpected capturePage");
     },
+    ...overrides,
   };
 }
 
@@ -290,12 +296,14 @@ async function boot(ports: {
   settings?: ReturnType<typeof fakeSettings>;
   images?: ReturnType<typeof fakeImages>;
   permissions?: ReturnType<typeof fakePermissions>;
+  capture?: CaptureApi;
   confirm?: (options: ConfirmDialogOptions) => Promise<boolean>;
 } = {}): Promise<Harness> {
   const bookmarks = ports.bookmarks ?? fakeBookmarks();
   const settings = ports.settings ?? fakeSettings();
   const images = ports.images ?? fakeImages();
   const permissions = ports.permissions ?? fakePermissions();
+  const capture = ports.capture ?? fakeCapture();
   const views: ViewModel[] = [];
   let actions: ViewActions | null = null;
 
@@ -304,7 +312,7 @@ async function boot(ports: {
     settings,
     images,
     permissions,
-    capture: fakeCapture(),
+    capture,
     render(_host, view, nextActions) {
       views.push(view);
       actions = nextActions;
@@ -1073,5 +1081,136 @@ test("first-run welcome stays hidden when already dismissed; reset keeps it dism
   assert.equal(lastGrid(harness.views).showWelcome, false);
   assert.equal(settings.welcomeDismissed, true);
   assert.ok(!settings.calls.includes("setWelcomeDismissed:false"));
+  harness.stop();
+});
+
+test("refresh-all continues after one capture failure and summarizes the rest", async () => {
+  const { refreshAllThumbnailsFailureMessage } = await import("./present.ts");
+  const tree: BookmarkNode[] = [
+    {
+      id: "0",
+      title: "Bookmarks",
+      children: [
+        {
+          id: "1",
+          title: "Bookmarks bar",
+          children: [
+            { id: "11", title: "Good A", url: "https://a.example/" },
+            { id: "12", title: "Bad", url: "https://bad.example/" },
+            { id: "13", title: "Good B", url: "https://b.example/" },
+            { id: "14", title: "Nested", children: [{ id: "15", title: "Skip", url: "https://nested.example/" }] },
+          ],
+        },
+      ],
+    },
+  ];
+  const captureCalls: string[] = [];
+  const failDetail =
+    'Cannot access contents of url "". Extension manifest must request permission to access this host.';
+  const capture = fakeCapture({
+    async capturePage(pageUrl) {
+      captureCalls.push(pageUrl);
+      if (pageUrl.includes("bad.example")) throw new Error(failDetail);
+      return `data:image/jpeg;base64,${pageUrl.includes("a.example") ? "aaa" : "bbb"}=`;
+    },
+  });
+  const images = fakeImages();
+  const harness = await boot({
+    bookmarks: fakeBookmarks(tree),
+    settings: fakeSettings({
+      layout: layout({ thumbnailsEnabled: true }),
+      openFolderId: "1",
+    }),
+    permissions: fakePermissions({
+      async hasThumbnailAccess() {
+        return true;
+      },
+    }),
+    images,
+    capture,
+    confirm: async () => true,
+  });
+
+  assert.equal(lastGrid(harness.views).thumbnailsActive, true);
+  harness.actions().refreshAllThumbnails();
+
+  for (let i = 0; i < 80; i++) {
+    const grid = lastGrid(harness.views);
+    if (!grid.saving && grid.error) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+
+  assert.deepEqual(captureCalls, [
+    "https://a.example/",
+    "https://bad.example/",
+    "https://b.example/",
+  ]);
+  assert.equal(images.map["11"], "data:image/jpeg;base64,aaa=");
+  assert.equal(images.map["12"], undefined);
+  assert.equal(images.map["13"], "data:image/jpeg;base64,bbb=");
+  assert.equal(images.map["15"], undefined);
+
+  const grid = lastGrid(harness.views);
+  assert.equal(grid.saving, false);
+  assert.equal(grid.error, refreshAllThumbnailsFailureMessage(1, 3, failDetail));
+  const itemImages = Object.fromEntries(
+    grid.items.filter((item) => item.kind === "link").map((item) => [item.id, item.imageDataUrl]),
+  );
+  assert.equal(itemImages["11"], "data:image/jpeg;base64,aaa=");
+  assert.equal(itemImages["12"], null);
+  assert.equal(itemImages["13"], "data:image/jpeg;base64,bbb=");
+  harness.stop();
+});
+
+test("refresh-all succeeds with a clear banner when every capture works", async () => {
+  const tree: BookmarkNode[] = [
+    {
+      id: "0",
+      title: "Bookmarks",
+      children: [
+        {
+          id: "1",
+          title: "Bookmarks bar",
+          children: [
+            { id: "11", title: "A", url: "https://a.example/" },
+            { id: "12", title: "B", url: "https://b.example/" },
+          ],
+        },
+      ],
+    },
+  ];
+  const captureCalls: string[] = [];
+  const harness = await boot({
+    bookmarks: fakeBookmarks(tree),
+    settings: fakeSettings({
+      layout: layout({ thumbnailsEnabled: true }),
+      openFolderId: "1",
+    }),
+    permissions: fakePermissions({
+      async hasThumbnailAccess() {
+        return true;
+      },
+    }),
+    images: fakeImages(),
+    capture: fakeCapture({
+      async capturePage(pageUrl) {
+        captureCalls.push(pageUrl);
+        return "data:image/jpeg;base64,ok=";
+      },
+    }),
+    confirm: async () => true,
+  });
+
+  harness.actions().refreshAllThumbnails();
+  for (let i = 0; i < 80; i++) {
+    const grid = lastGrid(harness.views);
+    if (!grid.saving && captureCalls.length === 2) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+
+  const grid = lastGrid(harness.views);
+  assert.equal(grid.saving, false);
+  assert.equal(grid.error, null);
+  assert.deepEqual(captureCalls, ["https://a.example/", "https://b.example/"]);
   harness.stop();
 });

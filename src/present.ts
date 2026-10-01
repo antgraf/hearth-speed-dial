@@ -151,6 +151,24 @@ export function refreshAllThumbnailsConfirmMessage(count: number): string {
   return t("refresh_all_message", [String(n), noun]);
 }
 
+/**
+ * Dial-banner summary when one or more captures fail during Refresh All.
+ * Keeps the existing error-banner UX; does not invent a per-tile overlay.
+ */
+export function refreshAllThumbnailsFailureMessage(
+  failed: number,
+  total: number,
+  detail: string,
+): string {
+  const failedCount = Math.max(0, Math.floor(failed));
+  const totalCount = Math.max(0, Math.floor(total));
+  const trimmed = detail.trim();
+  if (trimmed) {
+    return t("error_refresh_partial", [String(failedCount), String(totalCount), trimmed]);
+  }
+  return t("error_refresh_partial_no_detail", [String(failedCount), String(totalCount)]);
+}
+
 export function present(state: AppState): ViewModel {
   if (state.status === "loading") return { name: "loading", banner: state.banner };
 

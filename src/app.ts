@@ -32,9 +32,14 @@ import {
   refreshAllThumbnailsConfirm,
   refreshAllThumbnailsTitle,
   refreshAllThumbnailsConfirmMessage,
+  refreshAllThumbnailsFailureMessage,
   type AppState,
   type CreateKind,
 } from "./present.ts";
+import {
+  refreshThumbnailsBestEffort,
+  thumbnailRefreshFailureSummary,
+} from "./thumbnail-refresh.ts";
 import type { BookmarksApi } from "./browser.ts";
 import { confirmDialog, type ConfirmDialogOptions } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
@@ -423,19 +428,19 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     state.saving = true;
     state.error = null;
     draw();
-    try {
-      for (const target of targets) {
-        // Reuse the same single-page capture pipeline sequentially.
-        await captureAndStoreThumbnail(target.id, target.url);
-        draw();
-      }
-      state.saving = false;
-      draw();
-    } catch (error) {
-      state.saving = false;
-      state.error = errorText(error);
-      draw();
-    }
+    // Per-tile failures must not abort the batch — continue best-effort.
+    const results = await refreshThumbnailsBestEffort(
+      targets,
+      captureAndStoreThumbnail,
+      errorText,
+      draw,
+    );
+    state.saving = false;
+    const summary = thumbnailRefreshFailureSummary(results);
+    state.error = summary
+      ? refreshAllThumbnailsFailureMessage(summary.failed, summary.total, summary.detail)
+      : null;
+    draw();
   };
 
   const clearImage = async (id: string) => {

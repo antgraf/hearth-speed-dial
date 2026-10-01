@@ -8,6 +8,7 @@ import {
   folderHasContents,
   present,
   refreshAllThumbnailsConfirmMessage,
+  refreshAllThumbnailsFailureMessage,
   type AppState,
 } from "./present.ts";
 import { DEFAULT_LAYOUT } from "./settings.ts";
@@ -262,6 +263,17 @@ test("refresh-all confirm mentions count and nested-folder scope", () => {
   assert.equal(
     refreshAllThumbnailsConfirmMessage(3),
     t("refresh_all_message", ["3", t("noun_bookmarks")]),
+  );
+});
+
+test("refresh-all failure banner summarizes count and detail", () => {
+  assert.equal(
+    refreshAllThumbnailsFailureMessage(1, 5, "page not ready"),
+    t("error_refresh_partial", ["1", "5", "page not ready"]),
+  );
+  assert.equal(
+    refreshAllThumbnailsFailureMessage(2, 2, "   "),
+    t("error_refresh_partial_no_detail", ["2", "2"]),
   );
 });
 
