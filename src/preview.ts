@@ -1,5 +1,5 @@
 import type { BookmarkNode } from "./model.ts";
-import { moveIntoFolderError } from "./model.ts";
+import { isBookmarkTreeRootId, moveIntoFolderError } from "./model.ts";
 import type { BookmarksApi } from "./browser.ts";
 import { previewImages, type ImagesApi } from "./images.ts";
 import { t } from "./i18n.ts";
@@ -83,7 +83,7 @@ export function previewPorts(): {
       return structuredClone(node);
     },
     async move(id, destination) {
-      if (id === "0") throw new Error("The bookmarks root cannot be moved.");
+      if (isBookmarkTreeRootId(id)) throw new Error("The bookmarks root cannot be moved.");
       const located = locateNode(tree, id);
       if (!located) throw new Error("That bookmark is no longer available.");
       const { node, siblings: fromSiblings, index: fromIndex } = located;
@@ -127,7 +127,7 @@ export function previewPorts(): {
       return structuredClone(node);
     },
     async remove(id) {
-      if (id === "0") throw new Error("The bookmarks root cannot be deleted.");
+      if (isBookmarkTreeRootId(id)) throw new Error("The bookmarks root cannot be deleted.");
       const removed = removeNode(tree, id);
       if (!removed) throw new Error("That bookmark is no longer available.");
       savePreviewTree(tree);

@@ -7,6 +7,7 @@ import {
   dialOpenFolderOptions,
   displayTitle,
   folderLabel,
+  isBookmarkTreeRootId,
   nodeIndex,
   normalizeDialQuery,
   orderDialItems,
@@ -111,7 +112,8 @@ export function canRenameNode(node: BookmarkNode | undefined | null): boolean {
   if (!node) return false;
   const kind = classify(node);
   if (kind === "skip") return false;
-  if (kind === "folder" && node.id === "0") return false;
+  // Chrome `"0"` and Firefox `"root________"` — not user-editable.
+  if (kind === "folder" && isBookmarkTreeRootId(node.id)) return false;
   return true;
 }
 

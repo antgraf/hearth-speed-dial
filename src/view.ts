@@ -201,7 +201,14 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       const current = document.createElement("div");
       current.className = "current";
       const title = document.createElement("h1");
-      title.textContent = crumb.title;
+      if (crumb.isRoot) {
+        title.className = "crumb-root";
+        title.title = crumb.title;
+        title.setAttribute("aria-label", crumb.title);
+        title.append(iconHome());
+      } else {
+        title.textContent = crumb.title;
+      }
       current.append(title);
       current.append(
         menuButton(t("actions_for", crumb.title), view.saving, (button) => {
@@ -213,8 +220,14 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
     }
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "crumb";
-    button.textContent = crumb.title;
+    button.className = crumb.isRoot ? "crumb crumb-root" : "crumb";
+    if (crumb.isRoot) {
+      button.title = crumb.title;
+      button.setAttribute("aria-label", crumb.title);
+      button.append(iconHome());
+    } else {
+      button.textContent = crumb.title;
+    }
     button.addEventListener("click", () => actions.goToFolder(crumb.id));
     if (!view.saving) bindMoveIntoTarget(button, crumb.id, actions);
     nav.append(button);
@@ -1683,6 +1696,11 @@ function iconFolder(): SVGSVGElement {
   return svgIcon(
     "M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z",
   );
+}
+
+/** Simple home mark for the bookmark-tree root breadcrumb. */
+function iconHome(): SVGSVGElement {
+  return svgIcon("M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z");
 }
 
 function iconBookmark(): SVGSVGElement {

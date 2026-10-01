@@ -92,7 +92,7 @@
     "message": "Untitled folder"
   },
   "fallback_bookmarks_root": {
-    "message": "Bookmarks"
+    "message": "Bookmarks root"
   },
   "boot_extension_required": {
     "message": "Open Hearth from a new tab after loading the extension in Chrome or Firefox."

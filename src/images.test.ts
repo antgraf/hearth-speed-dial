@@ -37,6 +37,8 @@ import {
   mimeFromContentType,
   mimeFromFileName,
   mimeFromMagicBytes,
+  fileNameHintFromImageUrl,
+  resolveImageFetchUrl,
   orphanImageKeys,
   readImageDataUrl,
   type ImageIngestCodec,
@@ -147,6 +149,51 @@ test("imageSourceUrl accepts only http(s)", () => {
   assert.equal(imageSourceUrl("ftp://example.com/x.png"), null);
   assert.equal(imageSourceUrl(""), null);
   assert.equal(imageSourceUrl("not a url"), null);
+  // Fragments and colons in the last segment must not reject a valid http(s) URL.
+  assert.equal(
+    imageSourceUrl("https://en.wikipedia.org/wiki/Google_logo#/media/File:Google.png"),
+    "https://en.wikipedia.org/wiki/Google_logo#/media/File:Google.png",
+  );
+  assert.equal(imageSourceUrl("https://cdn.example.com/File:Google.png"), "https://cdn.example.com/File:Google.png");
+});
+
+test("fileNameHintFromImageUrl reads path basenames and MediaWiki media fragments", () => {
+  assert.equal(fileNameHintFromImageUrl("https://cdn.example.com/a/b/photo.PNG"), "photo.PNG");
+  assert.equal(fileNameHintFromImageUrl("https://cdn.example.com/File:Google.png"), "File:Google.png");
+  assert.equal(
+    fileNameHintFromImageUrl("https://en.wikipedia.org/wiki/Google_logo#/media/File:Google.png"),
+    "Google.png",
+  );
+  assert.equal(
+    fileNameHintFromImageUrl("https://en.wikipedia.org/wiki/Google_logo#/media/File%3AGoogle.png"),
+    "Google.png",
+  );
+  assert.equal(fileNameHintFromImageUrl("https://en.wikipedia.org/wiki/File:Google.png"), "Google.png");
+  assert.equal(fileNameHintFromImageUrl("ftp://example.com/x.png"), null);
+});
+
+test("resolveImageFetchUrl rewrites MediaWiki viewer URLs to Special:FilePath", () => {
+  assert.equal(
+    resolveImageFetchUrl("https://en.wikipedia.org/wiki/Google_logo#/media/File:Google.png"),
+    "https://en.wikipedia.org/wiki/Special:FilePath/Google.png",
+  );
+  assert.equal(
+    resolveImageFetchUrl("https://en.wikipedia.org/wiki/File:Google.png"),
+    "https://en.wikipedia.org/wiki/Special:FilePath/Google.png",
+  );
+  assert.equal(
+    resolveImageFetchUrl("https://cdn.example.com/a.png#ignored"),
+    "https://cdn.example.com/a.png",
+  );
+  assert.equal(resolveImageFetchUrl("data:image/png;base64,aa=="), null);
+});
+
+test("mimeFromFileName tolerates File: namespace prefixes and path segments", () => {
+  assert.equal(mimeFromFileName("File:Google.png"), "image/png");
+  assert.equal(mimeFromFileName("wiki/File:Google.PNG"), "image/png");
+  assert.equal(mimeFromFileName("photo.JPG"), "image/jpeg");
+  assert.equal(mimeFromFileName("x.webp"), "image/webp");
+  assert.equal(mimeFromFileName("notes.txt"), null);
 });
 
 test("mimeFromContentType strips parameters", () => {
@@ -156,7 +203,7 @@ test("mimeFromContentType strips parameters", () => {
   assert.equal(mimeFromContentType(undefined), "");
 });
 
-test("mimeFromMagicBytes and mimeFromFileName recover common types", () => {
+test("mimeFromMagicBytes recovers common types", () => {
   assert.equal(mimeFromMagicBytes(Uint8Array.of(0xff, 0xd8, 0xff, 0xe0)), "image/jpeg");
   assert.equal(
     mimeFromMagicBytes(Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)),
@@ -170,9 +217,6 @@ test("mimeFromMagicBytes and mimeFromFileName recover common types", () => {
     "image/webp",
   );
   assert.equal(mimeFromMagicBytes(Uint8Array.of(1, 2, 3)), null);
-  assert.equal(mimeFromFileName("photo.JPG"), "image/jpeg");
-  assert.equal(mimeFromFileName("x.webp"), "image/webp");
-  assert.equal(mimeFromFileName("notes.txt"), null);
 });
 
 test("fitWithinBounds never upscales and respects both axes", () => {
@@ -199,6 +243,25 @@ test("fetchImageAsDataUrl stores a remote image as a local data URL", async () =
 
   const dataUrl = await fetchImageAsDataUrl("https://example.com/dot.png", fakeFetch);
   assert.match(dataUrl, /^data:image\/png;base64,/i);
+});
+
+test("fetchImageAsDataUrl rewrites Wikipedia media-viewer URLs before fetch", async () => {
+  const bytes = tinyPngBytes();
+  const requested: string[] = [];
+  const fakeFetch: typeof fetch = async (input) => {
+    requested.push(String(input));
+    return new Response(bytes, {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    });
+  };
+
+  const dataUrl = await fetchImageAsDataUrl(
+    "https://en.wikipedia.org/wiki/Google_logo#/media/File:Google.png",
+    fakeFetch,
+  );
+  assert.match(dataUrl, /^data:image\/png;base64,/i);
+  assert.deepEqual(requested, ["https://en.wikipedia.org/wiki/Special:FilePath/Google.png"]);
 });
 
 test("fetchImageAsDataUrl rejects non-images and bad URLs", async () => {

@@ -10,10 +10,10 @@ Manual pass after a production build. Agents do not run browser automation — A
 
 - [ ] New tab shows Hearth (not the browser’s default new tab).
 - [ ] **First run:** a welcome card appears above the dial (bookmarks-as-store, gear → Settings, Picture…); **Open Settings** opens the Settings overlay; **Got it** dismisses and does not return after reload. Erase All Data brings the welcome back.
-- [ ] Open a nested folder; breadcrumbs navigate back.
+- [ ] Open a nested folder; breadcrumbs navigate back. The bookmark-tree root crumb is a home icon (tooltip / accessible name “Bookmarks root”), not the browser’s raw root title (“Bookmarks” / “Untitled Folder”).
 - [ ] **Find a dial**: type in the header Find field (or press `/` to focus) to filter the open folder and nested dials by title or URL; `Esc` clears. Nested hits stay visible without opening the parent first; opening a folder clears the filter.
 - [ ] Reload / open another new tab: last folder is still open (or the Settings default folder, when one is set).
-- [ ] **New** control → choose folder or bookmark; creates in the open folder (not at the browser bookmark root).
+- [ ] **New** control → choose folder or bookmark; creates in the open folder. **Chrome and Firefox:** New is not offered on the bookmark-tree root (creates there fail in both browsers).
 - [ ] **Chrome:** http(s) bookmark tiles show a small favicon beside the title when Chrome has one cached; folders and `file:` bookmarks do not; missing/broken icons leave the title text alone (monogram / folder icon still on the dial face).
 - [ ] **Firefox:** title-strip favicons are absent (expected); monogram / folder icon still on the dial face.
 
@@ -55,7 +55,7 @@ Manual pass after a production build. Agents do not run browser automation — A
 - [ ] Oversized source files (within ~40 MB) are resized/compressed on ingest and applied; files over the source cap or non-images show an error (no silent success). Folder default art is a folder icon; bookmarks keep monogram until a picture is set.
 - [ ] Settings **Pictures** shows a labeled **Dial picture storage** readout (not just help text under wait); updates after Erase All Data clears pictures.
 - [ ] If the browser rejects a picture write (full disk / remaining storage limits), the dial shows a clear error — not a silent miss.
-- [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. First turn on → browser prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL.
+- [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. First turn on → browser prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL. MediaWiki media-viewer links such as `…/wiki/…#/media/File:Name.png` resolve via `Special:FilePath` (not the HTML viewer page).
 - [ ] Turn **Assign pictures from URLs** off → active access is dropped; menu locks again. Turn on again → `permissions.request` runs; Chrome usually restores without a dialog after the first Allow (expected); Firefox may re-prompt. To force a new prompt on Chrome, revoke under `chrome://extensions` → Hearth → site access, then enable again.
 - [ ] **Generate dial thumbnails** off by default; first enable prompts for optional tabs + site access. Deny → setting stays off; grant → **Capture thumbnail** works (temp window opens, then closes; dial face updates). Off → on after Allow may be silent on Chrome; revoke in extension details to force a new prompt.
 - [ ] After grant: revoke optional site access in the browser’s extension details → reopen new tab → thumbnail / URL-fetch settings degrade (off / menu locked), no crash.
