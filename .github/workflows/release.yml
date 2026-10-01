@@ -31,6 +31,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          # Need full history + existing v* tags to resolve previous tag for release notes.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -72,9 +75,13 @@ jobs:
         run: npm run pack:chrome
 
       - name: Commit, tag, and push
+        id: tag
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
+          # Most recent existing v* tag before we create the new one (empty on first release).
+          PREVIOUS_TAG="$(git tag -l 'v*' --sort=-v:refname | head -n1 || true)"
+          echo "previous_tag=${PREVIOUS_TAG}" >> "$GITHUB_OUTPUT"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json manifest.json
@@ -90,17 +97,22 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          KIND="${{ steps.bump.outputs.kind }}"
+          PREVIOUS_TAG="${{ steps.tag.outputs.previous_tag }}"
           ZIP="artifacts/hearth-speed-dial-chrome-v${VERSION}.zip"
-          NOTES="$(printf '%s\n' \
-            "Chrome extension **v${VERSION}** (\`${KIND}\` bump)." \
-            "" \
-            "- Artifact: \`hearth-speed-dial-chrome-v${VERSION}.zip\` (CWS / sideload; unzip → Load unpacked, or upload zip to CWS)." \
-            "- Version files committed to \`main\` and tagged \`v${VERSION}\`." \
-            "- See [docs/VERSIONING.md](https://github.com/antgraf/hearth-speed-dial/blob/main/docs/VERSIONING.md) and run [docs/smoke-checklist.md](https://github.com/antgraf/hearth-speed-dial/blob/main/docs/smoke-checklist.md) before store upload." \
-            "" \
-            "Firefox packaging is not included yet.")"
-          gh release create "v${VERSION}" "$ZIP" \
-            --repo antgraf/hearth-speed-dial \
-            --title "v${VERSION}" \
-            --notes "$NOTES"
+          # Release body: GitHub-generated notes (merged PRs / commits since previous tag).
+          # First release (no previous v* tag): --generate-notes without --notes-start-tag.
+          CREATE_ARGS=(
+            "v${VERSION}"
+            "$ZIP"
+            --repo antgraf/hearth-speed-dial
+            --title "v${VERSION}"
+            --verify-tag
+            --generate-notes
+          )
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CREATE_ARGS+=(--notes-start-tag "$PREVIOUS_TAG")
+            echo "Generating release notes from ${PREVIOUS_TAG} → v${VERSION}"
+          else
+            echo "No previous v* tag; generating release notes without --notes-start-tag"
+          fi
+          gh release create "${CREATE_ARGS[@]}"

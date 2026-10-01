@@ -64,9 +64,9 @@ Workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml) (`
 3. `npm ci`, typecheck, lint, test, `npm run build`.
 4. `npm run pack:chrome` → zip of `dist/` contents (manifest at zip root) under `artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip` for CWS / sideload.
 5. Commit the version files to `main` (`Release vX.Y.Z`), create annotated tag `vX.Y.Z`, push commit + tag to `origin`.
-6. `gh release create` on **`antgraf/hearth-speed-dial`** with the Chrome zip attached.
+6. `gh release create` on **`antgraf/hearth-speed-dial`** with the Chrome zip attached. The release body is **auto-generated** from merged PRs (and commits) since the previous `v*` tag via `gh release create --generate-notes` (and `--notes-start-tag` when a prior tag exists). Do not maintain a hand-written `CHANGELOG.md` for this. On the first release (no prior `v*` tag), notes are still generated without a start tag.
 
-**Policy: commit + tag (not tag-only).** The shipped version always exists on `main` so local clones, CI, and the next bump share one source of truth. Tags alone would drift from `package.json` / `manifest.json` and make the next auto-increment wrong.
+**Policy: commit + tag (not tag-only).** The shipped version always exists on `main` so local clones, CI, and the next bump share one source of truth. Tags alone would drift from `package.json` / `manifest.json` and make the next auto-increment wrong. Annotated `vX.Y.Z` tags are always created and pushed as part of the Action.
 
 **Firefox later:** keep `pack:chrome` and the `-chrome-` artifact name. Add `pack:firefox` (and a second release asset) when Firefox support is in the SPEC — do not invent a Firefox zip before then.
 
@@ -77,6 +77,6 @@ Before or right after running the Action for a store upload:
 1. Confirm bump level (major checkbox if any item in “MUST trigger a major bump” applies).
 2. Run [docs/smoke-checklist.md](./smoke-checklist.md) on Chrome against the built `dist` (or the release zip unpacked).
 3. Upload the **Chrome** zip from the GitHub Release to CWS (or sideload for verification).
-4. Note release notes on the GitHub Release; keep store listing copy elsewhere until the listing package ships.
+4. Confirm the GitHub Release body (auto-generated from merged PRs since the previous tag); edit on GitHub only if you need a short store-facing blurb prepended. Keep Chrome Web Store listing copy elsewhere until the listing package ships.
 
 Ordinary PR CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) does **not** bump versions or publish releases.
