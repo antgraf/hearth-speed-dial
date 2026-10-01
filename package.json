@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test --test-reporter=spec src/**/*.test.ts",
     "test:coverage": "node --experimental-strip-types --test --experimental-test-coverage --test-reporter=spec src/**/*.test.ts",
-    "icons": "node scripts/draw-icons.mjs"
+    "icons": "node scripts/draw-icons.mjs",
+    "pack:chrome": "node scripts/pack-chrome.mjs"
   },
   "engines": {
     "node": ">=22"
