@@ -18,6 +18,7 @@
     "pack:source": "node scripts/pack-source.mjs",
     "browser:chrome": "node scripts/launch-chrome.mjs",
     "browser:firefox": "node scripts/launch-firefox.mjs",
+    "browser:edge": "node scripts/launch-edge.mjs",
     "browser:reset": "node scripts/reset-browser-profiles.mjs"
   },
   "engines": {

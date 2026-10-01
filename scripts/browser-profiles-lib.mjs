@@ -55,7 +55,7 @@ export function findOnPath(command) {
 }
 
 /**
- * @param {"chrome" | "firefox"} browser
+ * @param {"chrome" | "firefox" | "edge"} browser
  * @returns {string}
  */
 export function profileDir(browser) {
@@ -64,7 +64,7 @@ export function profileDir(browser) {
 
 /**
  * Create the isolated profile directory if missing (idempotent).
- * @param {"chrome" | "firefox"} browser
+ * @param {"chrome" | "firefox" | "edge"} browser
  * @returns {string} absolute profile path
  */
 export function ensureProfile(browser) {
@@ -74,12 +74,13 @@ export function ensureProfile(browser) {
 }
 
 /**
- * Remove one or both isolated profile directories.
- * @param {"chrome" | "firefox" | "all"} target
+ * Remove one or more isolated profile directories.
+ * @param {"chrome" | "firefox" | "edge" | "all"} target
  */
 export function resetProfiles(target) {
-  /** @type {Array<"chrome" | "firefox">} */
-  const targets = target === "all" ? ["chrome", "firefox"] : [target];
+  /** @type {Array<"chrome" | "firefox" | "edge">} */
+  const targets =
+    target === "all" ? ["chrome", "firefox", "edge"] : [target];
   for (const name of targets) {
     const dir = profileDir(name);
     if (existsSync(dir)) {
@@ -175,6 +176,71 @@ export function findFirefox() {
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
     "/snap/bin/firefox",
+  ]);
+}
+
+/**
+ * Resolve Microsoft Edge (Chromium). Loads the Chrome MV3 build from dist/chrome.
+ * @returns {string | null}
+ */
+export function findEdge() {
+  const fromEnv = process.env.EDGE_PATH || process.env.MSEDGE_PATH;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+
+  for (const name of [
+    "microsoft-edge",
+    "microsoft-edge-stable",
+    "microsoft-edge-beta",
+    "microsoft-edge-dev",
+    "msedge",
+  ]) {
+    const found = findOnPath(name);
+    if (found) return found;
+  }
+
+  if (isMac) {
+    return firstExisting([
+      "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+      "/Applications/Microsoft Edge Beta.app/Contents/MacOS/Microsoft Edge Beta",
+      "/Applications/Microsoft Edge Dev.app/Contents/MacOS/Microsoft Edge Dev",
+      "/Applications/Microsoft Edge Canary.app/Contents/MacOS/Microsoft Edge Canary",
+    ]);
+  }
+
+  if (isWindows) {
+    const local = process.env.LOCALAPPDATA || "";
+    const programFiles = process.env.PROGRAMFILES || "C:\\Program Files";
+    const programFilesX86 =
+      process.env["PROGRAMFILES(X86)"] || "C:\\Program Files (x86)";
+    return firstExisting([
+      join(programFilesX86, "Microsoft", "Edge", "Application", "msedge.exe"),
+      join(programFiles, "Microsoft", "Edge", "Application", "msedge.exe"),
+      join(local, "Microsoft", "Edge", "Application", "msedge.exe"),
+      join(
+        programFilesX86,
+        "Microsoft",
+        "Edge Beta",
+        "Application",
+        "msedge.exe",
+      ),
+      join(programFiles, "Microsoft", "Edge Beta", "Application", "msedge.exe"),
+      join(
+        programFilesX86,
+        "Microsoft",
+        "Edge Dev",
+        "Application",
+        "msedge.exe",
+      ),
+      join(programFiles, "Microsoft", "Edge Dev", "Application", "msedge.exe"),
+    ]);
+  }
+
+  return firstExisting([
+    "/usr/bin/microsoft-edge",
+    "/usr/bin/microsoft-edge-stable",
+    "/usr/bin/microsoft-edge-beta",
+    "/usr/bin/microsoft-edge-dev",
+    "/opt/microsoft/msedge/msedge",
   ]);
 }
 
@@ -322,5 +388,42 @@ Options:
 Examples:
   npm run browser:firefox
   npm run browser:reset -- firefox
+`);
+}
+
+export function printEdgeHelp() {
+  console.log(`Usage: npm run browser:edge -- [options]
+       .\\launch-edge.ps1 [options]
+
+Launch Microsoft Edge (Chromium) with an isolated profile under
+.browser-profiles/edge (never your personal Edge profile). Opens
+edge://extensions. Loads the Chrome MV3 build from dist/chrome/ — there is
+no separate Edge dist.
+
+Default (recommended): Load unpacked yourself from dist/chrome/.
+Edge (Chromium 137+) typically ignores --load-extension the same way official
+Chrome does. Use --load-ext only when you know your Edge build honors it.
+
+Options:
+  --load-ext        Pass --load-extension=<dist/chrome> (may be ignored)
+  --ext <path>      Same as --load-ext but with a custom extension directory
+  --no-ext          Explicit default: do not pass --load-extension
+  --profile <path>  Override profile directory
+  --binary <path>   Edge binary (or set EDGE_PATH / MSEDGE_PATH)
+  --foreground      Keep this process attached until the browser exits
+  -h, --help        Show this help
+
+Examples:
+  npm run build && npm run browser:edge
+  .\\launch-edge.ps1
+  .\\launch-edge.ps1 --no-ext
+  npm run browser:edge -- --load-ext
+  npm run browser:reset -- edge
+
+Load unpacked folder must be dist\\chrome (manifest.json directly inside).
+Do not pick repo root, dist\\, or dist\\firefox — those fail or look empty.
+
+After launch, verify edge://version → Profile Path contains .browser-profiles\\edge
+before Load unpacked (avoids installing into your personal profile by mistake).
 `);
 }

@@ -2,7 +2,7 @@
 
 ## Isolated browser profiles
 
-Use these scripts to install, reload, or remove the packed/unpacked extension **without touching your personal Chrome or Firefox profile**. Profiles live under `.browser-profiles/` in the repo (gitignored). The scripts create that directory if it is missing.
+Use these scripts to install, reload, or remove the packed/unpacked extension **without touching your personal Chrome, Firefox, or Edge profile**. Profiles live under `.browser-profiles/` in the repo (gitignored). The scripts create that directory if it is missing.
 
 Requires Node 22+ (same as the rest of the repo). Works on Windows, macOS, and Linux when the browser binary is installed or pointed at via env / `--binary`.
 
@@ -76,6 +76,40 @@ To test a **fresh install** (permissions / first-run welcome):
 # then Load unpacked → dist/chrome
 ```
 
+### Microsoft Edge
+
+Edge is Chromium-based and uses the **same Chrome MV3 build** (`dist/chrome/`). There is no separate Edge dist or pack pipeline. Same Load unpacked flow as Chrome; isolated profile lives under `.browser-profiles/edge`.
+
+```powershell
+.\pull_and_build.ps1   # or: .\build.ps1 / .\build.ps1 -Target Chrome
+.\reset-browser-profiles.ps1 edge   # fresh install / first-run only
+.\launch-edge.ps1
+```
+
+```bash
+npm run build
+npm run browser:reset -- edge   # fresh install / first-run only
+npm run browser:edge
+```
+
+In the opened window:
+
+1. Open `edge://version` and confirm **Profile Path** contains `.browser-profiles\edge` (or `.browser-profiles/edge`). If it points at your personal User Data, quit all Edge windows and relaunch.
+2. On `edge://extensions`: Developer mode ON → **Load unpacked** → select **`dist/chrome`** (same folder as Chrome).
+3. Open a new tab — it should be Hearth, not the default NTP.
+
+Flags match Chrome (`--load-ext`, `--ext`, `--no-ext`, `--profile`, `--binary` / `EDGE_PATH` / `MSEDGE_PATH`, `--foreground`, `--help`). Edge (Chromium 137+) typically ignores `--load-extension` the same way official Chrome does — prefer Load unpacked.
+
+```powershell
+.\launch-edge.ps1
+.\launch-edge.ps1 --binary "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+```
+
+```bash
+npm run browser:edge
+EDGE_PATH="/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" npm run browser:edge
+```
+
 ### Firefox
 
 Build the Firefox tree (`dist/firefox/`), then open an isolated profile and load a **temporary add-on**. Requires Firefox **121+**. `web-ext` is not in this repo and is not required. Default `npm run build` / `.\build.ps1` already produces both targets.
@@ -103,27 +137,29 @@ Flags: `--profile`, `--binary` (or `FIREFOX_PATH`), `--foreground`, `--help`.
 ### Reset profiles
 
 ```bash
-npm run browser:reset              # both chrome and firefox under .browser-profiles/
+npm run browser:reset              # chrome, firefox, and edge under .browser-profiles/
 npm run browser:reset -- chrome
 npm run browser:reset -- firefox
+npm run browser:reset -- edge
 npm run browser:reset -- all
 ```
 
 ```powershell
 .\reset-browser-profiles.ps1 chrome
+.\reset-browser-profiles.ps1 edge
 ```
 
 Only deletes `.browser-profiles/<name>` inside this repository. It never touches OS default profiles under `~/Library/...`, `%LOCALAPPDATA%`, or `~/.config/...`.
 
 ### Platform notes
 
-| OS | Chrome discovery | Firefox discovery |
-| --- | --- | --- |
-| Linux | `google-chrome-stable`, `google-chrome`, `chromium`, `chromium-browser`, `chrome` on `PATH`, then common `/usr/bin` paths | `firefox`, `firefox-esr` on `PATH`, then `/usr/bin` / snap |
-| macOS | `/Applications/Google Chrome.app/...` (and Chromium / Canary), or `PATH` | `/Applications/Firefox.app/...` (and Dev / Nightly), or `PATH` |
-| Windows | `%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe`, Program Files, or `PATH` | `Program Files\Mozilla Firefox\firefox.exe`, or `PATH` |
+| OS | Chrome discovery | Edge discovery | Firefox discovery |
+| --- | --- | --- | --- |
+| Linux | `google-chrome-stable`, `google-chrome`, `chromium`, `chromium-browser`, `chrome` on `PATH`, then common `/usr/bin` paths | `microsoft-edge`, `microsoft-edge-stable` (+ beta/dev) on `PATH`, then `/usr/bin` / `/opt/microsoft/msedge` | `firefox`, `firefox-esr` on `PATH`, then `/usr/bin` / snap |
+| macOS | `/Applications/Google Chrome.app/...` (and Chromium / Canary), or `PATH` | `/Applications/Microsoft Edge.app/...` (and Beta / Dev / Canary), or `PATH` | `/Applications/Firefox.app/...` (and Dev / Nightly), or `PATH` |
+| Windows | `%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe`, Program Files, or `PATH` | `%PROGRAMFILES(X86)%\Microsoft\Edge\Application\msedge.exe` (and Program Files / Beta / Dev), or `PATH` | `Program Files\Mozilla Firefox\firefox.exe`, or `PATH` |
 
-Override with `CHROME_PATH` / `FIREFOX_PATH` or `--binary` when discovery fails (Flatpak, custom installs, Chrome Canary-only machines).
+Override with `CHROME_PATH` / `EDGE_PATH` / `FIREFOX_PATH` or `--binary` when discovery fails (Flatpak, custom installs, Chrome Canary-only machines).
 
 Manual product checks after load: [smoke-checklist.md](smoke-checklist.md).
 
@@ -131,7 +167,8 @@ Manual product checks after load: [smoke-checklist.md](smoke-checklist.md).
 
 - Runtime code resolves `browser` before `chrome` (`src/webext.ts`) so Firefox gets promise-based APIs.
 - Chrome root `manifest.json` stays the Chrome source of truth; Firefox packaging is generated (`scripts/firefox-manifest.mjs` → `dist/firefox/`), including `background.scripts` instead of `service_worker` so temporary add-on load works.
-- Title-strip favicons stay Chrome-only (`favicon` + `/_favicon/`). Firefox omits them without adding host permissions.
+- Edge Add-ons listing uses the same Chrome MV3 package (`dist/chrome`); smoke on Edge with `.\launch-edge.ps1` before store submit.
+- Title-strip favicons stay Chrome-only (`favicon` + `/_favicon/`). Firefox omits them without adding host permissions. Edge may or may not honor the Chrome favicon permission — verify on a real Edge smoke.
 - Optional thumbnail / URL-image permission UX can differ on Firefox (may re-prompt more often after revoke); degrade gracefully either way.
 
 ## Follow-ups (not blocking Firefox)
