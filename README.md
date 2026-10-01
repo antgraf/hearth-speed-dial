@@ -33,27 +33,28 @@ npm install
 npm run build
 ```
 
-Or from the repo root: `.\build.ps1` (or `pwsh ./build.ps1`). Runs `npm install` if `node_modules` is missing, then the production build into `dist`. To update from git first, use `.\pull_and_build.ps1` (or `pwsh ./pull_and_build.ps1`) — it runs `git pull`, then the same build path.
+Or from the repo root: `.\build.ps1` (or `pwsh ./build.ps1`). Runs `npm install` if `node_modules` is missing, then builds **both** Chrome and Firefox under `dist/chrome` and `dist/firefox`. Pass `-Target Chrome` or `-Target Firefox` to build only one. To update from git first, use `.\pull_and_build.ps1` (or `pwsh ./pull_and_build.ps1`) — same `-Target` options; default is all.
 
 1. Open `chrome://extensions`.
 2. Turn on Developer mode.
 3. Choose **Load unpacked**.
-4. Select the `dist` folder in this repo (not the repo root).
+4. Select the `dist/chrome` folder in this repo (not the repo root, not `dist/firefox`).
 5. Open a new tab.
 
-After a rebuild, use **Reload** on the extension card so Chrome picks up `dist` changes.
+After a rebuild, use **Reload** on the extension card so Chrome picks up `dist/chrome` changes.
 
 ## Temporary add-on (Firefox)
 
-Firefox **121+** (MV3 service worker). Build the Firefox tree, then load it from an isolated profile:
+Firefox **121+** (MV3 service worker). Build (default builds both targets), then load the Firefox tree from an isolated profile:
 
 ```powershell
-.\build.ps1 -Target Firefox
-# or: npm run build; npm run build:firefox
+.\build.ps1
+# or single-target: .\build.ps1 -Target Firefox
+# or: npm run build
 npm run browser:firefox
 ```
 
-In `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → select `dist-firefox/manifest.json`. Isolated profiles: [docs/DEV.md](docs/DEV.md).
+In `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → select `dist/firefox/manifest.json`. Isolated profiles: [docs/DEV.md](docs/DEV.md).
 
 `npm test`, `npm run typecheck`, and `npm run lint` check the project. `npm run test:coverage` prints V8 coverage for modules the tests import (not whole-project until controllers have tests). `npm run dev` opens a preview that uses sample bookmarks. That sample is left out of the built extension.
 
@@ -61,26 +62,26 @@ Manual checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 
 ## Build output
 
-`npm run build` empties and fills `dist/` with the Chrome package:
+`npm run build` (or `.\build.ps1`) builds **all** targets. `npm run build:chrome` / `.\build.ps1 -Target Chrome` fills only `dist/chrome/`. `npm run build:firefox` (after Chrome) or `.\build.ps1 -Target Firefox` writes `dist/firefox/`.
 
 | Path | Role |
 | --- | --- |
-| `manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `unlimitedStorage`, `favicon`, `contextMenus`, `activeTab`; optional: `tabs`, `<all_urls>`, `http://*/*`, `https://*/*`) |
-| `icons/` | Extension icons (16 / 32 / 48 / 128) |
-| `index.html` | New-tab page (`chrome_url_overrides.newtab`) |
-| `settings.html` | Extension options / settings page (`manifest.json` `options_page`) |
-| `add.html` | **Add to Hearth…** popup |
-| `background.js` | MV3 service worker (context menu) |
-| `assets/` | Hashed JS/CSS for the pages |
+| `dist/chrome/manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `unlimitedStorage`, `favicon`, `contextMenus`, `activeTab`; optional: `tabs`, `<all_urls>`, `http://*/*`, `https://*/*`) |
+| `dist/chrome/icons/` | Extension icons (16 / 32 / 48 / 128) |
+| `dist/chrome/index.html` | New-tab page (`chrome_url_overrides.newtab`) |
+| `dist/chrome/settings.html` | Extension options / settings page (`manifest.json` `options_page`) |
+| `dist/chrome/add.html` | **Add to Hearth…** popup |
+| `dist/chrome/background.js` | MV3 service worker (context menu) |
+| `dist/chrome/assets/` | Hashed JS/CSS for the pages |
 
-`npm run build:firefox` (after `npm run build`) copies that tree to `dist-firefox/` and writes a Firefox manifest: no `favicon`; optional hosts folded into `optional_permissions`; `browser_specific_settings.gecko` (`hearth-speed-dial@antgraf`, min `121.0`).
+`npm run build:firefox` copies the Chrome tree to `dist/firefox/` and writes a Firefox manifest: no `favicon`; optional hosts folded into `optional_permissions`; `browser_specific_settings.gecko` (`hearth-speed-dial@antgraf`, min `121.0`).
 
-Do not ship `node_modules`, `src`, or the Vite preview into the package. `dist/` and `dist-firefox/` are gitignored; always build before load-unpacked or packaging.
+Do not ship `node_modules`, `src`, or the Vite preview into the package. `dist/` is gitignored; always build before load-unpacked or packaging.
 
 After a production build:
 
 - `npm run pack:chrome` → `artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip`
-- `npm run pack:firefox` → `artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip` (requires `build:firefox`)
+- `npm run pack:firefox` → `artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip` (requires `dist/firefox`)
 
 Versioning and the GitHub Release Action: [docs/VERSIONING.md](docs/VERSIONING.md).
 

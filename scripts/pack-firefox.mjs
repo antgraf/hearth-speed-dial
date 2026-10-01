@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Pack dist-firefox/ into an AMO / temporary-addon zip (manifest.json at zip root).
+ * Pack dist/firefox/ into an AMO / temporary-addon zip (manifest.json at zip root).
  * Usage: node scripts/pack-firefox.mjs
- * Requires `npm run build` then `npm run build:firefox` (or prepare-firefox-dist).
+ * Requires `npm run build` (or build:chrome + build:firefox).
  * Output: artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip
  */
 
@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { assertFirefoxManifest } from "./firefox-manifest.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const distFirefox = resolve(root, "dist-firefox");
+const distFirefox = resolve(root, "dist/firefox");
 const artifacts = resolve(root, "artifacts");
 
 function readVersion() {
@@ -28,11 +28,11 @@ function readVersion() {
 
 function assertDistReady() {
   if (!existsSync(distFirefox)) {
-    throw new Error("dist-firefox/ missing — run npm run build:firefox first");
+    throw new Error("dist/firefox/ missing — run npm run build:firefox first");
   }
   for (const required of ["manifest.json", "background.js", "index.html", "settings.html", "add.html", "icons"]) {
     if (!existsSync(resolve(distFirefox, required))) {
-      throw new Error(`dist-firefox/ missing required ${required}`);
+      throw new Error(`dist/firefox/ missing required ${required}`);
     }
   }
   const manifest = JSON.parse(readFileSync(resolve(distFirefox, "manifest.json"), "utf8"));
@@ -47,7 +47,7 @@ const zipName = `hearth-speed-dial-firefox-v${version}.zip`;
 const zipPath = resolve(artifacts, zipName);
 rmSync(zipPath, { force: true });
 
-// Omit Vite source maps from the store/sideload zip (still present under dist-firefox/ for local debug).
+// Omit Vite source maps from the store/sideload zip (still present under dist/firefox/ for local debug).
 const result = spawnSync(
   "zip",
   ["-r", "-X", "-q", zipPath, ".", "-x", "*.map", "-x", "**/*.map"],

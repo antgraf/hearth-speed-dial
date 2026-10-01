@@ -4,7 +4,6 @@ desktop.ini
 
 node_modules/
 dist/
-dist-firefox/
 .browser-profiles/
 artifacts/
 *.zip

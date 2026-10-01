@@ -8,7 +8,7 @@ Requires Node 22+ (same as the rest of the repo). Works on Windows, macOS, and L
 
 ### Chrome
 
-Build, then launch Chrome with `--user-data-dir` pointing at `.browser-profiles/chrome` and `--load-extension` pointing at `dist/`:
+Build, then launch Chrome with `--user-data-dir` pointing at `.browser-profiles/chrome` and `--load-extension` pointing at `dist/chrome/`:
 
 ```bash
 npm run build
@@ -19,14 +19,15 @@ npm run browser:chrome
 npm run build
 npm run browser:chrome
 # or: .\build.ps1 ; .\launch-chrome.ps1
+# Chrome-only: .\build.ps1 -Target Chrome
 ```
 
 Useful flags (pass after `--` for npm):
 
 | Flag | Meaning |
 | --- | --- |
-| `--no-ext` | Do not auto-load `dist/`; open `chrome://extensions` → **Load unpacked** yourself |
-| `--ext <path>` | Load a different extension directory (default: `<repo>/dist`) |
+| `--no-ext` | Do not auto-load `dist/chrome/`; open `chrome://extensions` → **Load unpacked** yourself |
+| `--ext <path>` | Load a different extension directory (default: `<repo>/dist/chrome`) |
 | `--profile <path>` | Override the isolated profile directory |
 | `--binary <path>` | Chrome/Chromium binary (or set `CHROME_PATH`) |
 | `--foreground` | Keep the npm process attached until the browser exits |
@@ -51,23 +52,24 @@ npm run build && npm run browser:chrome
 
 ### Firefox
 
-Build the Firefox tree (`dist-firefox/`), then open an isolated profile and load a **temporary add-on**. Requires Firefox **121+**. `web-ext` is not in this repo and is not required.
+Build the Firefox tree (`dist/firefox/`), then open an isolated profile and load a **temporary add-on**. Requires Firefox **121+**. `web-ext` is not in this repo and is not required. Default `npm run build` / `.\build.ps1` already produces both targets.
 
 ```powershell
-.\build.ps1 -Target Firefox
+.\build.ps1
 npm run browser:firefox
 # or: .\launch-firefox.ps1
+# Firefox-only (still runs the Chrome Vite tree as input): .\build.ps1 -Target Firefox
 ```
 
 ```bash
-npm run build && npm run build:firefox
+npm run build
 npm run browser:firefox
 ```
 
 Then in the opened debugging page (`about:debugging#/runtime/this-firefox`):
 
 1. Click **Load Temporary Add-on…**
-2. Select `<repo>/dist-firefox/manifest.json` (not `dist/`)
+2. Select `<repo>/dist/firefox/manifest.json` (not `dist/chrome/`)
 3. Remove the temporary add-on from that page when finished, or close Firefox / run `npm run browser:reset -- firefox`
 
 Flags: `--profile`, `--binary` (or `FIREFOX_PATH`), `--foreground`, `--help`.
@@ -102,7 +104,7 @@ Manual product checks after load: [smoke-checklist.md](smoke-checklist.md).
 ## Cross-browser API notes
 
 - Runtime code resolves `browser` before `chrome` (`src/webext.ts`) so Firefox gets promise-based APIs.
-- Chrome root `manifest.json` stays the Chrome source of truth; Firefox packaging is generated (`scripts/firefox-manifest.mjs` → `dist-firefox/`).
+- Chrome root `manifest.json` stays the Chrome source of truth; Firefox packaging is generated (`scripts/firefox-manifest.mjs` → `dist/firefox/`).
 - Title-strip favicons stay Chrome-only (`favicon` + `/_favicon/`). Firefox omits them without adding host permissions.
 - Optional thumbnail / URL-image permission UX can differ on Firefox (may re-prompt more often after revoke); degrade gracefully either way.
 

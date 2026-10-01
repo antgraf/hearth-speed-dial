@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Pack dist/ into a Chrome Web Store / sideload zip (manifest.json at zip root).
+ * Pack dist/chrome/ into a Chrome Web Store / sideload zip (manifest.json at zip root).
  * Usage: node scripts/pack-chrome.mjs
- * Requires a prior `npm run build`. Output: artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip
+ * Requires a prior `npm run build` or `npm run build:chrome`.
+ * Output: artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip
  *
  * Firefox: npm run build:firefox && npm run pack:firefox
  */
@@ -14,7 +15,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const dist = resolve(root, "dist");
+const dist = resolve(root, "dist/chrome");
 const artifacts = resolve(root, "artifacts");
 
 function readVersion() {
@@ -28,11 +29,11 @@ function readVersion() {
 
 function assertDistReady() {
   if (!existsSync(dist)) {
-    throw new Error("dist/ missing — run npm run build first");
+    throw new Error("dist/chrome/ missing — run npm run build:chrome first");
   }
   for (const required of ["manifest.json", "background.js", "index.html", "settings.html", "add.html", "icons"]) {
     if (!existsSync(resolve(dist, required))) {
-      throw new Error(`dist/ missing required ${required}`);
+      throw new Error(`dist/chrome/ missing required ${required}`);
     }
   }
 }
@@ -45,7 +46,7 @@ const zipName = `hearth-speed-dial-chrome-v${version}.zip`;
 const zipPath = resolve(artifacts, zipName);
 rmSync(zipPath, { force: true });
 
-// Omit Vite source maps from the store/sideload zip (still present under dist/ for local debug).
+// Omit Vite source maps from the store/sideload zip (still present under dist/chrome/ for local debug).
 const result = spawnSync(
   "zip",
   ["-r", "-X", "-q", zipPath, ".", "-x", "*.map", "-x", "**/*.map"],

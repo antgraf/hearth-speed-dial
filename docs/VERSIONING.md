@@ -3,7 +3,7 @@
 Hearth Speed Dial uses **semantic versioning** (`MAJOR.MINOR.PATCH`) for the extension. The same string is kept in sync in:
 
 - `package.json` / `package-lock.json` (npm / CI)
-- `manifest.json` (Chrome source of truth; Firefox packaging copies this version into `dist-firefox/manifest.json`)
+- `manifest.json` (Chrome source of truth; Firefox packaging copies this version into `dist/firefox/manifest.json`)
 
 Chrome’s `manifest.json` `version` field is numeric segments only (no `-beta` suffixes). Do not put prerelease labels in the shipped manifest.
 
@@ -61,7 +61,7 @@ Workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml) (`
 
 1. Check out `main`.
 2. Run `node scripts/bump-version.mjs` with `--major`, `--minor`, or `--patch` per the inputs above. That updates `package.json`, `package-lock.json`, and `manifest.json` together.
-3. `npm ci`, typecheck, lint, test, `npm run build`, `npm run build:firefox`.
+3. `npm ci`, typecheck, lint, test, `npm run build` (Chrome + Firefox under `dist/`).
 4. `npm run pack:chrome` → `artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip`.
 5. `npm run pack:firefox` → `artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip`.
 6. Commit the version files to `main` (`Release vX.Y.Z`), create annotated tag `vX.Y.Z`, push commit + tag to `origin`.
@@ -74,7 +74,7 @@ Workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml) (`
 Before or right after running the Action for a store upload:
 
 1. Confirm bump level (major checkbox if any item in “MUST trigger a major bump” applies).
-2. Run [docs/smoke-checklist.md](./smoke-checklist.md) on **Chrome** against `dist` (or the Chrome release zip unpacked) and on **Firefox 121+** against `dist-firefox` (temporary add-on).
+2. Run [docs/smoke-checklist.md](./smoke-checklist.md) on **Chrome** against `dist/chrome` (or the Chrome release zip unpacked) and on **Firefox 121+** against `dist/firefox` (temporary add-on).
 3. Upload the **Chrome** zip from the GitHub Release to CWS (or sideload for verification).
 4. Upload the **Firefox** zip to AMO when the AMO listing package is ready (or sideload / temporary add-on for verification).
 5. Confirm the GitHub Release body (auto-generated from merged PRs since the previous tag); edit on GitHub only if you need a short store-facing blurb prepended. Keep CWS/AMO listing copy elsewhere until those listing packages ship.

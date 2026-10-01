@@ -9,7 +9,10 @@ import { fileURLToPath } from "node:url";
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const profilesRoot = join(repoRoot, ".browser-profiles");
-export const distDir = join(repoRoot, "dist");
+export const distChromeDir = join(repoRoot, "dist/chrome");
+export const distFirefoxDir = join(repoRoot, "dist/firefox");
+/** Alias for Chrome launch scripts (same as distChromeDir). */
+export const distDir = distChromeDir;
 
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
@@ -262,12 +265,12 @@ export function printChromeHelp() {
   console.log(`Usage: npm run browser:chrome -- [options]
 
 Launch Chrome/Chromium with an isolated profile under .browser-profiles/chrome
-(never your personal Chrome profile). Optionally loads dist/ as an unpacked
+(never your personal Chrome profile). Optionally loads dist/chrome/ as an unpacked
 extension.
 
 Options:
   --no-ext          Do not pass --load-extension (open chrome://extensions yourself)
-  --ext <path>      Extension directory to load (default: <repo>/dist)
+  --ext <path>      Extension directory to load (default: <repo>/dist/chrome)
   --profile <path>  Override profile directory
   --binary <path>   Chrome/Chromium binary (or set CHROME_PATH)
   --foreground      Keep this process attached until the browser exits
@@ -287,12 +290,12 @@ Launch Firefox with an isolated profile under .browser-profiles/firefox
 (never your personal Firefox profile).
 
 Load the Firefox build temporarily (requires Firefox 121+):
-  1. npm run build && npm run build:firefox
-     (or: .\\build.ps1 -Target Firefox)
+  1. npm run build
+     (or: .\\build.ps1 / .\\build.ps1 -Target Firefox)
   2. npm run browser:firefox
   3. Open about:debugging#/runtime/this-firefox
   4. Click "Load Temporary Add-on…"
-  5. Choose <repo>/dist-firefox/manifest.json
+  5. Choose <repo>/dist/firefox/manifest.json
 
 Options:
   --profile <path>  Override profile directory

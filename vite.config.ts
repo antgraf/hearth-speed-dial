@@ -28,19 +28,19 @@ function assertDistManifestOptionalPermissions(distManifestPath: string): void {
     optional_host_permissions?: string[];
   };
   if (JSON.stringify(dist.optional_permissions) !== JSON.stringify(source.optional_permissions)) {
-    throw new Error("dist/manifest.json optional_permissions drifted from source manifest.json");
+    throw new Error("dist/chrome/manifest.json optional_permissions drifted from source manifest.json");
   }
   if (JSON.stringify(dist.optional_host_permissions) !== JSON.stringify(source.optional_host_permissions)) {
-    throw new Error("dist/manifest.json optional_host_permissions drifted from source manifest.json");
+    throw new Error("dist/chrome/manifest.json optional_host_permissions drifted from source manifest.json");
   }
   const hosts = dist.optional_host_permissions ?? [];
   for (const required of ["<all_urls>", "http://*/*", "https://*/*"]) {
     if (!hosts.includes(required)) {
-      throw new Error(`dist/manifest.json optional_host_permissions missing ${required}`);
+      throw new Error(`dist/chrome/manifest.json optional_host_permissions missing ${required}`);
     }
   }
   if (!(dist.optional_permissions ?? []).includes("tabs")) {
-    throw new Error("dist/manifest.json optional_permissions missing tabs");
+    throw new Error("dist/chrome/manifest.json optional_permissions missing tabs");
   }
 }
 
@@ -48,14 +48,14 @@ function copyExtensionFiles(): Plugin {
   return {
     name: "copy-extension-files",
     closeBundle() {
-      const dist = resolve(projectRoot, "dist");
+      const dist = resolve(projectRoot, "dist/chrome");
       mkdirSync(dist, { recursive: true });
       const distManifest = resolve(dist, "manifest.json");
       cpSync(resolve(projectRoot, "manifest.json"), distManifest);
       cpSync(resolve(projectRoot, "icons"), resolve(dist, "icons"), { recursive: true });
       for (const required of ["settings.html", "index.html", "add.html", "background.js", "manifest.json"]) {
         if (!existsSync(resolve(dist, required))) {
-          throw new Error(`Extension build missing required dist/${required}`);
+          throw new Error(`Extension build missing required dist/chrome/${required}`);
         }
       }
       assertDistManifestOptionalPermissions(distManifest);
@@ -68,7 +68,7 @@ export default defineConfig({
   base: "./",
   publicDir: false,
   build: {
-    outDir: resolve(projectRoot, "dist"),
+    outDir: resolve(projectRoot, "dist/chrome"),
     emptyOutDir: true,
     sourcemap: true,
     target: "chrome120",

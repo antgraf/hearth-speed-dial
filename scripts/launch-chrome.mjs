@@ -51,7 +51,7 @@ if (loadExt) {
   if (!pathExists(extPath) || !existsSync(resolve(extPath, "manifest.json"))) {
     console.error(
       `Extension folder missing or has no manifest.json: ${extPath}\n` +
-        `Run \`npm run build\` first (or pass --no-ext / --ext <path>).`,
+        `Run \`npm run build\` or \`npm run build:chrome\` first (or pass --no-ext / --ext <path>).`,
     );
     process.exit(1);
   }
@@ -67,7 +67,7 @@ console.log(`Profile:  ${profile}`);
 console.log(
   loadExt
     ? `Extension: ${extPath} (--load-extension)`
-    : "Extension: not auto-loaded (--no-ext); use chrome://extensions → Load unpacked → dist/",
+    : "Extension: not auto-loaded (--no-ext); use chrome://extensions → Load unpacked → dist/chrome/",
 );
 console.log(`Repo:     ${repoRoot}`);
 
