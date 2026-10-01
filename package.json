@@ -15,6 +15,7 @@
     "icons": "node scripts/draw-icons.mjs",
     "pack:chrome": "node scripts/pack-chrome.mjs",
     "pack:firefox": "node scripts/pack-firefox.mjs",
+    "pack:source": "node scripts/pack-source.mjs",
     "browser:chrome": "node scripts/launch-chrome.mjs",
     "browser:firefox": "node scripts/launch-firefox.mjs",
     "browser:reset": "node scripts/reset-browser-profiles.mjs"

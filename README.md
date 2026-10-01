@@ -74,7 +74,7 @@ Manual checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 | `dist/chrome/background.js` | MV3 service worker (context menu) |
 | `dist/chrome/assets/` | Hashed JS/CSS for the pages |
 
-`npm run build:firefox` copies the Chrome tree to `dist/firefox/` and writes a Firefox manifest: no `favicon`; optional hosts folded into `optional_permissions`; `browser_specific_settings.gecko` (`hearth-speed-dial@antgraf`, min `121.0`).
+`npm run build:firefox` copies the Chrome tree to `dist/firefox/` and writes a Firefox manifest: no `favicon`; optional hosts folded into `optional_permissions`; `browser_specific_settings.gecko` (`hearth-speed-dial@antgraf`, min `121.0`, `data_collection_permissions.required: ["none"]`).
 
 Do not ship `node_modules`, `src`, or the Vite preview into the package. `dist/` is gitignored; always build before load-unpacked or packaging.
 
@@ -82,6 +82,7 @@ After a production build:
 
 - `npm run pack:chrome` → `artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip`
 - `npm run pack:firefox` → `artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip` (requires `dist/firefox`)
+- `npm run pack:source` → `artifacts/hearth-speed-dial-source-vX.Y.Z.zip` (AMO reviewer source; see [docs/AMO.md](docs/AMO.md))
 
 Versioning and the GitHub Release Action: [docs/VERSIONING.md](docs/VERSIONING.md).
 

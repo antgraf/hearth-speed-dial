@@ -8,6 +8,7 @@ import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  FIREFOX_DATA_COLLECTION_PERMISSIONS,
   FIREFOX_EXTENSION_ID,
   FIREFOX_STRICT_MIN_VERSION,
   assertFirefoxManifest,
@@ -15,6 +16,17 @@ import {
 } from "./firefox-manifest.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+
+/** @returns {object} */
+function validGecko() {
+  return {
+    id: FIREFOX_EXTENSION_ID,
+    strict_min_version: FIREFOX_STRICT_MIN_VERSION,
+    data_collection_permissions: {
+      required: [...FIREFOX_DATA_COLLECTION_PERMISSIONS.required],
+    },
+  };
+}
 
 test("chromeManifestToFirefox drops favicon and folds optional hosts", () => {
   const chrome = JSON.parse(readFileSync(resolve(root, "manifest.json"), "utf8"));
@@ -37,6 +49,10 @@ test("chromeManifestToFirefox drops favicon and folds optional hosts", () => {
     firefox.browser_specific_settings.gecko.strict_min_version,
     FIREFOX_STRICT_MIN_VERSION,
   );
+  assert.deepEqual(
+    firefox.browser_specific_settings.gecko.data_collection_permissions,
+    { required: ["none"] },
+  );
   assert.equal(firefox.chrome_url_overrides.newtab, "index.html");
   assert.equal(firefox.background.service_worker, "background.js");
   assertFirefoxManifest(firefox);
@@ -52,9 +68,29 @@ test("assertFirefoxManifest rejects Chrome favicon leftover", () => {
         chrome_url_overrides: { newtab: "index.html" },
         background: { service_worker: "background.js" },
         browser_specific_settings: {
-          gecko: { id: FIREFOX_EXTENSION_ID, strict_min_version: FIREFOX_STRICT_MIN_VERSION },
+          gecko: validGecko(),
         },
       }),
     /favicon/,
+  );
+});
+
+test("assertFirefoxManifest rejects missing data_collection_permissions", () => {
+  assert.throws(
+    () =>
+      assertFirefoxManifest({
+        manifest_version: 3,
+        permissions: ["bookmarks", "storage"],
+        optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
+        chrome_url_overrides: { newtab: "index.html" },
+        background: { service_worker: "background.js" },
+        browser_specific_settings: {
+          gecko: {
+            id: FIREFOX_EXTENSION_ID,
+            strict_min_version: FIREFOX_STRICT_MIN_VERSION,
+          },
+        },
+      }),
+    /data_collection_permissions/,
   );
 });

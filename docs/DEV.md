@@ -138,3 +138,4 @@ Manual product checks after load: [smoke-checklist.md](smoke-checklist.md).
 
 - **Additional languages** — English `_locales` scaffolding and runtime `t()` wiring are in; translations beyond `en` remain a separate Pre-publish item.
 - AMO listing screenshots, privacy policy text, and reviewer permissions narrative are separate Pre-publish lanes.
+- Engineering package for AMO (data-collection key, source zip, rebuild notes): [AMO.md](AMO.md).

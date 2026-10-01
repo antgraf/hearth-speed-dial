@@ -76,6 +76,9 @@ jobs:
       - name: Pack Firefox zip
         run: npm run pack:firefox
 
+      - name: Pack AMO source zip
+        run: npm run pack:source
+
       - name: Commit, tag, and push
         id: tag
         run: |
@@ -102,12 +105,14 @@ jobs:
           PREVIOUS_TAG="${{ steps.tag.outputs.previous_tag }}"
           CHROME_ZIP="artifacts/hearth-speed-dial-chrome-v${VERSION}.zip"
           FIREFOX_ZIP="artifacts/hearth-speed-dial-firefox-v${VERSION}.zip"
+          SOURCE_ZIP="artifacts/hearth-speed-dial-source-v${VERSION}.zip"
           # Release body: GitHub-generated notes (merged PRs / commits since previous tag).
           # First release (no previous v* tag): --generate-notes without --notes-start-tag.
           CREATE_ARGS=(
             "v${VERSION}"
             "$CHROME_ZIP"
             "$FIREFOX_ZIP"
+            "$SOURCE_ZIP"
             --repo antgraf/hearth-speed-dial
             --title "v${VERSION}"
             --verify-tag
