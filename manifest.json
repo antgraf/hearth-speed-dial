@@ -1,11 +1,24 @@
 {
   "manifest_version": 3,
   "name": "Hearth Speed Dial",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "New tab speed dial for one folder of your bookmarks.",
-  "permissions": ["bookmarks", "storage", "unlimitedStorage", "favicon", "contextMenus", "activeTab"],
-  "optional_permissions": ["tabs"],
-  "optional_host_permissions": ["<all_urls>", "http://*/*", "https://*/*"],
+  "permissions": [
+    "bookmarks",
+    "storage",
+    "unlimitedStorage",
+    "favicon",
+    "contextMenus",
+    "activeTab"
+  ],
+  "optional_permissions": [
+    "tabs"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>",
+    "http://*/*",
+    "https://*/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
