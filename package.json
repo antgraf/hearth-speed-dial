@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run build:chrome && npm run build:firefox",
+    "build:chrome": "vite build",
     "build:firefox": "node scripts/prepare-firefox-dist.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

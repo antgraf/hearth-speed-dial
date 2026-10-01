@@ -67,11 +67,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build Chrome dist
+      - name: Build Chrome + Firefox dist
         run: npm run build
-
-      - name: Build Firefox dist
-        run: npm run build:firefox
 
       - name: Pack Chrome zip
         run: npm run pack:chrome

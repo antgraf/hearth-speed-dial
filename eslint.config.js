@@ -15,7 +15,7 @@ const nodeGlobals = {
 };
 
 export default tseslint.config(
-  { ignores: ["dist/**", "dist-firefox/**", "node_modules/**", ".browser-profiles/**", "artifacts/**"] },
+  { ignores: ["dist/**", "node_modules/**", ".browser-profiles/**", "artifacts/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

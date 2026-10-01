@@ -3,12 +3,12 @@
  * Launch Firefox with an isolated profile for temporary add-on install tests.
  * Never uses the user's default Firefox profile.
  *
- * Build the Firefox tree first (`npm run build && npm run build:firefox`, or
- * `.\build.ps1 -Target Firefox`), then load dist-firefox/manifest.json via
- * about:debugging (see --help / docs/DEV.md).
+ * Build the Firefox tree first (`npm run build`, or `.\build.ps1 -Target Firefox`),
+ * then load dist/firefox/manifest.json via about:debugging (see --help / docs/DEV.md).
  */
 import { resolve } from "node:path";
 import {
+  distFirefoxDir,
   ensureProfile,
   findFirefox,
   launchBrowser,
@@ -37,7 +37,7 @@ const profile =
   (typeof flags.profile === "string" && resolve(flags.profile)) ||
   ensureProfile("firefox");
 
-const firefoxDist = resolve(repoRoot, "dist-firefox");
+const firefoxDist = distFirefoxDir;
 
 /** @type {string[]} */
 const args = [
@@ -55,7 +55,7 @@ console.log("");
 console.log("Temporary add-on (Firefox MV3, min 121):");
 console.log('  1. Click "Load Temporary Add-on…" in the opened debugging page');
 console.log(`  2. Select ${firefoxDist}/manifest.json`);
-console.log("     (run: npm run build && npm run build:firefox — or .\\build.ps1 -Target Firefox)");
+console.log("     (run: npm run build — or .\\build.ps1 / .\\build.ps1 -Target Firefox)");
 console.log("  3. To uninstall, click Remove on the temporary add-on, or close Firefox");
 console.log("     / run: npm run browser:reset -- firefox");
 

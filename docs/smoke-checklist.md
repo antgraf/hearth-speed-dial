@@ -2,9 +2,9 @@
 
 Manual pass after a production build. Agents do not run browser automation — Anton smokes on Windows.
 
-**Chrome:** `npm run build` (or `.\build.ps1`) → **Load unpacked** → select `dist/`. Expect always-on: **bookmarks**, **storage**, **unlimitedStorage**, **favicon**, **contextMenus**, **activeTab**.
+**Chrome:** `npm run build` (or `.\build.ps1`; Chrome-only: `-Target Chrome`) → **Load unpacked** → select `dist/chrome/`. Expect always-on: **bookmarks**, **storage**, **unlimitedStorage**, **favicon**, **contextMenus**, **activeTab**.
 
-**Firefox (121+):** `.\build.ps1 -Target Firefox` (or `npm run build` + `npm run build:firefox`) → temporary add-on from `dist-firefox/manifest.json`. Expect always-on: **bookmarks**, **storage**, **unlimitedStorage**, **contextMenus**, **activeTab** (no **favicon**). Optional **tabs** / site access appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
+**Firefox (121+):** `.\build.ps1` / `npm run build` (or `-Target Firefox`) → temporary add-on from `dist/firefox/manifest.json`. Expect always-on: **bookmarks**, **storage**, **unlimitedStorage**, **contextMenus**, **activeTab** (no **favicon**). Optional **tabs** / site access appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
 
 ## New tab grid
 
@@ -71,8 +71,8 @@ Manual pass after a production build. Agents do not run browser automation — A
 
 ## Packaging sanity
 
-- [ ] **Chrome:** Fresh install / after adding install-time permissions: Remove the unpacked extension and **Load unpacked** again from `dist` (Reload alone can leave an old permission set). Details: always-on includes **Unlimited storage** and **Favicon**; no host permissions granted yet; optional permissions listed but inactive until used.
-- [ ] **Firefox:** Temporary add-on loads from `dist-firefox/manifest.json`; about:addons / debugging shows no favicon permission; gecko id `hearth-speed-dial@antgraf`; new tab override works.
+- [ ] **Chrome:** Fresh install / after adding install-time permissions: Remove the unpacked extension and **Load unpacked** again from `dist/chrome` (Reload alone can leave an old permission set). Details: always-on includes **Unlimited storage** and **Favicon**; no host permissions granted yet; optional permissions listed but inactive until used.
+- [ ] **Firefox:** Temporary add-on loads from `dist/firefox/manifest.json`; about:addons / debugging shows no favicon permission; gecko id `hearth-speed-dial@antgraf`; new tab override works.
 - [ ] Settings **Dial picture storage** shows used size with “no fixed size cap” (not “of 10 MB”) when `unlimitedStorage` is active.
 - [ ] Service worker / Errors panel (or Firefox browser console for the extension) stays clean while exercising the steps above.
 - [ ] Optional: `npm run pack:chrome` / `npm run pack:firefox` produce zips under `artifacts/` with `manifest.json` at the zip root.
