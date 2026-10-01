@@ -4,6 +4,12 @@
  *
  * Keeps enable/deny/revoke/degrade decisions in one place so both UIs cannot
  * drift (e.g. URL-fetch must re-own http/https before thumbnails drop <all_urls>).
+ *
+ * Firefox: `browser.permissions.request` must run as the first awaited
+ * extension call from a user-gesture handler. Any prior `await` (including
+ * `permissions.contains` via has*) drops the gesture and the request rejects
+ * with "may only be called from a user input handler" — which we previously
+ * treated as deny, leaving the toggle stuck off with a Settings loop.
  */
 
 import {
@@ -23,6 +29,7 @@ import { normalizeTheme } from "./theme.ts";
 export type LayoutTogglePermissions = Pick<
   PermissionsApi,
   | "requestThumbnailAccess"
+  | "requestThumbnailAndImageUrlFetchAccess"
   | "removeThumbnailAccess"
   | "hasThumbnailAccess"
   | "requestImageUrlFetchAccess"
@@ -52,6 +59,9 @@ export type ApplyLayoutChangeResult = {
  *
  * When `permissions` is null (options page without a PermissionsApi), toggle
  * flags are accepted as requested with no grant/revoke calls.
+ *
+ * Rising-edge `permissions.request` calls run before any `has*` / contains
+ * awaits so Firefox still sees a user gesture.
  */
 export async function applyLayoutChange(
   previous: LayoutSettings,
@@ -69,8 +79,6 @@ export async function applyLayoutChange(
   };
 
   let error: string | null = null;
-  let thumbnailsActive: boolean;
-  let imageUrlFetchActive: boolean;
 
   if (!permissions) {
     return {
@@ -82,7 +90,25 @@ export async function applyLayoutChange(
     };
   }
 
-  if (next.thumbnailsEnabled && !previous.thumbnailsEnabled) {
+  const enablingThumbnails = next.thumbnailsEnabled && !previous.thumbnailsEnabled;
+  const enablingUrl = next.imageUrlFetchEnabled && !previous.imageUrlFetchEnabled;
+  const disablingThumbnails = !next.thumbnailsEnabled && previous.thumbnailsEnabled;
+  const disablingUrl = !next.imageUrlFetchEnabled && previous.imageUrlFetchEnabled;
+
+  // Rising edges first — no has*/contains awaits before these request() calls.
+  if (enablingThumbnails && enablingUrl) {
+    const granted = await permissions.requestThumbnailAndImageUrlFetchAccess();
+    if (!granted) {
+      next = { ...next, thumbnailsEnabled: false, imageUrlFetchEnabled: false };
+      return {
+        next,
+        error: thumbnailPermissionDeniedMessage(),
+        earlyDenial: true,
+        thumbnailsActive: false,
+        imageUrlFetchActive: false,
+      };
+    }
+  } else if (enablingThumbnails) {
     const granted = await permissions.requestThumbnailAccess();
     if (!granted) {
       next = { ...next, thumbnailsEnabled: false };
@@ -98,37 +124,17 @@ export async function applyLayoutChange(
         imageUrlFetchActive: urlActive,
       };
     }
-    thumbnailsActive = true;
-    error = null;
-  } else if (!next.thumbnailsEnabled) {
-    if (previous.thumbnailsEnabled) {
-      // URL fetch may have been riding on <all_urls>. Ensure it owns
-      // http/https wildcards before dropping thumbnail grants (same click).
-      if (next.imageUrlFetchEnabled) {
-        const urlKept = await permissions.requestImageUrlFetchAccess();
-        if (!urlKept) {
-          next = { ...next, imageUrlFetchEnabled: false };
-        }
-      }
-      try {
-        await permissions.removeThumbnailAccess();
-      } catch {
-        // Best-effort; setting still turns off.
-      }
-    }
-    thumbnailsActive = false;
-  } else {
-    thumbnailsActive = await permissions.hasThumbnailAccess();
-    if (!thumbnailsActive) {
-      next = { ...next, thumbnailsEnabled: false };
-      error = thumbnailPermissionDeniedMessage();
-    }
-  }
-
-  if (next.imageUrlFetchEnabled && !previous.imageUrlFetchEnabled) {
+  } else if (enablingUrl) {
     const granted = await permissions.requestImageUrlFetchAccess();
     if (!granted) {
       next = { ...next, imageUrlFetchEnabled: false };
+      let thumbnailsActive = false;
+      if (next.thumbnailsEnabled) {
+        thumbnailsActive = await permissions.hasThumbnailAccess();
+        if (!thumbnailsActive) {
+          next = { ...next, thumbnailsEnabled: false };
+        }
+      }
       return {
         next,
         error: imageUrlPermissionDeniedMessage(),
@@ -137,21 +143,51 @@ export async function applyLayoutChange(
         imageUrlFetchActive: false,
       };
     }
-    imageUrlFetchActive = true;
-    error = null;
-  } else if (!next.imageUrlFetchEnabled) {
-    if (previous.imageUrlFetchEnabled) {
-      try {
-        await permissions.removeImageUrlFetchAccess();
-      } catch {
-        // Best-effort; setting still turns off.
-      }
+  } else if (disablingThumbnails && next.imageUrlFetchEnabled) {
+    // Thumbnails off while URL stays on: re-own http/https before dropping
+    // <all_urls>. This request is the first await on that checkbox gesture.
+    const urlKept = await permissions.requestImageUrlFetchAccess();
+    if (!urlKept) {
+      next = { ...next, imageUrlFetchEnabled: false };
+    }
+  }
+
+  let thumbnailsActive: boolean;
+  if (disablingThumbnails) {
+    try {
+      await permissions.removeThumbnailAccess();
+    } catch {
+      // Best-effort; setting still turns off.
+    }
+    thumbnailsActive = false;
+  } else if (enablingThumbnails) {
+    thumbnailsActive = true;
+  } else if (next.thumbnailsEnabled) {
+    thumbnailsActive = await permissions.hasThumbnailAccess();
+    if (!thumbnailsActive) {
+      next = { ...next, thumbnailsEnabled: false };
+      error = thumbnailPermissionDeniedMessage();
+    }
+  } else {
+    thumbnailsActive = false;
+  }
+
+  let imageUrlFetchActive: boolean;
+  if (disablingUrl) {
+    try {
+      await permissions.removeImageUrlFetchAccess();
+    } catch {
+      // Best-effort; setting still turns off.
     }
     imageUrlFetchActive = false;
-  } else {
+  } else if (enablingUrl || (enablingThumbnails && enablingUrl)) {
+    imageUrlFetchActive = true;
+  } else if (next.imageUrlFetchEnabled) {
     // Still on — sync active flag only. Do not clear the URL toggle or show
     // a denial banner here (thumbnail revoke must not look like a URL deny).
     imageUrlFetchActive = await permissions.hasImageUrlFetchAccess();
+  } else {
+    imageUrlFetchActive = false;
   }
 
   return {

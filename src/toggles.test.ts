@@ -12,6 +12,7 @@ type FakePermissions = LayoutToggleFake & PermissionsApi;
 
 type LayoutToggleFake = {
   requestThumbnailAccess: () => Promise<boolean>;
+  requestThumbnailAndImageUrlFetchAccess: () => Promise<boolean>;
   removeThumbnailAccess: () => Promise<void>;
   hasThumbnailAccess: () => Promise<boolean>;
   requestImageUrlFetchAccess: () => Promise<boolean>;
@@ -28,6 +29,10 @@ function fakePermissions(overrides: Partial<LayoutToggleFake> = {}): FakePermiss
     calls,
     async requestThumbnailAccess() {
       calls.push("requestThumbnailAccess");
+      return true;
+    },
+    async requestThumbnailAndImageUrlFetchAccess() {
+      calls.push("requestThumbnailAndImageUrlFetchAccess");
       return true;
     },
     async removeThumbnailAccess() {
@@ -73,6 +78,7 @@ test("applyLayoutChange table: permission toggle state machine", async () => {
     requested: Partial<LayoutSettings>;
     answers?: {
       requestThumbnailAccess?: boolean;
+      requestThumbnailAndImageUrlFetchAccess?: boolean;
       requestImageUrlFetchAccess?: boolean;
       hasThumbnailAccess?: boolean;
       hasImageUrlFetchAccess?: boolean;
@@ -179,6 +185,52 @@ test("applyLayoutChange table: permission toggle state machine", async () => {
         calls: ["requestImageUrlFetchAccess"],
       },
     },
+    {
+      name: "URL enable while thumbnails stay on requests before hasThumbnailAccess",
+      previous: { thumbnailsEnabled: true },
+      requested: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      answers: { requestImageUrlFetchAccess: true, hasThumbnailAccess: true },
+      expect: {
+        imageUrlFetchEnabled: true,
+        thumbnailsEnabled: true,
+        earlyDenial: false,
+        imageUrlFetchActive: true,
+        thumbnailsActive: true,
+        error: null,
+        // request() must precede any contains/has* await (Firefox user-gesture).
+        calls: ["requestImageUrlFetchAccess", "hasThumbnailAccess"],
+      },
+    },
+    {
+      name: "both toggles enable in one gesture use combined request",
+      previous: {},
+      requested: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      answers: { requestThumbnailAndImageUrlFetchAccess: true },
+      expect: {
+        thumbnailsEnabled: true,
+        imageUrlFetchEnabled: true,
+        earlyDenial: false,
+        thumbnailsActive: true,
+        imageUrlFetchActive: true,
+        error: null,
+        calls: ["requestThumbnailAndImageUrlFetchAccess"],
+      },
+    },
+    {
+      name: "combined both-enable deny clears both toggles",
+      previous: {},
+      requested: { thumbnailsEnabled: true, imageUrlFetchEnabled: true },
+      answers: { requestThumbnailAndImageUrlFetchAccess: false },
+      expect: {
+        thumbnailsEnabled: false,
+        imageUrlFetchEnabled: false,
+        earlyDenial: true,
+        thumbnailsActive: false,
+        imageUrlFetchActive: false,
+        error: thumbnailPermissionDeniedMessage(),
+        calls: ["requestThumbnailAndImageUrlFetchAccess"],
+      },
+    },
   ];
 
   for (const entry of cases) {
@@ -186,6 +238,10 @@ test("applyLayoutChange table: permission toggle state machine", async () => {
       async requestThumbnailAccess() {
         permissions.calls.push("requestThumbnailAccess");
         return entry.answers?.requestThumbnailAccess ?? true;
+      },
+      async requestThumbnailAndImageUrlFetchAccess() {
+        permissions.calls.push("requestThumbnailAndImageUrlFetchAccess");
+        return entry.answers?.requestThumbnailAndImageUrlFetchAccess ?? true;
       },
       async removeThumbnailAccess() {
         permissions.calls.push("removeThumbnailAccess");

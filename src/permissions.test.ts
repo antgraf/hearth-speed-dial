@@ -14,6 +14,7 @@ import {
   originHostPermission,
   permissionRemovePieces,
   imageUrlUnavailableMessage,
+  thumbnailAndImageUrlPermissionRequest,
   thumbnailPermissionRemove,
   thumbnailPermissionRequest,
   thumbnailUnavailableMessage,
@@ -52,6 +53,21 @@ test("imageUrlFetchPermissionRequest asks for http and https scheme wildcards", 
   assert.deepEqual(imageUrlFetchPermissionRequest(), {
     origins: ["http://*/*", "https://*/*"],
   });
+});
+
+test("thumbnailAndImageUrlPermissionRequest covers both Settings toggles in one payload", () => {
+  assert.deepEqual(thumbnailAndImageUrlPermissionRequest(), {
+    permissions: ["tabs"],
+    origins: ["<all_urls>", "http://*/*", "https://*/*"],
+  });
+  assert.equal(
+    isRequestCoveredByOptionalManifest(
+      thumbnailAndImageUrlPermissionRequest(),
+      MANIFEST_OPTIONAL_PERMISSIONS,
+      MANIFEST_OPTIONAL_HOST_PERMISSIONS,
+    ),
+    true,
+  );
 });
 
 test("originHostPermission builds a match pattern for http(s) URLs", () => {

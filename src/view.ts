@@ -33,6 +33,10 @@ import {
   type DangerZoneResult,
   type LayoutSettings,
 } from "./settings.ts";
+import {
+  imageUrlPermissionDeniedMessage,
+  thumbnailPermissionDeniedMessage,
+} from "./permissions.ts";
 import { applyThemeToDocument } from "./theme.ts";
 import { buildThemeCategory } from "./theme-settings.ts";
 import { buildBackupCategory } from "./backup-settings.ts";
@@ -736,6 +740,24 @@ function openSettingsDialog(
         syncRangeInputValue(tileSize, applied.tileSize);
         syncRangeInputValue(thumbnailWait, applied.thumbnailWaitSeconds);
         themeControls.syncTheme(applied.theme);
+        // Dial banner is behind this overlay — surface permission denials here.
+        if (next.imageUrlFetchEnabled && !applied.imageUrlFetchEnabled) {
+          void confirmDialog({
+            title: t("switch_image_url_title"),
+            message: imageUrlPermissionDeniedMessage(),
+            confirmLabel: t("btn_ok"),
+            cancelLabel: t("btn_close"),
+            returnFocus: imageUrlFetch,
+          });
+        } else if (next.thumbnailsEnabled && !applied.thumbnailsEnabled) {
+          void confirmDialog({
+            title: t("switch_thumbnails_title"),
+            message: thumbnailPermissionDeniedMessage(),
+            confirmLabel: t("btn_ok"),
+            cancelLabel: t("btn_close"),
+            returnFocus: thumbnails,
+          });
+        }
       })
       .catch(() => {
         // Permission API rejections are handled inside setLayout / chromePermissions.

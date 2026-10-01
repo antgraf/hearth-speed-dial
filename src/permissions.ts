@@ -93,6 +93,23 @@ export function imageUrlFetchPermissionRemove(): ImageUrlFetchPermissionRequest 
 }
 
 /**
+ * One permissions.request payload when both Settings toggles turn on in the
+ * same user gesture (options-page Save). Firefox rejects a second request()
+ * after any prior await — including the first permission prompt resolving.
+ */
+export type ThumbnailAndImageUrlPermissionRequest = {
+  permissions: typeof OPTIONAL_TABS_PERMISSION[];
+  origins: Array<typeof THUMBNAIL_HOST_PERMISSION | (typeof OPTIONAL_FETCH_HOST_PERMISSIONS)[number]>;
+};
+
+export function thumbnailAndImageUrlPermissionRequest(): ThumbnailAndImageUrlPermissionRequest {
+  return {
+    permissions: [OPTIONAL_TABS_PERMISSION],
+    origins: [THUMBNAIL_HOST_PERMISSION, ...OPTIONAL_FETCH_HOST_PERMISSIONS],
+  };
+}
+
+/**
  * Split a remove payload into one-permission / one-origin calls.
  * Chrome is more reliable revoking optional grants piecemeal than in one batch
  * (a single failing member can leave the rest still granted).
@@ -198,11 +215,22 @@ export type PermissionsApi = {
    * (survives thumbnails revoke of <all_urls>). Returns false if denied or
    * rejected. Shows a dialog only when Chrome has not already allowed those
    * grants (or an overlapping grant such as <all_urls>).
+   *
+   * Must be invoked as the first awaited extension call from a user-gesture
+   * handler on Firefox (`permissions.request` after any prior await — including
+   * `permissions.contains` — is rejected as "not from a user input handler").
    */
   requestImageUrlFetchAccess(): Promise<boolean>;
   /**
+   * Single request for tabs + `<all_urls>` + http/https wildcards when both
+   * Settings toggles enable in one gesture. Prefer this over sequential
+   * requestThumbnailAccess + requestImageUrlFetchAccess (Firefox loses the
+   * user gesture after the first prompt).
+   */
+  requestThumbnailAndImageUrlFetchAccess(): Promise<boolean>;
+  /**
    * Drop active http/https scheme wildcards for Image-from-URL. Does not
-   * remove tabs or <all_urls> used by thumbnails. The next enable still calls
+   * remove tabs or `<all_urls>` used by thumbnails. The next enable still calls
    * request(); Chrome usually restores without a dialog after the first Allow.
    */
   removeImageUrlFetchAccess(): Promise<void>;
