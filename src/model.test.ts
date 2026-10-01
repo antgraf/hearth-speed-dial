@@ -17,6 +17,7 @@ import {
   dialOpenFolderOptions,
   flattenFolderTree,
   dialItems,
+  folderLabel,
   folderName,
   isUnderAncestor,
   monogram,
@@ -94,9 +95,11 @@ test("classify treats blank nodes without children as separators", () => {
   assert.equal(classify({ id: "c", title: "" }), "skip");
 });
 
-test("the chrome root cannot take new children", () => {
+test("the chrome and firefox roots cannot take new children", () => {
   assert.equal(acceptsChildren({ id: "0", title: "", children: [] }), false);
+  assert.equal(acceptsChildren({ id: "root________", title: "", children: [] }), false);
   assert.equal(acceptsChildren({ id: "1", title: "Bookmarks bar", children: [] }), true);
+  assert.equal(acceptsChildren({ id: "toolbar_____", title: "Bookmarks Toolbar", children: [] }), true);
 });
 
 test("dial items keep bookmark order and drop separators", () => {
@@ -139,17 +142,26 @@ test("refreshable thumbnail targets are direct http(s) children only", () => {
 
 test("breadcrumb starts at the bookmark root", () => {
   assert.deepEqual(breadcrumb(tree, "0", "10"), [
-    { id: "0", title: "Bookmarks" },
-    { id: "1", title: "Bookmarks bar" },
-    { id: "10", title: "News" },
+    { id: "0", title: "Bookmarks root", isRoot: true },
+    { id: "1", title: "Bookmarks bar", isRoot: false },
+    { id: "10", title: "News", isRoot: false },
   ]);
-  assert.deepEqual(breadcrumb(tree, "0", "0"), [{ id: "0", title: "Bookmarks" }]);
+  assert.deepEqual(breadcrumb(tree, "0", "0"), [{ id: "0", title: "Bookmarks root", isRoot: true }]);
 });
 
 test("breadcrumb falls back to the root when the current folder is stale", () => {
-  assert.deepEqual(breadcrumb(tree, "0", "missing"), [{ id: "0", title: "Bookmarks" }]);
-  assert.deepEqual(breadcrumb(tree, "0", "11"), [{ id: "0", title: "Bookmarks" }]);
+  assert.deepEqual(breadcrumb(tree, "0", "missing"), [{ id: "0", title: "Bookmarks root", isRoot: true }]);
+  assert.deepEqual(breadcrumb(tree, "0", "11"), [{ id: "0", title: "Bookmarks root", isRoot: true }]);
   assert.deepEqual(breadcrumb(tree, "missing-root", "10"), []);
+});
+
+test("folderLabel and breadcrumb hide the browser raw root title", () => {
+  assert.equal(folderLabel({ id: "0", title: "Bookmarks" }), "Bookmarks root");
+  assert.equal(folderLabel({ id: "root________", title: "" }), "Bookmarks root");
+  assert.equal(folderLabel({ id: "root________", title: "Untitled Folder" }), "Bookmarks root");
+  assert.deepEqual(breadcrumb([{ id: "root________", title: "", children: [] }], "root________", "root________"), [
+    { id: "root________", title: "Bookmarks root", isRoot: true },
+  ]);
 });
 
 test("folderDropZone uses edge thirds for reorder and center for into", () => {
@@ -302,7 +314,7 @@ test("dialFolderTree nests folders and can scope under defaultFolderId", () => {
 
 test("dialOpenFolderOptions includes the chrome root for default-folder picking", () => {
   assert.deepEqual(dialOpenFolderOptions(tree), [
-    { id: "0", title: "Bookmarks", depth: 0 },
+    { id: "0", title: "Bookmarks root", depth: 0 },
     { id: "1", title: "Bookmarks bar", depth: 1 },
     { id: "10", title: "News", depth: 2 },
     { id: "2", title: "Other bookmarks", depth: 1 },

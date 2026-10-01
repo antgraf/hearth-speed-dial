@@ -42,7 +42,7 @@ function gridView(overrides: Partial<Extract<ViewModel, { name: "grid" }>> = {})
   return {
     name: "grid",
     banner: null,
-    crumbs: [{ id: "1", title: "Bookmarks bar" }],
+    crumbs: [{ id: "1", title: "Bookmarks bar", isRoot: false }],
     items: [
       {
         id: "11",
@@ -59,6 +59,7 @@ function gridView(overrides: Partial<Extract<ViewModel, { name: "grid" }>> = {})
     canCreate: true,
     canRenameCurrent: true,
     canDeleteCurrent: true,
+    canRefreshAll: true,
     currentFolder: { id: "1", title: "Bookmarks bar", imageDataUrl: null, kind: "folder", url: null },
     form: null,
     saving: false,
@@ -156,4 +157,56 @@ test("welcome card teaches bookmarks, settings, and Picture… with Open Setting
 test("welcome card is omitted when showWelcome is false", () => {
   render(kit.host, gridView({ showWelcome: false }), actions());
   assert.equal(kit.host.querySelector(".welcome"), null);
+});
+
+test("folder ⋮ omits Refresh All when canRefreshAll is false", () => {
+  render(
+    kit.host,
+    gridView({
+      canRefreshAll: false,
+      thumbnailsActive: true,
+    }),
+    actions(),
+  );
+  const folderMenu = kit.host.querySelector<HTMLButtonElement>(".current .action-menu");
+  assert.ok(folderMenu, "expected current-folder ⋮ when rename/delete remain");
+  folderMenu.click();
+  const labels = [...kit.document.querySelectorAll(".dialog-menu-item")].map((el) => el.textContent ?? "");
+  assert.ok(labels.includes(t("menu_rename")));
+  assert.equal(
+    labels.some((label) => label.includes("Refresh All")),
+    false,
+    `Refresh All should be hidden, got: ${labels.join(" | ")}`,
+  );
+});
+
+test("bookmark root without refreshable dials hides the folder ⋮ entirely", () => {
+  render(
+    kit.host,
+    gridView({
+      crumbs: [{ id: "0", title: "Bookmarks root", isRoot: true }],
+      canCreate: false,
+      canRenameCurrent: false,
+      canDeleteCurrent: false,
+      canRefreshAll: false,
+      currentFolder: { id: "0", title: "Bookmarks root", imageDataUrl: null, kind: "folder", url: null },
+      thumbnailsActive: true,
+    }),
+    actions(),
+  );
+  assert.equal(kit.host.querySelector(".current .action-menu"), null);
+});
+
+test("Refresh All appears in the folder ⋮ when canRefreshAll is true", () => {
+  render(
+    kit.host,
+    gridView({
+      canRefreshAll: true,
+      thumbnailsActive: true,
+    }),
+    actions(),
+  );
+  kit.host.querySelector<HTMLButtonElement>(".current .action-menu")?.click();
+  const labels = [...kit.document.querySelectorAll(".dialog-menu-item")].map((el) => el.textContent ?? "");
+  assert.ok(labels.includes(t("menu_refresh_all")));
 });

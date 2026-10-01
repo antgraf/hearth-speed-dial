@@ -66,11 +66,12 @@ test("the top level is a grid of the root folders", () => {
   );
   assert.deepEqual(
     screen.crumbs.map((crumb) => crumb.title),
-    ["Bookmarks"],
+    ["Bookmarks root"],
   );
   assert.equal(screen.canCreate, false);
   assert.equal(screen.canRenameCurrent, false);
   assert.equal(screen.canDeleteCurrent, false);
+  assert.equal(screen.canRefreshAll, false);
   assert.equal(screen.currentFolder.id, "0");
   assert.equal(screen.currentFolder.imageDataUrl, null);
   assert.ok(screen.defaultFolderOptions.some((option) => option.id === "0"));
@@ -85,11 +86,12 @@ test("an open folder uses the same grid and can add tiles", () => {
   );
   assert.deepEqual(
     screen.crumbs.map((crumb) => crumb.title),
-    ["Bookmarks", "Bookmarks bar"],
+    ["Bookmarks root", "Bookmarks bar"],
   );
   assert.equal(screen.canCreate, true);
   assert.equal(screen.canRenameCurrent, true);
   assert.equal(screen.canDeleteCurrent, true);
+  assert.equal(screen.canRefreshAll, true);
   assert.equal(screen.currentFolder.id, "1");
   assert.equal(screen.currentFolder.title, "Bookmarks bar");
   assert.equal(screen.empty, null);
@@ -100,9 +102,10 @@ test("an empty folder explains that it has no bookmarks", () => {
   if (screen.name !== "grid") throw new Error("expected the grid");
   assert.equal(screen.empty, t("empty_folder"));
   assert.equal(screen.canCreate, true);
+  assert.equal(screen.canRefreshAll, false);
   assert.deepEqual(
     screen.crumbs.map((crumb) => crumb.title),
-    ["Bookmarks", "Bookmarks bar", "News"],
+    ["Bookmarks root", "Bookmarks bar", "News"],
   );
 });
 
@@ -241,6 +244,38 @@ test("the Chrome root cannot be renamed or deleted", () => {
   assert.equal(canRenameNode(tree[0]?.children?.[0]), true);
   assert.equal(canDeleteNode(tree[0]?.children?.[0]), true);
   assert.equal(canDeleteNode({ id: "11", title: "Example", url: "https://example.com/" }), true);
+});
+
+test("the Firefox bookmark root cannot create, rename, or delete", () => {
+  const firefoxRoot: BookmarkNode = {
+    id: "root________",
+    title: "",
+    children: [{ id: "toolbar_____", title: "Bookmarks Toolbar", children: [] }],
+  };
+  const screen = present(
+    state({
+      tree: [firefoxRoot],
+      currentId: "root________",
+    }),
+  );
+  if (screen.name !== "grid") throw new Error("expected the grid");
+  assert.equal(screen.canCreate, false);
+  assert.equal(screen.canRenameCurrent, false);
+  assert.equal(screen.canDeleteCurrent, false);
+  assert.equal(screen.canRefreshAll, false);
+  assert.equal(screen.crumbs[0]?.isRoot, true);
+  assert.equal(screen.crumbs[0]?.title, "Bookmarks root");
+  assert.equal(canRenameNode(firefoxRoot), false);
+
+  const toolbar = present(
+    state({
+      tree: [firefoxRoot],
+      currentId: "toolbar_____",
+    }),
+  );
+  if (toolbar.name !== "grid") throw new Error("expected the grid");
+  assert.equal(toolbar.canCreate, true);
+  assert.equal(toolbar.canRenameCurrent, true);
 });
 
 test("delete confirm messages warn harder for non-empty folders", () => {

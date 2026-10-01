@@ -269,6 +269,7 @@ export function imageDownloadFailedMessage(status?: number): string {
 /**
  * Accept only http(s) image URLs. Returns the normalized href, or null.
  * Data URLs and other schemes are rejected — dial pictures are stored locally.
+ * Fragments and colons in the path are allowed (validated further at fetch).
  */
 export function imageSourceUrl(raw: string): string | null {
   const trimmed = raw.trim();
@@ -276,6 +277,82 @@ export function imageSourceUrl(raw: string): string | null {
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * MediaWiki media-viewer fragment: `#/media/File:Name.ext` or `#/media/Name.ext`
+ * (`File:` may be percent-encoded). Captures the file title for path rewrite.
+ */
+const MEDIAWIKI_MEDIA_HASH = /^#\/media\/(?:File:|File%3A)?([^#?]+)$/i;
+
+/** `/wiki/File:Name.ext` file description pages (HTML, not the image bytes). */
+const MEDIAWIKI_FILE_PATH = /^\/wiki\/File:(.+)$/i;
+
+function mediawikiFileTitle(raw: string): string | null {
+  const trimmed = decodeURIComponent(raw).replace(/^File:/i, "").trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Filename hint from an image URL for MIME sniffing when headers/magic are weak.
+ * Prefers MediaWiki `#/media/File:…` fragments; otherwise the last path segment.
+ * Colons in the basename (e.g. `File:Google.png`) are preserved.
+ */
+export function fileNameHintFromImageUrl(href: string): string | null {
+  try {
+    const parsed = new URL(href.trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    const fromHash = MEDIAWIKI_MEDIA_HASH.exec(parsed.hash);
+    if (fromHash?.[1]) return mediawikiFileTitle(fromHash[1]);
+    const fromWikiFile = MEDIAWIKI_FILE_PATH.exec(parsed.pathname);
+    if (fromWikiFile?.[1]) return mediawikiFileTitle(fromWikiFile[1]);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const last = segments[segments.length - 1];
+    if (!last) return null;
+    return decodeURIComponent(last);
+  } catch {
+    return null;
+  }
+}
+
+function specialFilePathUrl(origin: string, fileTitle: string): string {
+  // MediaWiki titles use underscores for spaces; encode other reserved chars.
+  const pathName = fileTitle.replace(/ /g, "_");
+  const encoded = pathName
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  return `${origin}/wiki/Special:FilePath/${encoded}`;
+}
+
+/**
+ * Normalize an http(s) URL to the resource we should fetch for dial art.
+ * MediaWiki media-viewer / File: page URLs are rewritten to `Special:FilePath/…`
+ * on the same origin (follows redirects to the real image bytes). Ordinary
+ * image URLs keep their href with the fragment dropped (not sent on fetch).
+ */
+export function resolveImageFetchUrl(raw: string): string | null {
+  const source = imageSourceUrl(raw);
+  if (!source) return null;
+  try {
+    const parsed = new URL(source);
+    const fromHash = MEDIAWIKI_MEDIA_HASH.exec(parsed.hash);
+    if (fromHash?.[1]) {
+      const title = mediawikiFileTitle(fromHash[1]);
+      if (!title) return null;
+      return specialFilePathUrl(parsed.origin, title);
+    }
+    const fromWikiFile = MEDIAWIKI_FILE_PATH.exec(parsed.pathname);
+    if (fromWikiFile?.[1]) {
+      const title = mediawikiFileTitle(fromWikiFile[1]);
+      if (!title) return null;
+      return specialFilePathUrl(parsed.origin, title);
+    }
+    parsed.hash = "";
     return parsed.href;
   } catch {
     return null;
@@ -360,10 +437,12 @@ export function mimeFromMagicBytes(bytes: Uint8Array): string | null {
 /** Infer MIME from a filename extension when type/magic are unavailable. */
 export function mimeFromFileName(name: string): string | null {
   const lower = name.trim().toLowerCase();
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-  if (lower.endsWith(".png")) return "image/png";
-  if (lower.endsWith(".gif")) return "image/gif";
-  if (lower.endsWith(".webp")) return "image/webp";
+  // Prefer the last path segment so `…/File:Name.png` and `File:Name.png` work.
+  const base = lower.includes("/") ? lower.slice(lower.lastIndexOf("/") + 1) : lower;
+  if (base.endsWith(".jpg") || base.endsWith(".jpeg")) return "image/jpeg";
+  if (base.endsWith(".png")) return "image/png";
+  if (base.endsWith(".gif")) return "image/gif";
+  if (base.endsWith(".webp")) return "image/webp";
   return null;
 }
 
@@ -512,8 +591,9 @@ export async function fetchImageAsDataUrl(
   role: ImageIngestRole = "tile",
   codec?: ImageIngestCodec,
 ): Promise<string> {
-  const source = imageSourceUrl(href);
+  const source = resolveImageFetchUrl(href);
   if (!source) throw new Error(imageUrlInvalidMessage());
+  const fileName = fileNameHintFromImageUrl(href) ?? fileNameHintFromImageUrl(source) ?? undefined;
 
   let response: Response;
   try {
@@ -527,7 +607,7 @@ export async function fetchImageAsDataUrl(
   const blob = await response.blob();
   const blobType = mimeFromContentType(blob.type);
   const type = blobType || headerType;
-  return ingestImageBlob(blob, role, { mime: type || undefined, codec });
+  return ingestImageBlob(blob, role, { mime: type || undefined, fileName, codec });
 }
 
 /** Approximate decoded byte length of a base64 data URL payload. */

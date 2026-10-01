@@ -42,7 +42,7 @@ function gridView(overrides: Partial<Extract<ViewModel, { name: "grid" }>> = {})
   return {
     name: "grid",
     banner: null,
-    crumbs: [{ id: "1", title: "Bookmarks bar" }],
+    crumbs: [{ id: "1", title: "Bookmarks bar", isRoot: false }],
     items: [
       {
         id: "11",
@@ -59,6 +59,7 @@ function gridView(overrides: Partial<Extract<ViewModel, { name: "grid" }>> = {})
     canCreate: true,
     canRenameCurrent: true,
     canDeleteCurrent: true,
+    canRefreshAll: true,
     currentFolder: { id: "1", title: "Bookmarks bar", imageDataUrl: null, kind: "folder", url: null },
     form: null,
     saving: false,

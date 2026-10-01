@@ -201,20 +201,35 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       const current = document.createElement("div");
       current.className = "current";
       const title = document.createElement("h1");
-      title.textContent = crumb.title;
+      if (crumb.isRoot) {
+        title.className = "crumb-root";
+        title.title = crumb.title;
+        title.setAttribute("aria-label", crumb.title);
+        title.append(iconHome());
+      } else {
+        title.textContent = crumb.title;
+      }
       current.append(title);
-      current.append(
-        menuButton(t("actions_for", crumb.title), view.saving, (button) => {
-          openCurrentFolderMenu(view, actions, button);
-        }),
-      );
+      if (currentFolderMenuAvailable(view)) {
+        current.append(
+          menuButton(t("actions_for", crumb.title), view.saving, (button) => {
+            openCurrentFolderMenu(view, actions, button);
+          }),
+        );
+      }
       nav.append(current);
       return;
     }
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "crumb";
-    button.textContent = crumb.title;
+    button.className = crumb.isRoot ? "crumb crumb-root" : "crumb";
+    if (crumb.isRoot) {
+      button.title = crumb.title;
+      button.setAttribute("aria-label", crumb.title);
+      button.append(iconHome());
+    } else {
+      button.textContent = crumb.title;
+    }
     button.addEventListener("click", () => actions.goToFolder(crumb.id));
     if (!view.saving) bindMoveIntoTarget(button, crumb.id, actions);
     nav.append(button);
@@ -1027,15 +1042,9 @@ function openActionMenu(
   });
 }
 
-function refreshableCount(items: readonly DialItem[]): number {
-  let count = 0;
-  for (const item of items) {
-    if (item.kind !== "link" || !item.url) continue;
-    const pageUrl = openableUrl(item.url);
-    if (!pageUrl) continue;
-    if (pageUrl.startsWith("http:") || pageUrl.startsWith("https:")) count += 1;
-  }
-  return count;
+/** True when the current-folder ⋮ menu has at least one entry to show. */
+function currentFolderMenuAvailable(view: Extract<ViewModel, { name: "grid" }>): boolean {
+  return view.canRenameCurrent || view.canDeleteCurrent || view.canRefreshAll;
 }
 
 function openCurrentFolderMenu(
@@ -1082,17 +1091,17 @@ function openCurrentFolderMenu(
     );
   }
 
-  const count = refreshableCount(view.items);
-  if (!view.thumbnailsActive) {
-    addItem(t("menu_refresh_all_enable"), iconCamera(), () => undefined, {
-      disabled: true,
-    });
-  } else if (count === 0) {
-    addItem(t("menu_refresh_all_none"), iconCamera(), () => undefined, {
-      disabled: true,
-    });
-  } else {
-    addItem(t("menu_refresh_all"), iconCamera(), () => actions.refreshAllThumbnails());
+  // Omit Refresh All when this folder has no direct http(s) bookmarks — root
+  // and empty folders used to show a disabled item that still led users into
+  // the “no bookmarks to refresh” error via the dial-page context menu path.
+  if (view.canRefreshAll) {
+    if (!view.thumbnailsActive) {
+      addItem(t("menu_refresh_all_enable"), iconCamera(), () => undefined, {
+        disabled: true,
+      });
+    } else {
+      addItem(t("menu_refresh_all"), iconCamera(), () => actions.refreshAllThumbnails());
+    }
   }
 
   if (view.canDeleteCurrent) {
@@ -1683,6 +1692,11 @@ function iconFolder(): SVGSVGElement {
   return svgIcon(
     "M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z",
   );
+}
+
+/** Simple home mark for the bookmark-tree root breadcrumb. */
+function iconHome(): SVGSVGElement {
+  return svgIcon("M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z");
 }
 
 function iconBookmark(): SVGSVGElement {

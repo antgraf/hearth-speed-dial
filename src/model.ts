@@ -21,8 +21,28 @@ export type DialItem = {
 
 export type Crumb = {
   id: string;
+  /**
+   * Accessible name / tooltip. For the tree root this is the i18n root label
+   * (not the browser’s raw folder title); the UI shows a home icon instead.
+   */
   title: string;
+  /** True for the browser bookmark tree root crumb. */
+  isRoot: boolean;
 };
+
+/** Chrome `bookmarks.getTree()` root folder id. */
+export const CHROME_BOOKMARK_ROOT_ID = "0";
+
+/**
+ * Firefox `bookmarks.getTree()` root folder id (12-char padded name).
+ * Creating bookmarks directly under this node fails in Firefox.
+ */
+export const FIREFOX_BOOKMARK_ROOT_ID = "root________";
+
+/** True for the unwritable bookmark-tree root in Chrome or Firefox. */
+export function isBookmarkTreeRootId(id: string): boolean {
+  return id === CHROME_BOOKMARK_ROOT_ID || id === FIREFOX_BOOKMARK_ROOT_ID;
+}
 
 export function classify(node: BookmarkNode): "folder" | "link" | "skip" {
   if (typeof node.url === "string") return "link";
@@ -88,16 +108,25 @@ export function displayTitle(title: string, kind: "folder" | "link"): string {
 }
 
 export function folderLabel(node: { id: string; title: string }): string {
-  if (node.id === "0") return t("fallback_bookmarks_root");
+  if (isBookmarkTreeRootId(node.id)) return t("fallback_bookmarks_root");
   return displayTitle(node.title, "folder");
 }
 
 export function bookmarkRoot(roots: readonly BookmarkNode[]): BookmarkNode | null {
-  return roots.find((node) => node.id === "0" && classify(node) === "folder") ?? roots.find((node) => classify(node) === "folder") ?? null;
+  return (
+    roots.find((node) => isBookmarkTreeRootId(node.id) && classify(node) === "folder") ??
+    roots.find((node) => classify(node) === "folder") ??
+    null
+  );
 }
 
+/**
+ * Folders that can receive a new dial.
+ * Chrome and Firefox both reject creates under the bookmark-tree root
+ * (`"0"` / `"root________"`); match that in the UI so New is not offered there.
+ */
 export function acceptsChildren(node: BookmarkNode): boolean {
-  return classify(node) === "folder" && node.id !== "0";
+  return classify(node) === "folder" && !isBookmarkTreeRootId(node.id);
 }
 
 export type FolderOption = {
@@ -355,7 +384,7 @@ export function moveIntoFolderError(
   const parents = parentIds(roots);
   const dragged = nodes.get(draggedId);
   if (!dragged) return t("error_bookmark_gone");
-  if (draggedId === "0") return t("error_root_cannot_move");
+  if (isBookmarkTreeRootId(draggedId)) return t("error_root_cannot_move");
 
   const target = nodes.get(targetFolderId);
   if (!target || classify(target) !== "folder") return t("error_drop_onto_folder");
@@ -537,7 +566,11 @@ export function breadcrumb(roots: readonly BookmarkNode[], rootId: string, curre
     seen.add(id);
     const node = nodes.get(id);
     if (!node || classify(node) !== "folder") break;
-    crumbs.push({ id: node.id, title: folderLabel(node) });
+    crumbs.push({
+      id: node.id,
+      title: folderLabel(node),
+      isRoot: node.id === rootId,
+    });
     if (node.id === rootId) break;
     id = parents.get(node.id);
   }
@@ -545,5 +578,5 @@ export function breadcrumb(roots: readonly BookmarkNode[], rootId: string, curre
   if (crumbs[0]?.id === rootId) return crumbs;
   const root = nodes.get(rootId);
   if (!root || classify(root) !== "folder") return [];
-  return [{ id: root.id, title: folderLabel(root) }];
+  return [{ id: root.id, title: folderLabel(root), isRoot: true }];
 }
