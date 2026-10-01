@@ -74,7 +74,7 @@ Manual checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 | `dist/chrome/background.js` | MV3 service worker (context menu) |
 | `dist/chrome/assets/` | Hashed JS/CSS for the pages |
 
-`npm run build:firefox` copies the Chrome tree to `dist/firefox/` and writes a Firefox manifest: no `favicon`; optional hosts folded into `optional_permissions`; `browser_specific_settings.gecko` (`hearth-speed-dial@antgraf`, min `121.0`, `data_collection_permissions.required: ["none"]`).
+`npm run build:firefox` copies the Chrome tree to `dist/firefox/` and writes a Firefox manifest: no `favicon`; optional hosts folded into `optional_permissions`; `browser_specific_settings.gecko` (`hearth-speed-dial@antgraf`, min `121.0`, `data_collection_permissions.required: ["none"]`); `background.scripts` (Chrome keeps `background.service_worker`).
 
 Do not ship `node_modules`, `src`, or the Vite preview into the package. `dist/` is gitignored; always build before load-unpacked or packaging.
 

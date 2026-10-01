@@ -130,7 +130,7 @@ Manual product checks after load: [smoke-checklist.md](smoke-checklist.md).
 ## Cross-browser API notes
 
 - Runtime code resolves `browser` before `chrome` (`src/webext.ts`) so Firefox gets promise-based APIs.
-- Chrome root `manifest.json` stays the Chrome source of truth; Firefox packaging is generated (`scripts/firefox-manifest.mjs` → `dist/firefox/`).
+- Chrome root `manifest.json` stays the Chrome source of truth; Firefox packaging is generated (`scripts/firefox-manifest.mjs` → `dist/firefox/`), including `background.scripts` instead of `service_worker` so temporary add-on load works.
 - Title-strip favicons stay Chrome-only (`favicon` + `/_favicon/`). Firefox omits them without adding host permissions.
 - Optional thumbnail / URL-image permission UX can differ on Firefox (may re-prompt more often after revoke); degrade gracefully either way.
 

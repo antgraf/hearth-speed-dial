@@ -6,7 +6,7 @@
 /** Stable AMO / temporary-addon id (email-like; not a random UUID). */
 export const FIREFOX_EXTENSION_ID = "hearth-speed-dial@antgraf";
 
-/** Firefox 121+ for MV3 background service workers. */
+/** Firefox 121+ floor (MV3 WebExtension packaging baseline for this project). */
 export const FIREFOX_STRICT_MIN_VERSION = "121.0";
 
 /**
@@ -27,7 +27,7 @@ export const FIREFOX_DATA_COLLECTION_PERMISSIONS = Object.freeze({
  * @property {string[]} [permissions]
  * @property {string[]} [optional_permissions]
  * @property {string[]} [optional_host_permissions]
- * @property {object} [background]
+ * @property {{ service_worker?: string, scripts?: string[], type?: string }} [background]
  * @property {object} [icons]
  * @property {object} [chrome_url_overrides]
  * @property {string} [options_page]
@@ -66,11 +66,18 @@ export function chromeManifestToFirefox(chromeManifest) {
     },
   };
 
-  // background.service_worker + type:module matches the Vite Chrome build output
-  // and is supported on Firefox 121+.
-  if (!firefox.background?.service_worker) {
+  // Firefox temporary add-ons disable background.service_worker ("Add background.scripts").
+  // Keep type:module so the Vite ES background entry (import … from "./assets/…") loads.
+  const worker = firefox.background?.service_worker;
+  if (!worker) {
     throw new Error("Chrome manifest missing background.service_worker");
   }
+  /** @type {{ scripts: string[], type?: string }} */
+  const background = { scripts: [worker] };
+  if (firefox.background?.type) {
+    background.type = firefox.background.type;
+  }
+  firefox.background = background;
 
   return firefox;
 }
@@ -111,7 +118,13 @@ export function assertFirefoxManifest(firefoxManifest) {
   if (firefoxManifest.chrome_url_overrides?.newtab !== "index.html") {
     throw new Error("Firefox manifest missing chrome_url_overrides.newtab");
   }
-  if (!firefoxManifest.background?.service_worker) {
-    throw new Error("Firefox manifest missing background.service_worker");
+  const scripts = firefoxManifest.background?.scripts;
+  if (!Array.isArray(scripts) || !scripts.includes("background.js")) {
+    throw new Error("Firefox manifest missing background.scripts including background.js");
+  }
+  if (firefoxManifest.background?.service_worker) {
+    throw new Error(
+      "Firefox manifest must use background.scripts, not background.service_worker",
+    );
   }
 }

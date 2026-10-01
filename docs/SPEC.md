@@ -50,7 +50,7 @@ Out of scope for now: refresh one dial; favicon-as-dial-face fallback; Firefox t
 | Chrome | `npm run build:chrome` or `.\build.ps1 -Target Chrome` | Load unpacked `dist/chrome/`; `npm run pack:chrome` → `artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip` |
 | Firefox | `npm run build:firefox` (after Chrome) or `.\build.ps1 -Target Firefox` | Temporary add-on from `dist/firefox/manifest.json` (Firefox **121+**); `npm run pack:firefox` → `artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip`; AMO source archive: `npm run pack:source` → `artifacts/hearth-speed-dial-source-vX.Y.Z.zip` ([AMO.md](./AMO.md)) |
 
-Firefox manifest differences (generated, not hand-edited): omit `favicon`; fold optional hosts into `optional_permissions`; add `browser_specific_settings.gecko` (`id`: `hearth-speed-dial@antgraf`, `strict_min_version`: `121.0`, `data_collection_permissions`: `{ "required": ["none"] }`); keep MV3 `background.service_worker` + `chrome_url_overrides.newtab`. AMO listing copy / screenshots / privacy policy remain separate Pre-publish items; source-zip rebuild steps are in [AMO.md](./AMO.md).
+Firefox manifest differences (generated, not hand-edited): omit `favicon`; fold optional hosts into `optional_permissions`; add `browser_specific_settings.gecko` (`id`: `hearth-speed-dial@antgraf`, `strict_min_version`: `121.0`, `data_collection_permissions`: `{ "required": ["none"] }`); use MV3 `background.scripts` (not `service_worker` — temporary add-ons disable SW) + `chrome_url_overrides.newtab`. AMO listing copy / screenshots / privacy policy remain separate Pre-publish items; source-zip rebuild steps are in [AMO.md](./AMO.md).
 
 ## Hard requirements this spec is aiming at
 
