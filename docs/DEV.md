@@ -8,46 +8,72 @@ Requires Node 22+ (same as the rest of the repo). Works on Windows, macOS, and L
 
 ### Chrome
 
-Build, then launch Chrome with `--user-data-dir` pointing at `.browser-profiles/chrome` and `--load-extension` pointing at `dist/chrome/`:
+**Official Chrome 137+ ignores `--load-extension`** (and Chrome 139+ also ignores `--disable-extensions-except`). On Anton's Windows Stable build, the reliable flow is: isolated profile → **Load unpacked** → `dist/chrome/`.
+
+```powershell
+.\pull_and_build.ps1   # or: .\build.ps1 / .\build.ps1 -Target Chrome
+.\reset-browser-profiles.ps1 chrome   # fresh install / first-run only
+.\launch-chrome.ps1
+```
 
 ```bash
 npm run build
+npm run browser:reset -- chrome   # fresh install / first-run only
 npm run browser:chrome
 ```
 
-```powershell
-npm run build
-npm run browser:chrome
-# or: .\build.ps1 ; .\launch-chrome.ps1
-# Chrome-only: .\build.ps1 -Target Chrome
-```
+In the opened window:
 
-Useful flags (pass after `--` for npm):
+1. Open `chrome://version` and confirm **Profile Path** contains `.browser-profiles\chrome` (or `.browser-profiles/chrome`). If it points at your personal User Data, you are in the wrong window — quit all Chrome windows and relaunch.
+2. On `chrome://extensions`: Developer mode ON → **Load unpacked** → select **`dist/chrome`** (the folder that **directly** contains `manifest.json`).
+3. Open a new tab — it should be Hearth, not the default NTP.
+
+**Wrong Load unpacked folders (common after #40):**
+
+| Folder | Result |
+| --- | --- |
+| `dist/chrome/` | Correct |
+| `dist/` | No `manifest.json` at this level (only `chrome/` + `firefox/` children) |
+| `dist/firefox/` | Firefox tree — not for Chrome |
+| Repo root | Has a source `manifest.json` but no built `background.js` / `index.html` — broken install |
+
+If a personal profile still has Hearth pointed at the **old** pre-#40 path (`…\dist` instead of `…\dist\chrome`), remove that card and Load unpacked again from `dist/chrome`, or hit **Reload** only after the stored path already ends in `dist\chrome`.
+
+Useful flags (pass after `--` for npm; for the `.ps1` wrapper pass flags directly, e.g. `.\launch-chrome.ps1 --load-ext`):
 
 | Flag | Meaning |
 | --- | --- |
-| `--no-ext` | Do not auto-load `dist/chrome/`; open `chrome://extensions` → **Load unpacked** yourself |
-| `--ext <path>` | Load a different extension directory (default: `<repo>/dist/chrome`) |
+| *(default)* | Open isolated profile + `chrome://extensions`; Load unpacked yourself |
+| `--no-ext` | Same as default (kept for older docs) |
+| `--load-ext` | Pass `--load-extension` (Chromium / Chrome for Testing only — ignored on official Chrome 137+) |
+| `--ext <path>` | Same as `--load-ext` with a custom directory (default target is `<repo>/dist/chrome`) |
 | `--profile <path>` | Override the isolated profile directory |
 | `--binary <path>` | Chrome/Chromium binary (or set `CHROME_PATH`) |
-| `--foreground` | Keep the npm process attached until the browser exits |
+| `--foreground` | Keep the npm / pwsh process attached until the browser exits |
 | `-h` / `--help` | Print help |
 
 Examples:
 
+```powershell
+.\launch-chrome.ps1
+.\launch-chrome.ps1 --binary "C:\Path\To\chrome.exe"
+```
+
 ```bash
-npm run browser:chrome -- --no-ext
+npm run browser:chrome -- --load-ext
 npm run browser:chrome -- --binary /usr/bin/chromium
 CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run browser:chrome
 ```
 
-After a rebuild, either restart with `npm run browser:chrome` (fresh `--load-extension`) or, in the already-open window, open `chrome://extensions` and click **Reload** on the Hearth card.
+After a rebuild in an already-open isolated window, open `chrome://extensions` and click **Reload** on the Hearth card (path must already be `dist/chrome`).
 
-To test a **fresh install** (permissions / first-run), reset the isolated profile then relaunch:
+To test a **fresh install** (permissions / first-run welcome):
 
-```bash
-npm run browser:reset -- chrome
-npm run build && npm run browser:chrome
+```powershell
+.\reset-browser-profiles.ps1 chrome
+.\build.ps1 -Target Chrome
+.\launch-chrome.ps1
+# then Load unpacked → dist/chrome
 ```
 
 ### Firefox

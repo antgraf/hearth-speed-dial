@@ -2,6 +2,10 @@
 /**
  * Launch Chrome/Chromium with an isolated profile for extension install tests.
  * Never uses the user's default Chrome profile.
+ *
+ * Official Chrome 137+ ignores --load-extension; Chrome 139+ also ignores
+ * --disable-extensions-except. Default flow is therefore Load unpacked in the
+ * isolated profile. Pass --load-ext only when using Chromium / Chrome for Testing.
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -36,9 +40,23 @@ const profile =
   (typeof flags.profile === "string" && resolve(flags.profile)) ||
   ensureProfile("chrome");
 
-const loadExt = !flags["no-ext"];
+// Default: manual Load unpacked (works on branded Chrome).
+// --load-ext / --ext opt into CLI load (Chromium / Chrome for Testing only).
+// --no-ext kept as an explicit alias for the default (older docs / muscle memory).
+const wantsCliLoad =
+  Boolean(flags["load-ext"]) || typeof flags.ext === "string";
+const loadExt = wantsCliLoad && !flags["no-ext"];
 const extPath =
   (typeof flags.ext === "string" && resolve(flags.ext)) || distDir;
+
+if (!pathExists(extPath) || !existsSync(resolve(extPath, "manifest.json"))) {
+  console.error(
+    `Extension folder missing or has no manifest.json: ${extPath}\n` +
+      `Run \`npm run build\` or \`npm run build:chrome\` first.\n` +
+      `Load unpacked must use dist/chrome/ (not dist/, not the repo root).`,
+  );
+  process.exit(1);
+}
 
 /** @type {string[]} */
 const args = [
@@ -48,30 +66,71 @@ const args = [
 ];
 
 if (loadExt) {
-  if (!pathExists(extPath) || !existsSync(resolve(extPath, "manifest.json"))) {
-    console.error(
-      `Extension folder missing or has no manifest.json: ${extPath}\n` +
-        `Run \`npm run build\` or \`npm run build:chrome\` first (or pass --no-ext / --ext <path>).`,
-    );
-    process.exit(1);
-  }
-  args.push(`--disable-extensions-except=${extPath}`);
+  // Do not pass --disable-extensions-except: branded Chrome 139+ ignores it,
+  // and on 137–138 it can force-disable a just-loaded unpacked extension when
+  // --load-extension itself is already ignored — toast with an empty list.
+  // Also breaks Load unpacked from a different path (e.g. legacy dist/).
   args.push(`--load-extension=${extPath}`);
 }
 
-args.push("chrome://newtab/");
+// Open Extensions so Load unpacked is one click away; newtab alone is easy to
+// confuse with a personal-profile window when CLI load is ignored.
+args.push("chrome://extensions");
 
 const foreground = Boolean(flags.foreground);
 console.log(`Chrome:   ${binary}`);
 console.log(`Profile:  ${profile}`);
-console.log(
-  loadExt
-    ? `Extension: ${extPath} (--load-extension)`
-    : "Extension: not auto-loaded (--no-ext); use chrome://extensions → Load unpacked → dist/chrome/",
-);
+if (loadExt) {
+  console.log(`Extension: ${extPath} (--load-extension)`);
+  console.log(
+    "Note: Official Chrome 137+ ignores --load-extension. If the list stays empty,",
+  );
+  console.log(
+    "       use Load unpacked on dist/chrome/ (or Chrome for Testing / Chromium).",
+  );
+} else {
+  console.log(`Extension: load unpacked from ${extPath}`);
+  console.log("Steps in the opened window:");
+  console.log(
+    "  1. Confirm chrome://version → Profile Path contains .browser-profiles",
+  );
+  console.log(
+    "  2. Developer mode ON → Load unpacked → select dist/chrome/",
+  );
+  console.log(
+    "     (folder that directly contains manifest.json — not dist/, not repo root)",
+  );
+  console.log("  3. Open a new tab (should be Hearth, not the default NTP)");
+}
 console.log(`Repo:     ${repoRoot}`);
 
-launchBrowser(binary, args, { foreground });
+const child = launchBrowser(binary, args, {
+  foreground,
+  deferUnref: !foreground,
+});
+
 if (!foreground) {
-  console.log("Launched (detached). Close the browser window when finished.");
+  // Branded Chrome sometimes exits immediately when it hands off to an existing
+  // process (wrong profile). Keep this script alive briefly to notice that.
+  const earlyMs = 2000;
+  let settled = false;
+  child.once("exit", (code, signal) => {
+    if (settled) return;
+    settled = true;
+    const detail = signal ? `signal ${signal}` : `code ${code ?? "?"}`;
+    console.error(
+      `Chrome exited immediately (${detail}). The isolated profile may not have opened.`,
+    );
+    console.error(
+      "Quit every Chrome window, then retry. Confirm chrome://version Profile Path",
+    );
+    console.error(`contains:\n  ${profile}`);
+    process.exitCode = 1;
+  });
+  setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    console.log("Launched (detached). Close the browser window when finished.");
+    child.unref();
+  }, earlyMs);
 }
