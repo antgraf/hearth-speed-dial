@@ -35,13 +35,13 @@ npm run build
 
 Or from the repo root: `.\build.ps1` (or `pwsh ./build.ps1`). Runs `npm install` if `node_modules` is missing, then builds **both** Chrome and Firefox under `dist/chrome` and `dist/firefox`. Pass `-Target Chrome` or `-Target Firefox` to build only one. To update from git first, use `.\pull_and_build.ps1` (or `pwsh ./pull_and_build.ps1`) — same `-Target` options; default is all.
 
-1. Open `chrome://extensions`.
+1. Open `chrome://extensions` (for an isolated empty profile: `.\launch-chrome.ps1` — see [docs/DEV.md](docs/DEV.md)).
 2. Turn on Developer mode.
 3. Choose **Load unpacked**.
-4. Select the `dist/chrome` folder in this repo (not the repo root, not `dist/firefox`).
+4. Select the `dist/chrome` folder in this repo — the folder that **directly** contains `manifest.json`. Do **not** pick the repo root, `dist/`, or `dist/firefox` (since #40 the Chrome build lives under `dist/chrome/`, not `dist/`).
 5. Open a new tab.
 
-After a rebuild, use **Reload** on the extension card so Chrome picks up `dist/chrome` changes.
+After a rebuild, use **Reload** on the extension card so Chrome picks up `dist/chrome` changes. If an older install still points at the pre-#40 `dist\` path, remove it and Load unpacked again from `dist/chrome`.
 
 ## Temporary add-on (Firefox)
 

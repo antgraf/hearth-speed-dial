@@ -181,7 +181,7 @@ export function findFirefox() {
 /**
  * @param {string} binary
  * @param {string[]} args
- * @param {{ foreground?: boolean }} [opts]
+ * @param {{ foreground?: boolean, deferUnref?: boolean }} [opts]
  * @returns {import("node:child_process").ChildProcess}
  */
 export function launchBrowser(binary, args, opts = {}) {
@@ -205,7 +205,10 @@ export function launchBrowser(binary, args, opts = {}) {
     stdio: "ignore",
     windowsHide: false,
   });
-  child.unref();
+  // Caller may defer unref to detect an immediate Chrome singleton handoff.
+  if (!opts.deferUnref) {
+    child.unref();
+  }
   return child;
 }
 
@@ -263,14 +266,19 @@ export function pathExists(path) {
 
 export function printChromeHelp() {
   console.log(`Usage: npm run browser:chrome -- [options]
+       .\\launch-chrome.ps1 [options]
 
 Launch Chrome/Chromium with an isolated profile under .browser-profiles/chrome
-(never your personal Chrome profile). Optionally loads dist/chrome/ as an unpacked
-extension.
+(never your personal Chrome profile). Opens chrome://extensions.
+
+Default (recommended on official Chrome): Load unpacked yourself from dist/chrome/.
+Official Chrome 137+ ignores --load-extension; Chrome 139+ also ignores
+--disable-extensions-except. Use --load-ext only with Chromium or Chrome for Testing.
 
 Options:
-  --no-ext          Do not pass --load-extension (open chrome://extensions yourself)
-  --ext <path>      Extension directory to load (default: <repo>/dist/chrome)
+  --load-ext        Pass --load-extension=<dist/chrome> (Chromium / CfT only)
+  --ext <path>      Same as --load-ext but with a custom extension directory
+  --no-ext          Explicit default: do not pass --load-extension
   --profile <path>  Override profile directory
   --binary <path>   Chrome/Chromium binary (or set CHROME_PATH)
   --foreground      Keep this process attached until the browser exits
@@ -278,8 +286,16 @@ Options:
 
 Examples:
   npm run build && npm run browser:chrome
-  npm run browser:chrome -- --no-ext
+  .\\launch-chrome.ps1
+  .\\launch-chrome.ps1 --no-ext
+  npm run browser:chrome -- --load-ext
   npm run browser:reset -- chrome
+
+Load unpacked folder must be dist\\chrome (manifest.json directly inside).
+Do not pick repo root, dist\\, or dist\\firefox — those fail or look empty.
+
+After launch, verify chrome://version → Profile Path contains .browser-profiles\\chrome
+before Load unpacked (avoids installing into your personal profile by mistake).
 `);
 }
 
