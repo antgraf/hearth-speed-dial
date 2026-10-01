@@ -54,7 +54,9 @@ test("chromeManifestToFirefox drops favicon and folds optional hosts", () => {
     { required: ["none"] },
   );
   assert.equal(firefox.chrome_url_overrides.newtab, "index.html");
-  assert.equal(firefox.background.service_worker, "background.js");
+  assert.deepEqual(firefox.background.scripts, ["background.js"]);
+  assert.equal(firefox.background.type, "module");
+  assert.equal(firefox.background.service_worker, undefined);
   assertFirefoxManifest(firefox);
 });
 
@@ -66,7 +68,7 @@ test("assertFirefoxManifest rejects Chrome favicon leftover", () => {
         permissions: ["bookmarks", "favicon"],
         optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
         chrome_url_overrides: { newtab: "index.html" },
-        background: { service_worker: "background.js" },
+        background: { scripts: ["background.js"], type: "module" },
         browser_specific_settings: {
           gecko: validGecko(),
         },
@@ -83,7 +85,7 @@ test("assertFirefoxManifest rejects missing data_collection_permissions", () => 
         permissions: ["bookmarks", "storage"],
         optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
         chrome_url_overrides: { newtab: "index.html" },
-        background: { service_worker: "background.js" },
+        background: { scripts: ["background.js"], type: "module" },
         browser_specific_settings: {
           gecko: {
             id: FIREFOX_EXTENSION_ID,
@@ -92,5 +94,22 @@ test("assertFirefoxManifest rejects missing data_collection_permissions", () => 
         },
       }),
     /data_collection_permissions/,
+  );
+});
+
+test("assertFirefoxManifest rejects leftover service_worker", () => {
+  assert.throws(
+    () =>
+      assertFirefoxManifest({
+        manifest_version: 3,
+        permissions: ["bookmarks"],
+        optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
+        chrome_url_overrides: { newtab: "index.html" },
+        background: { service_worker: "background.js", type: "module" },
+        browser_specific_settings: {
+          gecko: validGecko(),
+        },
+      }),
+    /background\.scripts/,
   );
 });
