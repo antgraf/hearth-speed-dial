@@ -47,6 +47,7 @@ function state(overrides: Partial<AppState> = {}): AppState {
     thumbnailsActive: false,
     imageUrlFetchActive: false,
     searchQuery: "",
+    welcomeDismissed: true,
     ...overrides,
   };
 }
@@ -262,4 +263,14 @@ test("refresh-all confirm mentions count and nested-folder scope", () => {
     refreshAllThumbnailsConfirmMessage(3),
     t("refresh_all_message", ["3", t("noun_bookmarks")]),
   );
+});
+
+test("first-run welcome shows until dismissed", () => {
+  const shown = present(state({ welcomeDismissed: false }));
+  if (shown.name !== "grid") throw new Error("expected the grid");
+  assert.equal(shown.showWelcome, true);
+
+  const hidden = present(state({ welcomeDismissed: true }));
+  if (hidden.name !== "grid") throw new Error("expected the grid");
+  assert.equal(hidden.showWelcome, false);
 });

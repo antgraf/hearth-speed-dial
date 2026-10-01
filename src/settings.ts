@@ -10,6 +10,9 @@ import { t } from "./i18n.ts";
 
 const STORAGE_KEY = "hearth.settings";
 
+/** Local-only first-run welcome dismissed flag (not synced; not in backup). */
+export const WELCOME_DISMISSED_KEY = "hearth.welcome.dismissed";
+
 export type LayoutSettings = {
   columns: number;
   tileSize: number;
@@ -73,16 +76,20 @@ export type SettingsApi = {
   getThemeBackground(): Promise<string | null>;
   /** Persist or clear the local wallpaper (data URL / null). */
   setThemeBackground(dataUrl: string | null): Promise<void>;
+  /** True after the user dismisses the first-run welcome card. */
+  getWelcomeDismissed(): Promise<boolean>;
+  /** Persist whether the first-run welcome has been dismissed. */
+  setWelcomeDismissed(dismissed: boolean): Promise<void>;
   /**
    * Restore layout + theme + default-folder prefs to product defaults.
    * Preserves last-open folder (`openFolderId`). Clears the theme wallpaper.
-   * Does not touch dial images.
+   * Does not touch dial images or the welcome dismissed flag.
    */
   resetToDefaults(): Promise<LayoutSettings>;
   /**
-   * Remove the entire settings blob (layout, theme, default folder, last-open)
-   * and the theme wallpaper key. Does not touch dial image keys — pair with
-   * ImagesApi.clearAll for Erase.
+   * Remove the entire settings blob (layout, theme, default folder, last-open),
+   * the theme wallpaper key, and the welcome dismissed flag. Does not touch
+   * dial image keys — pair with ImagesApi.clearAll for Erase.
    */
   clearAll(): Promise<void>;
 };
@@ -228,6 +235,14 @@ export function readDefaultFolderId(value: unknown): string | null {
   return null;
 }
 
+/** Absent / unknown values mean the welcome has not been dismissed yet. */
+export function readWelcomeDismissed(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1 || value === "1") return true;
+  if (value === "false" || value === 0 || value === "0") return false;
+  return false;
+}
+
 /**
  * Apply min/max/step before value on a range input.
  * Chromium defaults max to 100; assigning value first clamps it, and after max
@@ -316,6 +331,20 @@ export function previewSettings(): SettingsApi {
       if (!valid) throw new Error(t("error_background_store"));
       localStorage.setItem(THEME_BACKGROUND_KEY, valid);
     },
+    async getWelcomeDismissed() {
+      try {
+        return readWelcomeDismissed(localStorage.getItem(WELCOME_DISMISSED_KEY));
+      } catch {
+        return false;
+      }
+    },
+    async setWelcomeDismissed(dismissed) {
+      if (dismissed) {
+        localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
+        return;
+      }
+      localStorage.removeItem(WELCOME_DISMISSED_KEY);
+    },
     async resetToDefaults() {
       writeStored({
         columns: DEFAULT_LAYOUT.columns,
@@ -333,6 +362,7 @@ export function previewSettings(): SettingsApi {
     async clearAll() {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(THEME_BACKGROUND_KEY);
+      localStorage.removeItem(WELCOME_DISMISSED_KEY);
     },
   };
 }

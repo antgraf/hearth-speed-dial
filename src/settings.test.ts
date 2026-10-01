@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import {
+  import {
   bindRangeInput,
   clampColumns,
   clampThumbnailWaitSeconds,
@@ -20,10 +20,12 @@ import {
   readThumbnailWaitSeconds,
   readThumbnailsEnabled,
   readTileSize,
+  readWelcomeDismissed,
   resetDefaultsConfirm,
   TILE_ASPECT,
   syncRangeInputValue,
   thumbnailWaitMs,
+  WELCOME_DISMISSED_KEY,
 } from "./settings.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -130,6 +132,19 @@ test("readImageUrlFetchEnabled defaults off and accepts common encodings", () =>
   assert.equal(readImageUrlFetchEnabled(0), false);
   assert.equal(readImageUrlFetchEnabled(null), false);
   assert.equal(readImageUrlFetchEnabled("maybe"), false);
+});
+
+test("readWelcomeDismissed defaults false and accepts common encodings", () => {
+  assert.equal(WELCOME_DISMISSED_KEY, "hearth.welcome.dismissed");
+  assert.equal(readWelcomeDismissed(true), true);
+  assert.equal(readWelcomeDismissed(false), false);
+  assert.equal(readWelcomeDismissed("true"), true);
+  assert.equal(readWelcomeDismissed("false"), false);
+  assert.equal(readWelcomeDismissed(1), true);
+  assert.equal(readWelcomeDismissed(0), false);
+  assert.equal(readWelcomeDismissed(null), false);
+  assert.equal(readWelcomeDismissed(undefined), false);
+  assert.equal(readWelcomeDismissed("maybe"), false);
 });
 
 test("readLayout pulls columns, tileSize, reverseOrder, wait, opt-in flags, and theme", () => {

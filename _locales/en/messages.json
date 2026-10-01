@@ -777,5 +777,27 @@
   },
   "help_opacity": {
     "message": "How strongly the local wallpaper shows behind the dial (0–100%)."
+  },
+  "welcome_title": {
+    "message": "Welcome to Hearth",
+    "description": "First-run welcome card heading on the new-tab dial"
+  },
+  "welcome_bookmarks": {
+    "message": "Your dials are ordinary browser bookmarks — the bookmark manager and browser sync see the same tree."
+  },
+  "welcome_settings": {
+    "message": "The gear opens Settings for layout, theme, pictures, and backup."
+  },
+  "welcome_picture": {
+    "message": "Use ⋮ → Picture… on a dial to assign a thumbnail or other local image."
+  },
+  "welcome_privacy": {
+    "message": "No account — nothing leaves your browser."
+  },
+  "welcome_open_settings": {
+    "message": "Open Settings"
+  },
+  "welcome_got_it": {
+    "message": "Got it"
   }
 }

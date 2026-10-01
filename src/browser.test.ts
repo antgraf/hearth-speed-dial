@@ -5,7 +5,7 @@ import {
   IMAGE_KEY_PREFIX,
   imageStorageWriteFailedMessage,
 } from "./images.ts";
-import { DEFAULT_LAYOUT } from "./settings.ts";
+import { DEFAULT_LAYOUT, WELCOME_DISMISSED_KEY } from "./settings.ts";
 import { THEME_BACKGROUND_KEY } from "./theme.ts";
 
 type StorageBag = Record<string, unknown>;
@@ -190,11 +190,12 @@ test("P1-4 chromeSettings.resetToDefaults preserves openFolderId", async () => {
   assert.equal(THEME_BACKGROUND_KEY in fake.storage.local.store, false);
 });
 
-test("P1-4 chromeSettings.clearAll drops settings and theme wallpaper", async () => {
+test("P1-4 chromeSettings.clearAll drops settings, theme wallpaper, and welcome flag", async () => {
   const fake = fakeChrome({
     settings: { openFolderId: "1", columns: 4 },
     [`${IMAGE_KEY_PREFIX}11`]: "data:image/png;base64,aa==",
     [THEME_BACKGROUND_KEY]: "data:image/png;base64,bb==",
+    [WELCOME_DISMISSED_KEY]: true,
   });
   installChrome(fake);
   const api = chromeSettings();
@@ -203,8 +204,34 @@ test("P1-4 chromeSettings.clearAll drops settings and theme wallpaper", async ()
 
   assert.equal("settings" in fake.storage.local.store, false);
   assert.equal(THEME_BACKGROUND_KEY in fake.storage.local.store, false);
+  assert.equal(WELCOME_DISMISSED_KEY in fake.storage.local.store, false);
   assert.equal(fake.storage.local.store[`${IMAGE_KEY_PREFIX}11`], "data:image/png;base64,aa==");
   assert.ok(fake.storage.local.calls.some((c) => c.includes("settings")));
+});
+
+test("chromeSettings welcome dismissed get/set uses a dedicated local key", async () => {
+  const fake = fakeChrome({ settings: {} });
+  installChrome(fake);
+  const api = chromeSettings();
+  assert.equal(await api.getWelcomeDismissed(), false);
+  await api.setWelcomeDismissed(true);
+  assert.equal(fake.storage.local.store[WELCOME_DISMISSED_KEY], true);
+  assert.equal(await api.getWelcomeDismissed(), true);
+  await api.setWelcomeDismissed(false);
+  assert.equal(WELCOME_DISMISSED_KEY in fake.storage.local.store, false);
+  assert.equal(await api.getWelcomeDismissed(), false);
+});
+
+test("chromeSettings resetToDefaults preserves welcome dismissed", async () => {
+  const fake = fakeChrome({
+    settings: { columns: 7, openFolderId: "stay" },
+    [WELCOME_DISMISSED_KEY]: true,
+  });
+  installChrome(fake);
+  const api = chromeSettings();
+  await api.resetToDefaults();
+  assert.equal(fake.storage.local.store[WELCOME_DISMISSED_KEY], true);
+  assert.equal(await api.getWelcomeDismissed(), true);
 });
 
 test("chromeSettings theme background get/set stores a local data URL", async () => {

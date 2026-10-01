@@ -112,16 +112,19 @@ function fakeSettings(initial: {
   layout?: LayoutSettings;
   defaultFolderId?: string | null;
   openFolderId?: string | null;
+  welcomeDismissed?: boolean;
 } = {}): SettingsApi & {
   calls: CallLog;
   storedLayout: LayoutSettings;
   themeBackground: string | null;
+  welcomeDismissed: boolean;
 } {
   const calls: CallLog = [];
   let storedLayout = layout(initial.layout);
   let defaultFolderId = initial.defaultFolderId ?? null;
   let openFolderId = initial.openFolderId ?? null;
   let themeBackground: string | null = null;
+  let welcomeDismissed = initial.welcomeDismissed ?? false;
   return {
     calls,
     get storedLayout() {
@@ -129,6 +132,9 @@ function fakeSettings(initial: {
     },
     get themeBackground() {
       return themeBackground;
+    },
+    get welcomeDismissed() {
+      return welcomeDismissed;
     },
     async getOpenFolderId() {
       calls.push("getOpenFolderId");
@@ -162,6 +168,14 @@ function fakeSettings(initial: {
       calls.push(dataUrl ? "setThemeBackground:set" : "setThemeBackground:clear");
       themeBackground = dataUrl;
     },
+    async getWelcomeDismissed() {
+      calls.push("getWelcomeDismissed");
+      return welcomeDismissed;
+    },
+    async setWelcomeDismissed(dismissed) {
+      calls.push(`setWelcomeDismissed:${dismissed}`);
+      welcomeDismissed = dismissed;
+    },
     async resetToDefaults() {
       calls.push("resetToDefaults");
       storedLayout = layout();
@@ -175,6 +189,7 @@ function fakeSettings(initial: {
       defaultFolderId = null;
       openFolderId = null;
       themeBackground = null;
+      welcomeDismissed = false;
     },
   };
 }
@@ -551,6 +566,7 @@ test("P0-2 Erase clears settings and images, never bookmarks; revokes enabled gr
   const settings = fakeSettings({
     layout: layout({ thumbnailsEnabled: true, imageUrlFetchEnabled: true }),
     defaultFolderId: "10",
+    welcomeDismissed: true,
   });
   const images = fakeImages({
     "11": "data:image/png;base64,aa==",
@@ -567,6 +583,7 @@ test("P0-2 Erase clears settings and images, never bookmarks; revokes enabled gr
     },
   });
   const harness = await boot({ settings, images, permissions });
+  assert.equal(lastGrid(harness.views).showWelcome, false);
   permissions.calls.length = 0;
   settings.calls.length = 0;
   images.calls.length = 0;
@@ -589,6 +606,8 @@ test("P0-2 Erase clears settings and images, never bookmarks; revokes enabled gr
   const grid = lastGrid(harness.views);
   assert.deepEqual(grid.layout, DEFAULT_LAYOUT);
   assert.equal(grid.defaultFolderId, null);
+  assert.equal(grid.showWelcome, true);
+  assert.equal(settings.welcomeDismissed, false);
   harness.stop();
 });
 
@@ -1025,5 +1044,34 @@ test("opening a folder clears the find-a-dial query", async () => {
   assert.equal(grid.currentFolder.id, "10");
   assert.equal(grid.searchQuery, "");
   assert.equal(grid.searching, false);
+  harness.stop();
+});
+
+test("first-run welcome shows until Got it dismisses and persists", async () => {
+  const settings = fakeSettings({ welcomeDismissed: false });
+  const harness = await boot({ settings });
+  assert.equal(lastGrid(harness.views).showWelcome, true);
+  assert.ok(settings.calls.includes("getWelcomeDismissed"));
+
+  settings.calls.length = 0;
+  harness.actions().dismissWelcome();
+  await harness.ready();
+
+  assert.equal(lastGrid(harness.views).showWelcome, false);
+  assert.deepEqual(settings.calls, ["setWelcomeDismissed:true"]);
+  assert.equal(settings.welcomeDismissed, true);
+  harness.stop();
+});
+
+test("first-run welcome stays hidden when already dismissed; reset keeps it dismissed", async () => {
+  const settings = fakeSettings({ welcomeDismissed: true });
+  const harness = await boot({ settings });
+  assert.equal(lastGrid(harness.views).showWelcome, false);
+
+  await harness.actions().resetToDefaults();
+  await harness.ready();
+  assert.equal(lastGrid(harness.views).showWelcome, false);
+  assert.equal(settings.welcomeDismissed, true);
+  assert.ok(!settings.calls.includes("setWelcomeDismissed:false"));
   harness.stop();
 });

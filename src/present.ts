@@ -59,6 +59,11 @@ export type AppState = {
   imageUrlFetchActive: boolean;
   /** Find-a-dial filter for the open folder + subtree (titles + URLs). */
   searchQuery: string;
+  /**
+   * True after the user dismisses the first-run welcome (or while boot still
+   * loads the flag — hide until we know it should show).
+   */
+  welcomeDismissed: boolean;
 };
 
 export type ViewModel =
@@ -91,6 +96,8 @@ export type ViewModel =
       searchQuery: string;
       /** True when a non-empty query is filtering the grid. */
       searching: boolean;
+      /** Show the first-run welcome card above the dial grid. */
+      showWelcome: boolean;
     };
 
 function folderNode(tree: readonly BookmarkNode[], id: string | null): BookmarkNode | null {
@@ -199,5 +206,6 @@ export function present(state: AppState): ViewModel {
     imageUrlFetchActive: state.imageUrlFetchActive,
     searchQuery,
     searching,
+    showWelcome: !state.welcomeDismissed,
   };
 }
