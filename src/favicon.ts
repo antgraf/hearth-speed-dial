@@ -1,21 +1,25 @@
 /**
  * Chrome profile favicon cache for dial title strips.
  *
- * Requires install-time `favicon` permission. Builds a chrome-extension://
- * `_favicon` URL against the local cache only — no network fetch and no
- * third-party icon CDN (those would leak the bookmark list).
+ * Requires install-time `favicon` permission (Chrome only). Builds a
+ * chrome-extension:// `_favicon` URL against the local cache only — no network
+ * fetch and no third-party icon CDN (those would leak the bookmark list).
  *
- * Install-time (not optional): fresh installs over a real bookmark tree need
- * icons immediately for recognizability. Monogram / folder icon remain the
- * dial-face fallbacks; a missing cache entry simply hides the title icon.
+ * Firefox has no equivalent local favicon API without host access; title-strip
+ * icons stay hidden there (monogram / folder icon remain dial-face fallbacks).
+ *
+ * Install-time on Chrome (not optional): fresh installs over a real bookmark
+ * tree need icons immediately for recognizability. A missing cache entry simply
+ * hides the title icon.
  */
 
 import { openableUrl } from "./model.ts";
+import { supportsChromeFavicon, tryExtensionApi, type ExtensionApi } from "./webext.ts";
 
 /** Default pixel size for the title-strip favicon. */
 export const TITLE_FAVICON_SIZE = 16;
 
-export type FaviconRuntime = Pick<typeof chrome.runtime, "getURL">;
+export type FaviconRuntime = Pick<ExtensionApi["runtime"], "getURL">;
 
 /**
  * True when `href` can resolve a Chrome favicon (http/https only).
@@ -62,6 +66,7 @@ export function chromeFaviconSrc(
   size: number = TITLE_FAVICON_SIZE,
 ): string | null {
   if (!runtime?.getURL) return null;
+  if (!supportsChromeFavicon(tryExtensionApi())) return null;
   let base: string;
   try {
     base = runtime.getURL("/_favicon/");
@@ -72,6 +77,7 @@ export function chromeFaviconSrc(
 }
 
 function defaultFaviconRuntime(): FaviconRuntime | null {
-  if (typeof chrome === "undefined" || !chrome.runtime?.getURL) return null;
-  return chrome.runtime;
+  const api = tryExtensionApi();
+  if (!api?.runtime?.getURL) return null;
+  return api.runtime;
 }

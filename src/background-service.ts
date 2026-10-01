@@ -12,7 +12,7 @@ export const REFRESH_ALL_MENU_ID = "refresh-all-thumbnails";
 /** Popup size tuned to the Add form; CSS fills larger windows without a tiny floating card. */
 export const ADD_WINDOW = { width: 420, height: 520 } as const;
 
-/** http(s) pages only — hide Add to Hearth on chrome-extension:// dial / options pages. */
+/** http(s) pages only — hide Add to Hearth on chrome-extension:// / moz-extension:// dial pages. */
 export const WEB_DOCUMENT_PATTERNS = ["http://*/*", "https://*/*"] as const;
 
 export type BackgroundChrome = {
@@ -22,8 +22,8 @@ export type BackgroundChrome = {
     onStartup: { addListener: (listener: () => void) => void };
   };
   contextMenus: {
-    removeAll: (callback?: () => void) => void;
-    create: (createProperties: chrome.contextMenus.CreateProperties) => string | number;
+    removeAll: (callback?: () => void) => void | Promise<void>;
+    create: (createProperties: chrome.contextMenus.CreateProperties) => string | number | Promise<string | number>;
     onClicked: {
       addListener: (
         listener: (
@@ -44,36 +44,60 @@ export type BackgroundChrome = {
 
 export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
   // New-tab override is index.html; query strings still match this path pattern.
+  // getURL yields chrome-extension://… or moz-extension://… per browser.
   return [getURL("index.html")];
 }
 
-export function ensureMenu(api: BackgroundChrome): void {
-  api.contextMenus.removeAll(() => {
-    api.contextMenus.create({
-      id: ADD_MENU_ID,
-      title: "Add to Hearth…",
-      contexts: ["page", "link"],
-      documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
-    });
-    api.contextMenus.create({
-      id: REFRESH_ALL_MENU_ID,
-      title: "Refresh All Thumbnails",
-      contexts: ["page"],
-      documentUrlPatterns: dialDocumentPatterns(api.runtime.getURL),
-    });
+/**
+ * Clear and recreate context menus.
+ * Chrome’s removeAll may invoke a callback and/or return a Promise; Firefox’s
+ * `browser.contextMenus.removeAll` is promise-only. Settle once, then create.
+ */
+export async function ensureMenu(api: BackgroundChrome): Promise<void> {
+  await clearContextMenus(api);
+  api.contextMenus.create({
+    id: ADD_MENU_ID,
+    title: "Add to Hearth…",
+    contexts: ["page", "link"],
+    documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
+  });
+  api.contextMenus.create({
+    id: REFRESH_ALL_MENU_ID,
+    title: "Refresh All Thumbnails",
+    contexts: ["page"],
+    documentUrlPatterns: dialDocumentPatterns(api.runtime.getURL),
+  });
+}
+
+export function clearContextMenus(api: BackgroundChrome): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    try {
+      const result = api.contextMenus.removeAll(done);
+      if (result != null && typeof (result as PromiseLike<void>).then === "function") {
+        void Promise.resolve(result).then(done, done);
+      }
+    } catch {
+      done();
+    }
   });
 }
 
 /** Register install/startup listeners and create menus once at load. */
 export function registerBackgroundMenus(api: BackgroundChrome): void {
   api.runtime.onInstalled.addListener(() => {
-    ensureMenu(api);
+    void ensureMenu(api);
   });
   // Service workers can restart without onInstalled; keep the menu registered.
   api.runtime.onStartup.addListener(() => {
-    ensureMenu(api);
+    void ensureMenu(api);
   });
-  ensureMenu(api);
+  void ensureMenu(api);
 }
 
 export function addPopupCreateData(

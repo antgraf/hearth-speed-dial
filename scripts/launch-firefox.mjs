@@ -3,8 +3,9 @@
  * Launch Firefox with an isolated profile for temporary add-on install tests.
  * Never uses the user's default Firefox profile.
  *
- * Hearth v1 is Chrome-only; this only provides a clean profile. Load the
- * built extension manually via about:debugging (see --help / docs/DEV.md).
+ * Build the Firefox tree first (`npm run build && npm run build:firefox`, or
+ * `.\build.ps1 -Target Firefox`), then load dist-firefox/manifest.json via
+ * about:debugging (see --help / docs/DEV.md).
  */
 import { resolve } from "node:path";
 import {
@@ -14,7 +15,6 @@ import {
   parseArgs,
   printFirefoxHelp,
   repoRoot,
-  distDir,
 } from "./browser-profiles-lib.mjs";
 
 const { flags } = parseArgs(process.argv.slice(2));
@@ -37,6 +37,8 @@ const profile =
   (typeof flags.profile === "string" && resolve(flags.profile)) ||
   ensureProfile("firefox");
 
+const firefoxDist = resolve(repoRoot, "dist-firefox");
+
 /** @type {string[]} */
 const args = [
   "-no-remote",
@@ -50,9 +52,10 @@ console.log(`Firefox:  ${binary}`);
 console.log(`Profile:  ${profile}`);
 console.log(`Repo:     ${repoRoot}`);
 console.log("");
-console.log("Temporary add-on (manual — Hearth is Chrome-first):");
+console.log("Temporary add-on (Firefox MV3, min 121):");
 console.log('  1. Click "Load Temporary Add-on…" in the opened debugging page');
-console.log(`  2. Select ${distDir}/manifest.json (run npm run build first)`);
+console.log(`  2. Select ${firefoxDist}/manifest.json`);
+console.log("     (run: npm run build && npm run build:firefox — or .\\build.ps1 -Target Firefox)");
 console.log("  3. To uninstall, click Remove on the temporary add-on, or close Firefox");
 console.log("     / run: npm run browser:reset -- firefox");
 

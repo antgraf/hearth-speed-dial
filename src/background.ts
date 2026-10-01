@@ -1,3 +1,4 @@
 import { startBackground, type BackgroundChrome } from "./background-service.ts";
+import { extensionApi } from "./webext.ts";
 
-startBackground(chrome as unknown as BackgroundChrome);
+startBackground(extensionApi() as unknown as BackgroundChrome);

@@ -39,6 +39,7 @@ import {
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
+import { extensionApi } from "./webext.ts";
 import {
   DEFAULT_THEME,
   normalizeTheme,
@@ -75,36 +76,37 @@ function fromChrome(node: chrome.bookmarks.BookmarkTreeNode): BookmarkNode {
 }
 
 export function chromeBookmarks(): BookmarksApi {
+  const api = extensionApi();
   return {
     async getTree() {
-      const tree = await chrome.bookmarks.getTree();
+      const tree = await api.bookmarks.getTree();
       return tree.map(fromChrome);
     },
     async createFolder(parentId, title) {
-      const created = await chrome.bookmarks.create({ parentId, title });
+      const created = await api.bookmarks.create({ parentId, title });
       return fromChrome(created);
     },
     async createBookmark(parentId, title, url) {
-      const created = await chrome.bookmarks.create({ parentId, title, url });
+      const created = await api.bookmarks.create({ parentId, title, url });
       return fromChrome(created);
     },
     async update(id, changes) {
-      const updated = await chrome.bookmarks.update(id, changes);
+      const updated = await api.bookmarks.update(id, changes);
       return fromChrome(updated);
     },
     async move(id, destination) {
       const destinationArg: chrome.bookmarks.MoveDestination = {};
       if (destination.parentId !== undefined) destinationArg.parentId = destination.parentId;
       if (destination.index !== undefined) destinationArg.index = destination.index;
-      const moved = await chrome.bookmarks.move(id, destinationArg);
+      const moved = await api.bookmarks.move(id, destinationArg);
       return fromChrome(moved);
     },
     async remove(id) {
-      const nodes = await chrome.bookmarks.get(id);
+      const nodes = await api.bookmarks.get(id);
       const node = nodes[0];
       if (!node) throw new Error("That bookmark is no longer available.");
-      if (node.url !== undefined) await chrome.bookmarks.remove(id);
-      else await chrome.bookmarks.removeTree(id);
+      if (node.url !== undefined) await api.bookmarks.remove(id);
+      else await api.bookmarks.removeTree(id);
     },
     subscribe(listener) {
       const onCreated = () => listener();
@@ -112,17 +114,17 @@ export function chromeBookmarks(): BookmarksApi {
       const onChanged = () => listener();
       const onMoved = () => listener();
       const onReordered = () => listener();
-      chrome.bookmarks.onCreated.addListener(onCreated);
-      chrome.bookmarks.onRemoved.addListener(onRemoved);
-      chrome.bookmarks.onChanged.addListener(onChanged);
-      chrome.bookmarks.onMoved.addListener(onMoved);
-      chrome.bookmarks.onChildrenReordered.addListener(onReordered);
+      api.bookmarks.onCreated.addListener(onCreated);
+      api.bookmarks.onRemoved.addListener(onRemoved);
+      api.bookmarks.onChanged.addListener(onChanged);
+      api.bookmarks.onMoved.addListener(onMoved);
+      api.bookmarks.onChildrenReordered.addListener(onReordered);
       return () => {
-        chrome.bookmarks.onCreated.removeListener(onCreated);
-        chrome.bookmarks.onRemoved.removeListener(onRemoved);
-        chrome.bookmarks.onChanged.removeListener(onChanged);
-        chrome.bookmarks.onMoved.removeListener(onMoved);
-        chrome.bookmarks.onChildrenReordered.removeListener(onReordered);
+        api.bookmarks.onCreated.removeListener(onCreated);
+        api.bookmarks.onRemoved.removeListener(onRemoved);
+        api.bookmarks.onChanged.removeListener(onChanged);
+        api.bookmarks.onMoved.removeListener(onMoved);
+        api.bookmarks.onChildrenReordered.removeListener(onReordered);
       };
     },
   };
@@ -131,21 +133,21 @@ export function chromeBookmarks(): BookmarksApi {
 export function chromeSettings(): SettingsApi {
   return {
     async getOpenFolderId() {
-      const stored = await chrome.storage.local.get("settings");
+      const stored = await extensionApi().storage.local.get("settings");
       return readOpenFolderId(stored.settings);
     },
     async setOpenFolderId(id) {
       await patchSettings({ openFolderId: id });
     },
     async getDefaultFolderId() {
-      const stored = await chrome.storage.local.get("settings");
+      const stored = await extensionApi().storage.local.get("settings");
       return readDefaultFolderId(stored.settings);
     },
     async setDefaultFolderId(id) {
       await patchSettings({ defaultFolderId: id });
     },
     async getLayout() {
-      const stored = await chrome.storage.local.get("settings");
+      const stored = await extensionApi().storage.local.get("settings");
       return readLayout(stored.settings);
     },
     async setLayout(layout: LayoutSettings) {
@@ -160,18 +162,18 @@ export function chromeSettings(): SettingsApi {
       });
     },
     async getThemeBackground() {
-      const stored = await chrome.storage.local.get(THEME_BACKGROUND_KEY);
+      const stored = await extensionApi().storage.local.get(THEME_BACKGROUND_KEY);
       return readThemeBackgroundDataUrl(stored[THEME_BACKGROUND_KEY]);
     },
     async setThemeBackground(dataUrl) {
       if (dataUrl == null) {
-        await chrome.storage.local.remove(THEME_BACKGROUND_KEY);
+        await extensionApi().storage.local.remove(THEME_BACKGROUND_KEY);
         return;
       }
       const valid = readThemeBackgroundDataUrl(dataUrl);
       if (!valid) throw new Error("That file could not be stored as a background image.");
       try {
-        await chrome.storage.local.set({ [THEME_BACKGROUND_KEY]: valid });
+        await extensionApi().storage.local.set({ [THEME_BACKGROUND_KEY]: valid });
       } catch (error) {
         throw new Error(imageStorageWriteFailedMessage(error), { cause: error });
       }
@@ -187,59 +189,59 @@ export function chromeSettings(): SettingsApi {
         theme: { ...DEFAULT_THEME },
         defaultFolderId: null,
       });
-      await chrome.storage.local.remove(THEME_BACKGROUND_KEY);
+      await extensionApi().storage.local.remove(THEME_BACKGROUND_KEY);
       return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_THEME } };
     },
     async clearAll() {
-      await chrome.storage.local.remove(["settings", THEME_BACKGROUND_KEY]);
+      await extensionApi().storage.local.remove(["settings", THEME_BACKGROUND_KEY]);
     },
   };
 }
 
 async function patchSettings(patch: Record<string, unknown>): Promise<void> {
-  const stored = await chrome.storage.local.get("settings");
+  const stored = await extensionApi().storage.local.get("settings");
   const previous =
     stored.settings && typeof stored.settings === "object"
       ? (stored.settings as Record<string, unknown>)
       : {};
-  await chrome.storage.local.set({ settings: { ...previous, ...patch } });
+  await extensionApi().storage.local.set({ settings: { ...previous, ...patch } });
 }
 
 export function chromeImages(): ImagesApi {
   return {
     async getAll() {
-      const stored = await chrome.storage.local.get(null);
+      const stored = await extensionApi().storage.local.get(null);
       return collectImages(stored as Record<string, unknown>);
     },
     async setImage(bookmarkId, dataUrl) {
       const valid = readImageDataUrl(dataUrl);
       if (!valid) throw new Error("That file could not be stored as an image.");
       try {
-        await chrome.storage.local.set({ [imageStorageKey(bookmarkId)]: valid });
+        await extensionApi().storage.local.set({ [imageStorageKey(bookmarkId)]: valid });
       } catch (error) {
         throw new Error(imageStorageWriteFailedMessage(error), { cause: error });
       }
     },
     async clearImage(bookmarkId) {
-      await chrome.storage.local.remove(imageStorageKey(bookmarkId));
+      await extensionApi().storage.local.remove(imageStorageKey(bookmarkId));
     },
     async clearMissing(existingIds) {
-      const stored = await chrome.storage.local.get(null);
+      const stored = await extensionApi().storage.local.get(null);
       const orphans = orphanImageKeys(Object.keys(stored), existingIds);
-      if (orphans.length > 0) await chrome.storage.local.remove(orphans);
+      if (orphans.length > 0) await extensionApi().storage.local.remove(orphans);
     },
     async clearAll() {
-      const stored = await chrome.storage.local.get(null);
+      const stored = await extensionApi().storage.local.get(null);
       const keys = dialImageStorageKeys(Object.keys(stored));
-      if (keys.length > 0) await chrome.storage.local.remove(keys);
+      if (keys.length > 0) await extensionApi().storage.local.remove(keys);
     },
     async getUsage() {
-      const stored = await chrome.storage.local.get(null);
+      const stored = await extensionApi().storage.local.get(null);
       const keys = dialImageStorageKeys(Object.keys(stored));
       let bytesUsed = 0;
       if (keys.length > 0) {
         try {
-          bytesUsed = await chrome.storage.local.getBytesInUse(keys);
+          bytesUsed = await extensionApi().storage.local.getBytesInUse(keys);
         } catch {
           // Fall back to data-URL string lengths if getBytesInUse is unavailable.
           const images = collectImages(stored as Record<string, unknown>);
@@ -253,7 +255,7 @@ export function chromeImages(): ImagesApi {
       }
       return {
         bytesUsed,
-        bytesQuota: meaningfulStorageQuotaBytes(chrome.storage.local.QUOTA_BYTES),
+        bytesQuota: meaningfulStorageQuotaBytes(extensionApi().storage.local.QUOTA_BYTES),
       };
     },
   };
@@ -262,9 +264,9 @@ export function chromeImages(): ImagesApi {
 /** True when install-time or optional unlimitedStorage is active for this load. */
 async function hasUnlimitedStorageGrant(): Promise<boolean> {
   try {
-    const declared = chrome.runtime.getManifest().permissions ?? [];
+    const declared = extensionApi().runtime.getManifest().permissions ?? [];
     if (declared.includes("unlimitedStorage")) return true;
-    return await chrome.permissions.contains({ permissions: ["unlimitedStorage"] });
+    return await extensionApi().permissions.contains({ permissions: ["unlimitedStorage"] });
   } catch {
     return false;
   }
@@ -272,7 +274,7 @@ async function hasUnlimitedStorageGrant(): Promise<boolean> {
 
 async function readGrantedPermissions(): Promise<PermissionRequestPayload> {
   try {
-    const granted = await chrome.permissions.getAll();
+    const granted = await extensionApi().permissions.getAll();
     return {
       permissions: granted.permissions ? [...granted.permissions] : [],
       origins: granted.origins ? [...granted.origins] : [],
@@ -289,7 +291,7 @@ async function removePermissionPiece(piece: PermissionRequestPayload): Promise<v
   try {
     // Cast: our payloads are manifest-declared optional strings; @types/chrome
     // wants ManifestPermission for the permissions field only.
-    await chrome.permissions.remove({
+    await extensionApi().permissions.remove({
       ...(permissions ? { permissions: permissions as chrome.runtime.ManifestPermission[] } : {}),
       ...(origins ? { origins } : {}),
     });
@@ -319,7 +321,7 @@ export function chromePermissions(): PermissionsApi {
     async hasThumbnailAccess() {
       const request = thumbnailPermissionRequest();
       try {
-        return await chrome.permissions.contains({
+        return await extensionApi().permissions.contains({
           permissions: [...request.permissions],
           origins: [...request.origins],
         });
@@ -335,7 +337,7 @@ export function chromePermissions(): PermissionsApi {
       const request = thumbnailPermissionRequest();
       if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
-        return await chrome.permissions.request({
+        return await extensionApi().permissions.request({
           permissions: [...request.permissions],
           origins: [...request.origins],
         });
@@ -351,10 +353,10 @@ export function chromePermissions(): PermissionsApi {
     },
     async hasImageUrlFetchAccess() {
       try {
-        const hasAll = await chrome.permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
+        const hasAll = await extensionApi().permissions.contains({ origins: [THUMBNAIL_HOST_PERMISSION] });
         if (hasAll) return true;
         const request = imageUrlFetchPermissionRequest();
-        return await chrome.permissions.contains({ origins: [...request.origins] });
+        return await extensionApi().permissions.contains({ origins: [...request.origins] });
       } catch {
         return false;
       }
@@ -366,7 +368,7 @@ export function chromePermissions(): PermissionsApi {
       const request = imageUrlFetchPermissionRequest();
       if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
-        return await chrome.permissions.request({ origins: [...request.origins] });
+        return await extensionApi().permissions.request({ origins: [...request.origins] });
       } catch {
         return false;
       }
@@ -380,7 +382,7 @@ export function chromePermissions(): PermissionsApi {
       const origin = originHostPermission(href);
       if (!origin) return false;
       try {
-        return await chrome.permissions.contains({ origins: [origin] });
+        return await extensionApi().permissions.contains({ origins: [origin] });
       } catch {
         return false;
       }
@@ -391,7 +393,7 @@ export function chromePermissions(): PermissionsApi {
       if (!request) return false;
       if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
-        return await chrome.permissions.request({ origins: [...request.origins] });
+        return await extensionApi().permissions.request({ origins: [...request.origins] });
       } catch {
         return false;
       }
@@ -418,7 +420,7 @@ export function chromeCapture(): CaptureApi {
         // tabs.onUpdated "complete" (previous behavior) finished in ~1–2s on
         // typical pages and ignored the Settings value for anything larger.
         await delay(delayMs);
-        const dataUrl = await chrome.tabs.captureVisibleTab(windowId, {
+        const dataUrl = await extensionApi().tabs.captureVisibleTab(windowId, {
           format: "jpeg",
           quality: 72,
         });
@@ -432,7 +434,7 @@ export function chromeCapture(): CaptureApi {
         return valid;
       } finally {
         try {
-          await chrome.windows.remove(windowId);
+          await extensionApi().windows.remove(windowId);
         } catch {
           // Window may already be closed by the user.
         }
@@ -442,7 +444,7 @@ export function chromeCapture(): CaptureApi {
 }
 
 async function openCaptureWindow(pageUrl: string): Promise<number> {
-  const created = await chrome.windows.create({
+  const created = await extensionApi().windows.create({
     url: pageUrl,
     type: "popup",
     focused: true,

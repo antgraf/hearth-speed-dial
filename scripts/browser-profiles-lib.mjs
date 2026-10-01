@@ -286,16 +286,13 @@ export function printFirefoxHelp() {
 Launch Firefox with an isolated profile under .browser-profiles/firefox
 (never your personal Firefox profile).
 
-Hearth v1 is Chrome-only. This script only opens a clean Firefox profile so
-you can manually install/uninstall a temporary add-on without touching your
-default profile. web-ext is not required.
-
-Load the built extension temporarily:
-  1. npm run build
+Load the Firefox build temporarily (requires Firefox 121+):
+  1. npm run build && npm run build:firefox
+     (or: .\\build.ps1 -Target Firefox)
   2. npm run browser:firefox
   3. Open about:debugging#/runtime/this-firefox
   4. Click "Load Temporary Add-on…"
-  5. Choose <repo>/dist/manifest.json
+  5. Choose <repo>/dist-firefox/manifest.json
 
 Options:
   --profile <path>  Override profile directory
