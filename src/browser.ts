@@ -36,7 +36,9 @@ import {
   readDefaultFolderId,
   readLayout,
   readOpenFolderId,
+  readWelcomeDismissed,
   thumbnailWaitMs,
+  WELCOME_DISMISSED_KEY,
   type LayoutSettings,
   type SettingsApi,
 } from "./settings.ts";
@@ -179,6 +181,17 @@ export function chromeSettings(): SettingsApi {
         throw new Error(imageStorageWriteFailedMessage(error), { cause: error });
       }
     },
+    async getWelcomeDismissed() {
+      const stored = await extensionApi().storage.local.get(WELCOME_DISMISSED_KEY);
+      return readWelcomeDismissed(stored[WELCOME_DISMISSED_KEY]);
+    },
+    async setWelcomeDismissed(dismissed) {
+      if (dismissed) {
+        await extensionApi().storage.local.set({ [WELCOME_DISMISSED_KEY]: true });
+        return;
+      }
+      await extensionApi().storage.local.remove(WELCOME_DISMISSED_KEY);
+    },
     async resetToDefaults() {
       await patchSettings({
         columns: DEFAULT_LAYOUT.columns,
@@ -194,7 +207,11 @@ export function chromeSettings(): SettingsApi {
       return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_THEME } };
     },
     async clearAll() {
-      await extensionApi().storage.local.remove(["settings", THEME_BACKGROUND_KEY]);
+      await extensionApi().storage.local.remove([
+        "settings",
+        THEME_BACKGROUND_KEY,
+        WELCOME_DISMISSED_KEY,
+      ]);
     },
   };
 }

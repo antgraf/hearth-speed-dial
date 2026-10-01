@@ -108,6 +108,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     thumbnailsActive: false,
     imageUrlFetchActive: false,
     searchQuery: "",
+    // Hide until boot reads storage so returning users do not flash the card.
+    welcomeDismissed: true,
   };
   let request = 0;
   /** Last-open folder from storage; used once if the default folder is missing. */
@@ -204,6 +206,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         state.searchQuery = "";
         state.error = null;
         draw();
+      },
+      dismissWelcome: () => {
+        void dismissWelcome();
       },
     });
   };
@@ -574,6 +579,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     state.themeBackground = null;
     state.thumbnailsActive = false;
     state.imageUrlFetchActive = false;
+    state.welcomeDismissed = false;
     state.error = null;
     draw();
     try {
@@ -584,6 +590,20 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       draw();
     }
     return { layout, defaultFolderId: null, themeBackground: null };
+  };
+
+  const dismissWelcome = async (): Promise<void> => {
+    if (state.welcomeDismissed) return;
+    state.welcomeDismissed = true;
+    state.error = null;
+    draw();
+    try {
+      await ports.settings.setWelcomeDismissed(true);
+    } catch (error) {
+      state.welcomeDismissed = false;
+      state.error = errorText(error);
+      draw();
+    }
   };
 
   const exportPicturesAndSettings = async (): Promise<void> => {
@@ -806,6 +826,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       const layout = await ports.settings.getLayout();
       state.layout = layout;
       state.themeBackground = await ports.settings.getThemeBackground();
+      state.welcomeDismissed = await ports.settings.getWelcomeDismissed();
       const thumbnailsActive = await syncThumbnailActive(layout.thumbnailsEnabled);
       const imageUrlFetchActive = await syncImageUrlFetchActive(layout.imageUrlFetchEnabled);
       let nextLayout = layout;

@@ -46,6 +46,10 @@ function fakeSettings(): SettingsApi {
       return null;
     },
     async setThemeBackground() {},
+    async getWelcomeDismissed() {
+      return true;
+    },
+    async setWelcomeDismissed() {},
     async resetToDefaults() {
       return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_LAYOUT.theme } };
     },

@@ -91,6 +91,8 @@ export type ViewActions = {
   setSearchQuery(query: string): void;
   /** Clear the find-a-dial filter. */
   clearSearch(): void;
+  /** Persist and hide the first-run welcome card. */
+  dismissWelcome(): void;
 };
 
 type MenuTarget = {
@@ -220,6 +222,11 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
   );
   section.append(header);
 
+  if (view.showWelcome) {
+    section.append(
+      welcomeCard(view.layout, view.defaultFolderId, view.defaultFolderOptions, actions),
+    );
+  }
   if (view.error) section.append(alertLine(view.error));
   if (view.form?.mode === "create") section.append(composer(view, actions));
   if (view.empty) section.append(paragraph(view.empty, "empty"));
@@ -346,6 +353,60 @@ function settingsGear(
     openSettingsDialog(layout, defaultFolderId, defaultFolderOptions, actions, button);
   });
   return button;
+}
+
+function welcomeCard(
+  layout: LayoutSettings,
+  defaultFolderId: string | null,
+  defaultFolderOptions: readonly FolderOption[],
+  actions: ViewActions,
+): HTMLElement {
+  const card = document.createElement("aside");
+  card.className = "welcome";
+  card.setAttribute("role", "region");
+  card.setAttribute("aria-labelledby", "hearth-welcome-title");
+
+  const title = document.createElement("h2");
+  title.id = "hearth-welcome-title";
+  title.className = "welcome-title";
+  title.textContent = t("welcome_title");
+
+  const points = document.createElement("ul");
+  points.className = "welcome-points";
+  for (const key of ["welcome_bookmarks", "welcome_settings", "welcome_picture"] as const) {
+    const item = document.createElement("li");
+    item.textContent = t(key);
+    points.append(item);
+  }
+
+  const privacy = document.createElement("p");
+  privacy.className = "welcome-privacy";
+  privacy.textContent = t("welcome_privacy");
+
+  const actionsRow = document.createElement("div");
+  actionsRow.className = "welcome-actions";
+
+  const openSettings = document.createElement("button");
+  openSettings.type = "button";
+  openSettings.className = "primary";
+  openSettings.textContent = t("welcome_open_settings");
+  openSettings.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openSettingsDialog(layout, defaultFolderId, defaultFolderOptions, actions, openSettings);
+  });
+
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "quiet";
+  dismiss.textContent = t("welcome_got_it");
+  dismiss.addEventListener("click", () => {
+    actions.dismissWelcome();
+  });
+
+  actionsRow.append(openSettings, dismiss);
+  card.append(title, points, privacy, actionsRow);
+  return card;
 }
 
 function closeSettingsDialog(opts?: { silent?: boolean }): void {

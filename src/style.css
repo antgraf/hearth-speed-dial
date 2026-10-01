@@ -266,6 +266,63 @@ h1 {
   color: var(--note);
 }
 
+.welcome {
+  margin: 20px 0 8px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--raise);
+}
+
+.welcome-title {
+  margin: 0 0 10px;
+  color: var(--title);
+  font-family: Palatino, "Iowan Old Style", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.welcome-points {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.welcome-points li + li {
+  margin-top: 0.45rem;
+}
+
+.welcome-privacy {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-top: 14px;
+}
+
+.welcome-actions .primary {
+  margin-top: 0;
+}
+
+.welcome-actions .quiet {
+  padding: 8px 4px;
+  color: var(--muted);
+}
+
+.welcome-actions .quiet:hover,
+.welcome-actions .quiet:focus-visible {
+  color: var(--title);
+}
+
 .meta,
 .quiet,
 .crumb,

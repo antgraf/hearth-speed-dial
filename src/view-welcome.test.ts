@@ -118,51 +118,42 @@ function actions(partial: Partial<ViewActions> = {}): ViewActions {
   };
 }
 
-test("grid renders a find-a-dial search field", () => {
-  render(kit.host, gridView(), actions());
-  const input = kit.host.querySelector<HTMLInputElement>(".dial-search-input");
-  assert.ok(input);
-  assert.equal(input.getAttribute("aria-label"), t("search_aria_label"));
-  assert.equal(input.placeholder, t("search_placeholder"));
-  assert.ok(kit.host.querySelector(".dial-search-hint"));
-});
-
-test("search input reports query changes and Escape clears a non-empty query", () => {
+test("welcome card teaches bookmarks, settings, and Picture… with Open Settings + Got it", () => {
   const calls: string[] = [];
   render(
     kit.host,
-    gridView({ searchQuery: "ex", searching: true, canCreate: false }),
+    gridView({ showWelcome: true }),
     actions({
-      setSearchQuery(query) {
-        calls.push(`set:${query}`);
-      },
-      clearSearch() {
-        calls.push("clear");
+      dismissWelcome() {
+        calls.push("dismiss");
       },
     }),
   );
-  const input = kit.host.querySelector<HTMLInputElement>(".dial-search-input");
-  assert.ok(input);
-  assert.equal(input.value, "ex");
-  assert.equal(kit.host.querySelector(".dial-search-hint"), null);
 
-  input.value = "example";
-  input.dispatchEvent(new kit.window.Event("input", { bubbles: true }) as unknown as Event);
-  assert.deepEqual(calls, ["set:example"]);
+  const card = kit.host.querySelector(".welcome");
+  assert.ok(card, "expected .welcome card");
+  assert.equal(card.getAttribute("role"), "region");
+  assert.equal(kit.host.querySelector(".welcome-title")?.textContent, t("welcome_title"));
+  const points = [...kit.host.querySelectorAll(".welcome-points li")].map((el) => el.textContent);
+  assert.deepEqual(points, [t("welcome_bookmarks"), t("welcome_settings"), t("welcome_picture")]);
+  assert.equal(kit.host.querySelector(".welcome-privacy")?.textContent, t("welcome_privacy"));
 
-  input.dispatchEvent(
-    new kit.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }) as unknown as Event,
-  );
-  assert.deepEqual(calls, ["set:example", "clear"]);
+  const openSettings = kit.host.querySelector<HTMLButtonElement>(".welcome-actions .primary");
+  const gotIt = kit.host.querySelector<HTMLButtonElement>(".welcome-actions .quiet");
+  assert.ok(openSettings);
+  assert.ok(gotIt);
+  assert.equal(openSettings.textContent, t("welcome_open_settings"));
+  assert.equal(gotIt.textContent, t("welcome_got_it"));
+  assert.equal(kit.host.querySelectorAll(".welcome input[type='checkbox']").length, 0);
+
+  gotIt.click();
+  assert.deepEqual(calls, ["dismiss"]);
+
+  openSettings.click();
+  assert.ok(kit.document.querySelector(".dialog-root.settings-dialog, .dialog-panel.settings-dialog"));
 });
 
-test("searching hides the create tile and marks the search control active", () => {
-  render(
-    kit.host,
-    gridView({ searching: true, searchQuery: "ex", canCreate: false }),
-    actions(),
-  );
-  assert.ok(kit.host.querySelector(".dial-search.is-active"));
-  assert.equal(kit.host.querySelector(".tile.add"), null);
-  assert.equal(kit.host.querySelector(`[aria-label="${t("aria_search_results")}"]`)?.tagName, "UL");
+test("welcome card is omitted when showWelcome is false", () => {
+  render(kit.host, gridView({ showWelcome: false }), actions());
+  assert.equal(kit.host.querySelector(".welcome"), null);
 });

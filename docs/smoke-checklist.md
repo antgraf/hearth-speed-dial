@@ -9,6 +9,7 @@ Manual pass after a production build. Agents do not run browser automation — A
 ## New tab grid
 
 - [ ] New tab shows Hearth (not the browser’s default new tab).
+- [ ] **First run:** a welcome card appears above the dial (bookmarks-as-store, gear → Settings, Picture…); **Open Settings** opens the Settings overlay; **Got it** dismisses and does not return after reload. Erase All Data brings the welcome back.
 - [ ] Open a nested folder; breadcrumbs navigate back.
 - [ ] **Find a dial**: type in the header Find field (or press `/` to focus) to filter the open folder and nested dials by title or URL; `Esc` clears. Nested hits stay visible without opening the parent first; opening a folder clears the filter.
 - [ ] Reload / open another new tab: last folder is still open (or the Settings default folder, when one is set).
