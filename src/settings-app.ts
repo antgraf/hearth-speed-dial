@@ -181,7 +181,7 @@ export function startSettings(
 
     themeControls = buildThemeCategory({
       theme: layout.theme,
-      hasBackground: Boolean(themeBackground),
+      backgroundImage: themeBackground,
       disabled: saving,
       idPrefix: "page-theme",
       onThemeChange: () => {
@@ -199,7 +199,7 @@ export function startSettings(
               themeBackground = dataUrl;
               await settings.setThemeBackground(dataUrl);
             }
-            themeControls?.setHasBackground(Boolean(themeBackground));
+            themeControls?.setBackgroundImage(themeBackground);
             applyTheme();
             savedNote = "Background image updated.";
             error = null;

@@ -26,7 +26,7 @@ export type ThemeSettings = {
 };
 
 export const DEFAULT_THEME: ThemeSettings = {
-  mode: "dark",
+  mode: "auto",
   accent: "ember",
   backgroundColor: null,
   backgroundFit: "cover",
@@ -38,7 +38,7 @@ export const THEME_LIMITS = {
   backgroundOpacity: { min: 0, max: 100, step: 5 },
 } as const;
 
-export const THEME_MODES: readonly ThemeMode[] = ["light", "dark", "auto"];
+export const THEME_MODES: readonly ThemeMode[] = ["auto", "light", "dark"];
 export const THEME_ACCENTS: readonly ThemeAccent[] = ["ember", "brass", "clay", "moss"];
 export const THEME_BACKGROUND_FITS: readonly ThemeBackgroundFit[] = ["cover", "contain"];
 export const THEME_BACKGROUND_POSITIONS: readonly ThemeBackgroundPosition[] = [

@@ -30,10 +30,10 @@ Manual pass after `npm run build` (or `.\build.ps1` / `.\pull_and_build.ps1`) an
 - [ ] **Columns**, **Tile size**, and **Thumbnail wait** are all sliders (columns 1–8; wait 1–15; tile size unchanged). Layout updates on the open new tab.
 - [ ] Close and reopen Settings: **Tile size** (and other) sliders sit at the saved values (not the middle/default).
 - [ ] Boolean prefs use switch toggles (not checkboxes): reverse order, thumbnails, URL pictures.
-- [ ] **Theme → Appearance**: Dark (default), Light, and Auto (follows system). Switching updates the dial immediately.
+- [ ] **Theme → Appearance**: Auto (system) is the default; Light and Dark lock the look. Switching updates the dial immediately.
 - [ ] **Theme → Accent**: Ember / Brass / Clay / Moss visibly tint page wash, tile surfaces, titles, domain/meta labels, breadcrumbs, gear/⋮ icons, and CTAs (still a small warm palette — not a full arbitrary recolor).
 - [ ] **Theme → Page color override**: optional solid override; **Use accent default** restores the Appearance+Accent wash (shared by dial, Settings, and Add).
-- [ ] **Theme → Background image**: choose a local JPEG/PNG/GIF/WebP; fit / position / opacity appear when an image is set; **Remove image** clears it. No remote wallpaper URL field.
+- [ ] **Theme → Background image**: full-width preview above **Add image** / **Remove image** buttons; choose a local JPEG/PNG/GIF/WebP; fit / position / opacity appear when an image is set; **Remove image** clears it. No remote wallpaper URL field.
 - [ ] **Thumbnail wait** defaults to 2s (range 1–15); raising it delays the screenshot so slow pages can paint.
 - [ ] **Default folder for new windows** unset → new tab recalls last open; set to a folder → new tab / new window opens there; navigating still updates last-open; missing folder falls back gracefully.
 - [ ] Toggle **Show last bookmarks first**; grid order reverses without changing Chrome’s bookmark manager order.

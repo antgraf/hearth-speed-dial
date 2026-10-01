@@ -35,7 +35,7 @@ test("defaults match the layout constants", () => {
   assert.equal(DEFAULT_LAYOUT.thumbnailsEnabled, false);
   assert.equal(DEFAULT_LAYOUT.imageUrlFetchEnabled, false);
   assert.equal(DEFAULT_LAYOUT.thumbnailWaitSeconds, 2);
-  assert.equal(DEFAULT_LAYOUT.theme.mode, "dark");
+  assert.equal(DEFAULT_LAYOUT.theme.mode, "auto");
   assert.equal(DEFAULT_LAYOUT.theme.accent, "ember");
   assert.deepEqual(readLayout(null), DEFAULT_LAYOUT);
   assert.deepEqual(readLayout(undefined), DEFAULT_LAYOUT);

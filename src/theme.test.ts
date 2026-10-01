@@ -16,8 +16,8 @@ import {
   THEME_BACKGROUND_KEY,
 } from "./theme.ts";
 
-test("theme defaults preserve dark ember identity", () => {
-  assert.equal(DEFAULT_THEME.mode, "dark");
+test("theme defaults preserve auto mode and ember identity", () => {
+  assert.equal(DEFAULT_THEME.mode, "auto");
   assert.equal(DEFAULT_THEME.accent, "ember");
   assert.equal(DEFAULT_THEME.backgroundColor, null);
   assert.equal(DEFAULT_THEME.backgroundFit, "cover");
@@ -29,7 +29,7 @@ test("theme defaults preserve dark ember identity", () => {
 test("readThemeMode / readThemeAccent reject unknown values", () => {
   assert.equal(readThemeMode("light"), "light");
   assert.equal(readThemeMode("auto"), "auto");
-  assert.equal(readThemeMode("neon"), "dark");
+  assert.equal(readThemeMode("neon"), "auto");
   assert.equal(readThemeAccent("brass"), "brass");
   assert.equal(readThemeAccent("purple"), "ember");
 });
@@ -149,7 +149,8 @@ test("applyThemeToDocument sets data attributes and CSS variables", () => {
   assert.equal(root.style.getPropertyValue("--theme-bg-position"), "center bottom");
 
   applyThemeToDocument(root, { ...DEFAULT_THEME }, { prefersDark: false, backgroundImage: null });
-  assert.equal(dataset.hearthTheme, "dark");
+  assert.equal(dataset.hearthTheme, "light");
+  assert.equal(dataset.hearthMode, "auto");
   assert.equal(root.style.getPropertyValue("--bg"), "");
   assert.equal(root.style.getPropertyValue("--theme-bg-image"), "none");
   assert.equal(root.style.getPropertyValue("--theme-bg-opacity"), "0");

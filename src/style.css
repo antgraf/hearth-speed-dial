@@ -865,7 +865,8 @@ h1 {
 }
 
 .settings-theme-actions .quiet,
-.settings-theme-actions .primary {
+.settings-theme-actions .primary,
+.settings-theme-actions .settings-theme-btn {
   margin: 0;
 }
 
@@ -879,9 +880,77 @@ h1 {
   cursor: pointer;
 }
 
-.settings-theme-status {
+.settings-theme-wallpaper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-theme-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+}
+
+.settings-theme-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.settings-theme-preview.is-empty img {
+  display: none;
+}
+
+.settings-theme-preview-empty {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
   color: var(--muted);
   font-size: 13px;
+}
+
+.settings-theme-preview.is-empty .settings-theme-preview-empty {
+  display: flex;
+}
+
+.settings-theme-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-theme-btn:hover,
+.settings-theme-btn:focus-visible {
+  background: var(--hover);
+  border-color: var(--ember);
+}
+
+.settings-theme-btn:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.settings-theme-image-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 
 .settings-dialog-form .settings-switch .settings-help {

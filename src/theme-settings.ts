@@ -26,13 +26,15 @@ export type ThemeCategoryHandle = {
   root: HTMLElement;
   readTheme(): ThemeSettings;
   syncTheme(theme: ThemeSettings): void;
-  setHasBackground(has: boolean): void;
+  /** Show or clear the local wallpaper preview (data URL). */
+  setBackgroundImage(dataUrl: string | null): void;
   setBusy(busy: boolean): void;
 };
 
 export type ThemeCategoryOptions = {
   theme: ThemeSettings;
-  hasBackground: boolean;
+  /** Current wallpaper data URL, if any. */
+  backgroundImage?: string | null;
   disabled?: boolean;
   /** Prefix for input ids (overlay vs options page). */
   idPrefix?: string;
@@ -45,7 +47,7 @@ export type ThemeCategoryOptions = {
 export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategoryHandle {
   const prefix = options.idPrefix ?? "theme";
   const root = settingsCategory("Theme");
-  let hasBackground = options.hasBackground;
+  let backgroundImage = options.backgroundImage ?? null;
   let busy = Boolean(options.disabled);
 
   const mode = document.createElement("select");
@@ -62,7 +64,7 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
   const modeHelp = document.createElement("span");
   modeHelp.className = "settings-help";
   modeHelp.textContent =
-    "Dark matches Hearth’s default look. Auto follows your system light/dark preference.";
+    "Auto (default) follows your system light/dark preference. Light and Dark lock the look.";
   root.append(modeHelp);
 
   const accentField = document.createElement("div");
@@ -126,23 +128,34 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
   root.append(colorHelp);
 
   const wallpaperField = document.createElement("div");
-  wallpaperField.className = "settings-field";
+  wallpaperField.className = "settings-field settings-theme-wallpaper";
   const wallpaperCaption = document.createElement("span");
   wallpaperCaption.textContent = "Background image";
+
+  const preview = document.createElement("div");
+  preview.className = "settings-theme-preview";
+  preview.setAttribute("role", "img");
+  preview.setAttribute("aria-label", "Background image preview");
+  const previewImg = document.createElement("img");
+  previewImg.alt = "";
+  previewImg.draggable = false;
+  const previewEmpty = document.createElement("span");
+  previewEmpty.className = "settings-theme-preview-empty";
+  previewEmpty.textContent = "No background image";
+  preview.append(previewImg, previewEmpty);
+
   const wallpaperActions = document.createElement("div");
   wallpaperActions.className = "settings-theme-actions";
   const pickWallpaper = document.createElement("button");
   pickWallpaper.type = "button";
-  pickWallpaper.className = "quiet";
-  pickWallpaper.textContent = "Choose local image…";
+  pickWallpaper.className = "settings-theme-btn";
+  pickWallpaper.textContent = "Add image";
   const clearWallpaper = document.createElement("button");
   clearWallpaper.type = "button";
-  clearWallpaper.className = "quiet";
+  clearWallpaper.className = "settings-theme-btn";
   clearWallpaper.textContent = "Remove image";
-  const wallpaperStatus = document.createElement("span");
-  wallpaperStatus.className = "settings-theme-status";
-  wallpaperActions.append(pickWallpaper, clearWallpaper, wallpaperStatus);
-  wallpaperField.append(wallpaperCaption, wallpaperActions);
+  wallpaperActions.append(pickWallpaper, clearWallpaper);
+  wallpaperField.append(wallpaperCaption, preview, wallpaperActions);
   root.append(wallpaperField);
   const wallpaperHelp = document.createElement("span");
   wallpaperHelp.className = "settings-help";
@@ -201,7 +214,16 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
   root.append(imageControls);
 
   const syncWallpaperUi = () => {
-    wallpaperStatus.textContent = hasBackground ? "Local image in use" : "No image";
+    const hasBackground = Boolean(backgroundImage);
+    if (backgroundImage) {
+      previewImg.src = backgroundImage;
+      preview.classList.remove("is-empty");
+      preview.setAttribute("aria-label", "Background image preview");
+    } else {
+      previewImg.removeAttribute("src");
+      preview.classList.add("is-empty");
+      preview.setAttribute("aria-label", "No background image");
+    }
     clearWallpaper.disabled = busy || !hasBackground;
     imageControls.hidden = !hasBackground;
     fit.disabled = busy || !hasBackground;
@@ -302,8 +324,8 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
     root,
     readTheme,
     syncTheme,
-    setHasBackground(next) {
-      hasBackground = next;
+    setBackgroundImage(dataUrl) {
+      backgroundImage = dataUrl;
       syncWallpaperUi();
     },
     setBusy,

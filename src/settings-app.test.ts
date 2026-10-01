@@ -139,5 +139,8 @@ test("settings Theme category exposes mode, accent, and local wallpaper controls
   assert.ok(host.querySelector('input[name="themeBackgroundColor"]'));
   assert.match(host.textContent ?? "", /Page color override/);
   assert.match(host.textContent ?? "", /Use accent default/);
-  assert.match(host.textContent ?? "", /Choose local image/);
+  assert.match(host.textContent ?? "", /Add image/);
+  assert.match(host.textContent ?? "", /Remove image/);
+  assert.ok(host.querySelector(".settings-theme-preview"));
+  assert.ok(host.querySelector("button.settings-theme-btn"));
 });

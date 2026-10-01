@@ -352,7 +352,7 @@ function openSettingsDialog(
   let themeBackground: string | null = null;
   const themeControls = buildThemeCategory({
     theme: layout.theme,
-    hasBackground: false,
+    backgroundImage: null,
     idPrefix: "overlay-theme",
     onThemeChange: () => {
       applyLayout();
@@ -361,7 +361,7 @@ function openSettingsDialog(
       void Promise.resolve(actions.setThemeBackground(file))
         .then(async () => {
           themeBackground = await Promise.resolve(actions.getThemeBackground());
-          themeControls.setHasBackground(Boolean(themeBackground));
+          themeControls.setBackgroundImage(themeBackground);
           applyThemeToDocument(document.documentElement, themeControls.readTheme(), {
             backgroundImage: themeBackground,
           });
@@ -376,7 +376,7 @@ function openSettingsDialog(
     .then((dataUrl) => {
       themeBackground = dataUrl;
       if (!themeControls.root.isConnected) return;
-      themeControls.setHasBackground(Boolean(dataUrl));
+      themeControls.setBackgroundImage(dataUrl);
     })
     .catch(() => {
       // Keep Theme UI usable without wallpaper status.
@@ -483,7 +483,7 @@ function openSettingsDialog(
     defaultFolder.value = result.defaultFolderId ?? "";
     themeControls.syncTheme(result.layout.theme);
     themeBackground = null;
-    themeControls.setHasBackground(false);
+    themeControls.setBackgroundImage(null);
     applyThemeToDocument(document.documentElement, result.layout.theme, {
       backgroundImage: null,
     });
