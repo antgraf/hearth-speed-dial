@@ -59,6 +59,7 @@ function gridView(overrides: Partial<Extract<ViewModel, { name: "grid" }>> = {})
     canCreate: true,
     canRenameCurrent: true,
     canDeleteCurrent: true,
+    canRefreshAll: true,
     currentFolder: { id: "1", title: "Bookmarks bar", imageDataUrl: null, kind: "folder", url: null },
     form: null,
     saving: false,

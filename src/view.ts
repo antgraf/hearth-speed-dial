@@ -210,11 +210,13 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
         title.textContent = crumb.title;
       }
       current.append(title);
-      current.append(
-        menuButton(t("actions_for", crumb.title), view.saving, (button) => {
-          openCurrentFolderMenu(view, actions, button);
-        }),
-      );
+      if (currentFolderMenuAvailable(view)) {
+        current.append(
+          menuButton(t("actions_for", crumb.title), view.saving, (button) => {
+            openCurrentFolderMenu(view, actions, button);
+          }),
+        );
+      }
       nav.append(current);
       return;
     }
@@ -1040,15 +1042,9 @@ function openActionMenu(
   });
 }
 
-function refreshableCount(items: readonly DialItem[]): number {
-  let count = 0;
-  for (const item of items) {
-    if (item.kind !== "link" || !item.url) continue;
-    const pageUrl = openableUrl(item.url);
-    if (!pageUrl) continue;
-    if (pageUrl.startsWith("http:") || pageUrl.startsWith("https:")) count += 1;
-  }
-  return count;
+/** True when the current-folder ⋮ menu has at least one entry to show. */
+function currentFolderMenuAvailable(view: Extract<ViewModel, { name: "grid" }>): boolean {
+  return view.canRenameCurrent || view.canDeleteCurrent || view.canRefreshAll;
 }
 
 function openCurrentFolderMenu(
@@ -1095,17 +1091,17 @@ function openCurrentFolderMenu(
     );
   }
 
-  const count = refreshableCount(view.items);
-  if (!view.thumbnailsActive) {
-    addItem(t("menu_refresh_all_enable"), iconCamera(), () => undefined, {
-      disabled: true,
-    });
-  } else if (count === 0) {
-    addItem(t("menu_refresh_all_none"), iconCamera(), () => undefined, {
-      disabled: true,
-    });
-  } else {
-    addItem(t("menu_refresh_all"), iconCamera(), () => actions.refreshAllThumbnails());
+  // Omit Refresh All when this folder has no direct http(s) bookmarks — root
+  // and empty folders used to show a disabled item that still led users into
+  // the “no bookmarks to refresh” error via the dial-page context menu path.
+  if (view.canRefreshAll) {
+    if (!view.thumbnailsActive) {
+      addItem(t("menu_refresh_all_enable"), iconCamera(), () => undefined, {
+        disabled: true,
+      });
+    } else {
+      addItem(t("menu_refresh_all"), iconCamera(), () => actions.refreshAllThumbnails());
+    }
   }
 
   if (view.canDeleteCurrent) {

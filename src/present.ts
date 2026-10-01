@@ -11,6 +11,7 @@ import {
   nodeIndex,
   normalizeDialQuery,
   orderDialItems,
+  refreshableThumbnailTargets,
   searchDialSubtree,
   type BookmarkNode,
   type Crumb,
@@ -80,6 +81,12 @@ export type ViewModel =
       canCreate: boolean;
       canRenameCurrent: boolean;
       canDeleteCurrent: boolean;
+      /**
+       * True when the open folder has at least one direct http(s) bookmark that
+       * Refresh All Thumbnails can target. When false, omit that menu entry
+       * (and the dial-page context menu item) instead of offering a no-op.
+       */
+      canRefreshAll: boolean;
       /** Open folder id and optional picture for the breadcrumb ⋮ menu. */
       currentFolder: { id: string; title: string; imageDataUrl: string | null; kind: "folder"; url: null };
       form: DialForm | null;
@@ -210,6 +217,7 @@ export function present(state: AppState): ViewModel {
     canCreate: acceptsChildren(current) && !searching,
     canRenameCurrent: canRenameNode(current),
     canDeleteCurrent: canDeleteNode(current),
+    canRefreshAll: refreshableThumbnailTargets(current).length > 0,
     currentFolder: {
       id: current.id,
       title: folderLabel(current),

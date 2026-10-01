@@ -41,6 +41,7 @@ import {
   thumbnailRefreshFailureSummary,
 } from "./thumbnail-refresh.ts";
 import type { BookmarksApi } from "./browser.ts";
+import { REFRESH_ALL_MENU_ID } from "./background-service.ts";
 import { confirmDialog, type ConfirmDialogOptions } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
 import { t } from "./i18n.ts";
@@ -131,7 +132,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
 
   const draw = () => {
     applyTheme();
-    drawView(host, present(state), {
+    const view = present(state);
+    drawView(host, view, {
       openFolder: (id) => {
         void showFolder(id);
       },
@@ -216,6 +218,18 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         void dismissWelcome();
       },
     });
+    // Hide the dial-page context-menu item when Refresh All has nothing to do
+    // (bookmark root / folders with no direct http(s) children).
+    syncRefreshAllContextMenu(view.name === "grid" && view.canRefreshAll);
+  };
+
+  const syncRefreshAllContextMenu = (visible: boolean): void => {
+    const api = tryExtensionApi();
+    try {
+      void api?.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible });
+    } catch {
+      // Menu may not be registered yet; ignore.
+    }
   };
   const syncThumbnailActive = async (preferEnabled: boolean): Promise<boolean> => {
     if (!preferEnabled) {
@@ -413,8 +427,7 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (!folder || classify(folder) !== "folder") return;
     const targets = refreshableThumbnailTargets(folder);
     if (targets.length === 0) {
-      state.error = t("error_refresh_none");
-      draw();
+      // Menu should already be hidden; stay quiet if a stale click arrives.
       return;
     }
     if (!(await ensureThumbnailCaptureReady())) return;

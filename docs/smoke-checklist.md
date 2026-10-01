@@ -21,7 +21,7 @@ Manual pass after a production build. Agents do not run browser automation — A
 
 - [ ] Tile **⋮** sits on the meta row (Folder / domain); menu: **Rename**, **Picture…**, **Delete** (delete confirms in a dialog).
 - [ ] **Picture…** offers **Attach file…**, **Image from URL…**, and (for http(s) bookmarks) **Capture thumbnail** — URL and capture items disabled with “enable in Settings” until each opt-in is on.
-- [ ] Current-folder breadcrumb **⋮** offers Rename / Picture / Delete when allowed, plus **Refresh All Thumbnails** (disabled with “enable in Settings” when thumbnails are off; disabled when the open folder has no http(s) bookmarks). Browser bookmark root shows the ⋮ menu for Refresh All (no Rename/Delete).
+- [ ] Current-folder breadcrumb **⋮** offers Rename / Picture / Delete when allowed, plus **Refresh All Thumbnails** when the open folder has direct http(s) bookmarks (disabled with “enable in Settings” when thumbnails are off). Omitted entirely when there is nothing to refresh (bookmark root / empty folder); the dial-page right-click item is hidden in that case too.
 - [ ] **Refresh All Thumbnails** confirms before replacing dial pictures; runs the same capture path as per-tile Capture thumbnail, sequentially, for direct http(s) children only (not nested folders).
 - [ ] New-tab **gear** opens Settings in the in-page dialog overlay (categorized: layout sliders, display switches / default folder, **Theme** mode / accent / local background, picture switches + wait slider, **Backup** export/import, Danger Zone). `settings.html` remains available as the extension options page.
 
