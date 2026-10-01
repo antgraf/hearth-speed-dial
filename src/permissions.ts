@@ -1,10 +1,12 @@
 /**
- * Optional Chrome permissions for dial image URL fetch and thumbnail capture.
+ * Optional extension permissions for dial image URL fetch and thumbnail capture.
  *
- * Default install stays bookmarks + storage + unlimitedStorage + favicon +
- * contextMenus (+ activeTab). unlimitedStorage lifts the ~10 MB shared local
- * quota for dial art only — no network, no sync of blobs. favicon reads
- * Chrome’s profile favicon cache for title-strip icons (no network / no CDN).
+ * Default install stays bookmarks + storage + unlimitedStorage + contextMenus
+ * (+ activeTab). Chrome also installs `favicon` for title-strip icons from the
+ * profile cache (no network / no CDN). Firefox omits `favicon` (no equivalent
+ * without host access) — title icons stay hidden; monogram / folder remain
+ * dial-face fallbacks. unlimitedStorage lifts the shared local quota for dial
+ * art only — no network, no sync of blobs.
  * Thumbnails request tabs + <all_urls> when the user enables the setting.
  * Image-from-URL requests http/https scheme wildcards when that Settings
  * toggle is enabled (origin-scoped fetch stays available as a fallback).
@@ -14,14 +16,19 @@
  * Host patterns must NOT be placed in optional_permissions — Chrome then
  * rejects origins: [...] with "Only permissions specified in the manifest
  * may be requested." Declaring only <all_urls> also does not allow requesting
- * a specific https host origin, so the manifest lists the http and https
+ * a specific https host origin, so the Chrome manifest lists the http and https
  * scheme wildcards for per-origin fetch.
+ *
+ * Firefox folds those host patterns into optional_permissions (see
+ * scripts/firefox-manifest.mjs) because older Firefox MV3 builds expect hosts
+ * there; runtime request payloads stay the same.
  *
  * Toggle-off calls permissions.remove to drop *active* access (least privilege
  * while the feature is off). Chrome keeps a separate “previously granted”
  * memory: after remove, the next permissions.request for the same optional
  * grant usually succeeds without showing the dialog again. Only the user can
  * clear that memory (chrome://extensions → extension details → site access).
+ * Firefox optional-permission UX can differ (may re-prompt more often).
  */
 
 export const OPTIONAL_TABS_PERMISSION = "tabs" as const;

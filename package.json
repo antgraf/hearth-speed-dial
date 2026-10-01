@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:firefox": "node scripts/prepare-firefox-dist.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test --test-reporter=spec src/**/*.test.ts",
+    "test": "node --experimental-strip-types --test --test-reporter=spec src/**/*.test.ts scripts/**/*.test.mjs",
     "test:coverage": "node --experimental-strip-types --test --experimental-test-coverage --test-reporter=spec src/**/*.test.ts",
     "icons": "node scripts/draw-icons.mjs",
     "pack:chrome": "node scripts/pack-chrome.mjs",
+    "pack:firefox": "node scripts/pack-firefox.mjs",
     "browser:chrome": "node scripts/launch-chrome.mjs",
     "browser:firefox": "node scripts/launch-firefox.mjs",
     "browser:reset": "node scripts/reset-browser-profiles.mjs"

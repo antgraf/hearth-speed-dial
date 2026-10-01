@@ -1,11 +1,34 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
 import {
   TITLE_FAVICON_SIZE,
   buildFaviconSrc,
   chromeFaviconSrc,
   faviconEligibleUrl,
 } from "./favicon.ts";
+
+type FakeApi = {
+  runtime: {
+    getManifest: () => { permissions?: string[] };
+    getURL?: (path: string) => string;
+  };
+};
+
+function installChrome(permissions: string[]): void {
+  const g = globalThis as Record<string, unknown>;
+  g.chrome = {
+    runtime: {
+      getManifest: () => ({ permissions }),
+    },
+  } satisfies FakeApi;
+  delete g.browser;
+}
+
+afterEach(() => {
+  const g = globalThis as Record<string, unknown>;
+  delete g.chrome;
+  delete g.browser;
+});
 
 test("faviconEligibleUrl accepts only http(s) openable URLs", () => {
   assert.equal(faviconEligibleUrl("https://example.com/path"), "https://example.com/path");
@@ -37,7 +60,8 @@ test("buildFaviconSrc defaults size and rejects non-http(s)", () => {
   assert.equal(buildFaviconSrc("https://x.test/", "not a url"), null);
 });
 
-test("chromeFaviconSrc uses runtime.getURL and degrades without runtime", () => {
+test("chromeFaviconSrc uses runtime.getURL when favicon permission is present", () => {
+  installChrome(["bookmarks", "favicon"]);
   assert.equal(chromeFaviconSrc("https://example.com/", null), null);
   const src = chromeFaviconSrc("https://example.com/a", {
     getURL(path) {
@@ -51,7 +75,18 @@ test("chromeFaviconSrc uses runtime.getURL and degrades without runtime", () => 
   );
 });
 
+test("chromeFaviconSrc stays off without Chrome favicon permission (Firefox)", () => {
+  installChrome(["bookmarks", "storage", "unlimitedStorage"]);
+  assert.equal(
+    chromeFaviconSrc("https://example.com/", {
+      getURL: () => "moz-extension://id/_favicon/",
+    }),
+    null,
+  );
+});
+
 test("chromeFaviconSrc swallows getURL failures", () => {
+  installChrome(["favicon"]);
   assert.equal(
     chromeFaviconSrc("https://example.com/", {
       getURL() {

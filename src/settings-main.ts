@@ -2,13 +2,14 @@ import { startSettings } from "./settings-app.ts";
 import { chromeBookmarks, chromeImages, chromePermissions, chromeSettings } from "./browser.ts";
 import { previewSettings } from "./settings.ts";
 import { previewPorts } from "./preview.ts";
+import { extensionStorageReady, tryExtensionApi } from "./webext.ts";
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
   throw new Error("Missing #app");
 }
 
-const storageReady = typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
+const storageReady = extensionStorageReady(tryExtensionApi());
 
 if (storageReady) {
   startSettings(host, chromeSettings(), null, chromePermissions(), chromeBookmarks(), chromeImages());
@@ -23,5 +24,6 @@ if (storageReady) {
     ports.images,
   );
 } else {
-  host.textContent = "Open Hearth settings from the extension after loading it in Chrome.";
+  host.textContent =
+    "Open Hearth settings from the extension after loading it in Chrome or Firefox.";
 }

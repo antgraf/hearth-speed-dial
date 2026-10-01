@@ -1,13 +1,19 @@
 import { start } from "./app.ts";
 import { chromeBookmarks, chromeCapture, chromeImages, chromePermissions, chromeSettings } from "./browser.ts";
+import {
+  extensionBookmarksReady,
+  extensionStorageReady,
+  tryExtensionApi,
+} from "./webext.ts";
 
 const host = document.querySelector("#app");
 if (!(host instanceof HTMLElement)) {
   throw new Error("Missing #app");
 }
 
-const bookmarksReady = typeof chrome !== "undefined" && Boolean(chrome.bookmarks);
-const storageReady = typeof chrome !== "undefined" && Boolean(chrome.storage?.local);
+const api = tryExtensionApi();
+const bookmarksReady = extensionBookmarksReady(api);
+const storageReady = extensionStorageReady(api);
 
 if (bookmarksReady && storageReady) {
   start(host, {
@@ -25,5 +31,6 @@ if (bookmarksReady && storageReady) {
     banner: previewBanner,
   });
 } else {
-  host.textContent = "Open Hearth from a Chrome new tab after loading the extension.";
+  host.textContent =
+    "Open Hearth from a new tab after loading the extension in Chrome or Firefox.";
 }

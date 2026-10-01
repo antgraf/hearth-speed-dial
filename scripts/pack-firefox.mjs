@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * Pack dist/ into a Chrome Web Store / sideload zip (manifest.json at zip root).
- * Usage: node scripts/pack-chrome.mjs
- * Requires a prior `npm run build`. Output: artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip
- *
- * Firefox: npm run build:firefox && npm run pack:firefox
+ * Pack dist-firefox/ into an AMO / temporary-addon zip (manifest.json at zip root).
+ * Usage: node scripts/pack-firefox.mjs
+ * Requires `npm run build` then `npm run build:firefox` (or prepare-firefox-dist).
+ * Output: artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip
  */
 
 import { spawnSync } from "node:child_process";
@@ -12,9 +11,10 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { assertFirefoxManifest } from "./firefox-manifest.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const dist = resolve(root, "dist");
+const distFirefox = resolve(root, "dist-firefox");
 const artifacts = resolve(root, "artifacts");
 
 function readVersion() {
@@ -27,30 +27,32 @@ function readVersion() {
 }
 
 function assertDistReady() {
-  if (!existsSync(dist)) {
-    throw new Error("dist/ missing — run npm run build first");
+  if (!existsSync(distFirefox)) {
+    throw new Error("dist-firefox/ missing — run npm run build:firefox first");
   }
   for (const required of ["manifest.json", "background.js", "index.html", "settings.html", "add.html", "icons"]) {
-    if (!existsSync(resolve(dist, required))) {
-      throw new Error(`dist/ missing required ${required}`);
+    if (!existsSync(resolve(distFirefox, required))) {
+      throw new Error(`dist-firefox/ missing required ${required}`);
     }
   }
+  const manifest = JSON.parse(readFileSync(resolve(distFirefox, "manifest.json"), "utf8"));
+  assertFirefoxManifest(manifest);
 }
 
 const version = readVersion();
 assertDistReady();
 
 mkdirSync(artifacts, { recursive: true });
-const zipName = `hearth-speed-dial-chrome-v${version}.zip`;
+const zipName = `hearth-speed-dial-firefox-v${version}.zip`;
 const zipPath = resolve(artifacts, zipName);
 rmSync(zipPath, { force: true });
 
-// Omit Vite source maps from the store/sideload zip (still present under dist/ for local debug).
+// Omit Vite source maps from the store/sideload zip (still present under dist-firefox/ for local debug).
 const result = spawnSync(
   "zip",
   ["-r", "-X", "-q", zipPath, ".", "-x", "*.map", "-x", "**/*.map"],
   {
-    cwd: dist,
+    cwd: distFirefox,
     stdio: "inherit",
   },
 );

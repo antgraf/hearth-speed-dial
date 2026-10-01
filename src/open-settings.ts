@@ -1,10 +1,25 @@
-/** Open the extension Settings page from Chrome (new-tab gear, etc.). */
-export type SettingsRuntime = Pick<typeof chrome.runtime, "openOptionsPage" | "getURL">;
-export type SettingsTabs = Pick<typeof chrome.tabs, "create">;
+/** Open the extension Settings page (new-tab gear, etc.). */
+import { tryExtensionApi, type ExtensionApi } from "./webext.ts";
+
+export type SettingsRuntime = Pick<ExtensionApi["runtime"], "openOptionsPage" | "getURL">;
+export type SettingsTabs = Pick<ExtensionApi["tabs"], "create">;
+
+function defaultRuntime(): SettingsRuntime {
+  const api = tryExtensionApi();
+  if (!api?.runtime) {
+    throw new Error("Extension runtime is not available.");
+  }
+  return api.runtime;
+}
+
+function defaultTabs(): SettingsTabs | null {
+  const api = tryExtensionApi();
+  return api?.tabs ?? null;
+}
 
 export async function openChromeSettingsPage(
-  runtime: SettingsRuntime = chrome.runtime,
-  tabs: SettingsTabs | null = typeof chrome !== "undefined" && chrome.tabs ? chrome.tabs : null,
+  runtime: SettingsRuntime = defaultRuntime(),
+  tabs: SettingsTabs | null = defaultTabs(),
   openWindow: (url: string) => void = (url) => {
     window.open(url, "_blank", "noopener,noreferrer");
   },

@@ -1,8 +1,7 @@
-# Chrome extension release: bump version, build, pack zip, tag, GitHub Release.
-# Firefox pack can be added later (separate asset) once Firefox is in the SPEC.
+# Extension release: bump version, build, pack Chrome + Firefox zips, tag, GitHub Release.
 # Docs: docs/VERSIONING.md
 
-name: Release Chrome
+name: Release
 
 on:
   workflow_dispatch:
@@ -17,7 +16,7 @@ on:
         default: false
 
 concurrency:
-  group: release-chrome
+  group: release-extension
   cancel-in-progress: false
 
 permissions:
@@ -68,11 +67,17 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build
+      - name: Build Chrome dist
         run: npm run build
+
+      - name: Build Firefox dist
+        run: npm run build:firefox
 
       - name: Pack Chrome zip
         run: npm run pack:chrome
+
+      - name: Pack Firefox zip
+        run: npm run pack:firefox
 
       - name: Commit, tag, and push
         id: tag
@@ -98,12 +103,14 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
           PREVIOUS_TAG="${{ steps.tag.outputs.previous_tag }}"
-          ZIP="artifacts/hearth-speed-dial-chrome-v${VERSION}.zip"
+          CHROME_ZIP="artifacts/hearth-speed-dial-chrome-v${VERSION}.zip"
+          FIREFOX_ZIP="artifacts/hearth-speed-dial-firefox-v${VERSION}.zip"
           # Release body: GitHub-generated notes (merged PRs / commits since previous tag).
           # First release (no previous v* tag): --generate-notes without --notes-start-tag.
           CREATE_ARGS=(
             "v${VERSION}"
-            "$ZIP"
+            "$CHROME_ZIP"
+            "$FIREFOX_ZIP"
             --repo antgraf/hearth-speed-dial
             --title "v${VERSION}"
             --verify-tag

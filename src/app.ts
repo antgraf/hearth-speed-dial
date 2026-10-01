@@ -47,6 +47,7 @@ import {
   type CaptureApi,
   type PermissionsApi,
 } from "./permissions.ts";
+import { tryExtensionApi } from "./webext.ts";
 import {
   DEFAULT_LAYOUT,
   thumbnailWaitMs,
@@ -788,8 +789,9 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     sendResponse({ ok: true });
     return true;
   };
-  if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
-    chrome.runtime.onMessage.addListener(onRuntimeMessage);
+  const runtimeApi = tryExtensionApi();
+  if (runtimeApi?.runtime?.onMessage) {
+    runtimeApi.runtime.onMessage.addListener(onRuntimeMessage);
   }
 
   void (async () => {
@@ -883,8 +885,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     if (colorSchemeMedia && onColorSchemeChange) {
       colorSchemeMedia.removeEventListener("change", onColorSchemeChange);
     }
-    if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
-      chrome.runtime.onMessage.removeListener(onRuntimeMessage);
+    if (runtimeApi?.runtime?.onMessage) {
+      runtimeApi.runtime.onMessage.removeListener(onRuntimeMessage);
     }
   };
 }

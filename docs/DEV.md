@@ -6,7 +6,7 @@ Use these scripts to install, reload, or remove the packed/unpacked extension **
 
 Requires Node 22+ (same as the rest of the repo). Works on Windows, macOS, and Linux when the browser binary is installed or pointed at via env / `--binary`.
 
-### Chrome (recommended for Hearth)
+### Chrome
 
 Build, then launch Chrome with `--user-data-dir` pointing at `.browser-profiles/chrome` and `--load-extension` pointing at `dist/`:
 
@@ -18,13 +18,7 @@ npm run browser:chrome
 ```powershell
 npm run build
 npm run browser:chrome
-```
-
-Or via the PowerShell wrappers (same Node scripts underneath):
-
-```powershell
-.\launch-chrome.ps1
-# or: pwsh ./launch-chrome.ps1
+# or: .\build.ps1 ; .\launch-chrome.ps1
 ```
 
 Useful flags (pass after `--` for npm):
@@ -55,23 +49,25 @@ npm run browser:reset -- chrome
 npm run build && npm run browser:chrome
 ```
 
-### Firefox (clean profile only)
+### Firefox
 
-Hearth v1 is Chrome-only. The Firefox script does **not** claim product support; it only opens an isolated profile so you can load a temporary add-on without using your default Firefox profile. `web-ext` is not in this repo and is not required.
-
-```bash
-npm run build
-npm run browser:firefox
-```
+Build the Firefox tree (`dist-firefox/`), then open an isolated profile and load a **temporary add-on**. Requires Firefox **121+**. `web-ext` is not in this repo and is not required.
 
 ```powershell
-.\launch-firefox.ps1
+.\build.ps1 -Target Firefox
+npm run browser:firefox
+# or: .\launch-firefox.ps1
+```
+
+```bash
+npm run build && npm run build:firefox
+npm run browser:firefox
 ```
 
 Then in the opened debugging page (`about:debugging#/runtime/this-firefox`):
 
 1. Click **Load Temporary Add-on…**
-2. Select `<repo>/dist/manifest.json`
+2. Select `<repo>/dist-firefox/manifest.json` (not `dist/`)
 3. Remove the temporary add-on from that page when finished, or close Firefox / run `npm run browser:reset -- firefox`
 
 Flags: `--profile`, `--binary` (or `FIREFOX_PATH`), `--foreground`, `--help`.
@@ -102,3 +98,15 @@ Only deletes `.browser-profiles/<name>` inside this repository. It never touches
 Override with `CHROME_PATH` / `FIREFOX_PATH` or `--binary` when discovery fails (Flatpak, custom installs, Chrome Canary-only machines).
 
 Manual product checks after load: [smoke-checklist.md](smoke-checklist.md).
+
+## Cross-browser API notes
+
+- Runtime code resolves `browser` before `chrome` (`src/webext.ts`) so Firefox gets promise-based APIs.
+- Chrome root `manifest.json` stays the Chrome source of truth; Firefox packaging is generated (`scripts/firefox-manifest.mjs` → `dist-firefox/`).
+- Title-strip favicons stay Chrome-only (`favicon` + `/_favicon/`). Firefox omits them without adding host permissions.
+- Optional thumbnail / URL-image permission UX can differ on Firefox (may re-prompt more often after revoke); degrade gracefully either way.
+
+## Follow-ups (not blocking Firefox)
+
+- **`_locales` scaffolding** — English message extract for store locale fields and later translations is a separate Pre-publish item. Firefox packaging does not require it yet.
+- AMO listing screenshots, privacy policy text, and reviewer permissions narrative are separate Pre-publish lanes.

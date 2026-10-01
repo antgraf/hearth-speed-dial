@@ -38,11 +38,13 @@ type FakeChrome = {
 };
 
 function installChrome(fake: FakeChrome): void {
-  (globalThis as unknown as { chrome: FakeChrome }).chrome = fake;
+  (globalThis as Record<string, unknown>).chrome = fake;
 }
 
 afterEach(() => {
-  delete (globalThis as unknown as { chrome?: FakeChrome }).chrome;
+  const g = globalThis as Record<string, unknown>;
+  delete g.chrome;
+  delete g.browser;
 });
 
 function fakeChrome(

@@ -98,11 +98,14 @@ test("dialDocumentPatterns targets the new-tab override page", () => {
   assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
     "chrome-extension://id/index.html",
   ]);
+  assert.deepEqual(dialDocumentPatterns((path) => `moz-extension://ff/${path}`), [
+    "moz-extension://ff/index.html",
+  ]);
 });
 
-test("ensureMenu registers Add and Refresh All with the expected patterns", () => {
+test("ensureMenu registers Add and Refresh All with the expected patterns", async () => {
   const api = fakeChrome();
-  ensureMenu(api);
+  await ensureMenu(api);
   assert.ok(api.calls.includes("contextMenus.removeAll"));
   assert.equal(api.menus.length, 2);
   assert.deepEqual(api.menus[0], {
@@ -119,9 +122,23 @@ test("ensureMenu registers Add and Refresh All with the expected patterns", () =
   });
 });
 
-test("registerBackgroundMenus re-registers on onStartup after the initial ensure", () => {
+test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", async () => {
+  const api = fakeChrome();
+  api.contextMenus.removeAll = () => {
+    api.calls.push("contextMenus.removeAll");
+    api.menus.length = 0;
+    return Promise.resolve();
+  };
+  await ensureMenu(api);
+  assert.equal(api.menus.length, 2);
+  assert.equal(api.menus[0]?.id, ADD_MENU_ID);
+});
+
+test("registerBackgroundMenus re-registers on onStartup after the initial ensure", async () => {
   const api = fakeChrome();
   registerBackgroundMenus(api);
+  await Promise.resolve();
+  await Promise.resolve();
 
   assert.ok(api.calls.includes("onInstalled.addListener"));
   assert.ok(api.calls.includes("onStartup.addListener"));
@@ -130,11 +147,15 @@ test("registerBackgroundMenus re-registers on onStartup after the initial ensure
 
   assert.ok(api.startup);
   api.startup();
+  await Promise.resolve();
+  await Promise.resolve();
   assert.equal(ensureCalls(), 2);
   assert.equal(api.menus.length, 2);
 
   assert.ok(api.installed);
   api.installed();
+  await Promise.resolve();
+  await Promise.resolve();
   assert.equal(ensureCalls(), 3);
 });
 
