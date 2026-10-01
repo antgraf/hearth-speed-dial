@@ -137,5 +137,7 @@ test("settings Theme category exposes mode, accent, and local wallpaper controls
   assert.ok(host.querySelector('select[name="themeMode"]'));
   assert.ok(host.querySelector('input[name="page-theme-accent"]'));
   assert.ok(host.querySelector('input[name="themeBackgroundColor"]'));
+  assert.match(host.textContent ?? "", /Page color override/);
+  assert.match(host.textContent ?? "", /Use accent default/);
   assert.match(host.textContent ?? "", /Choose local image/);
 });

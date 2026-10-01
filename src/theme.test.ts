@@ -86,15 +86,21 @@ test("resolveThemeMode maps auto to system preference", () => {
   assert.equal(resolveThemeMode("auto", false), "light");
 });
 
-test("accent CSS remaps title, mark face, and hover tokens", () => {
+test("accent CSS remaps page wash, tiles, chrome, and icons", () => {
   const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "style.css"), "utf8");
   for (const accent of ["ember", "brass", "clay", "moss"]) {
-    assert.match(css, new RegExp(`\\[data-hearth-accent="${accent}"\\][^{]*\\{[^}]*--title:`));
-    assert.match(css, new RegExp(`\\[data-hearth-accent="${accent}"\\][^{]*\\{[^}]*--mark-bg:`));
-    assert.match(css, new RegExp(`\\[data-hearth-accent="${accent}"\\][^{]*\\{[^}]*--hover:`));
+    const block = new RegExp(
+      `\\[data-hearth-accent="${accent}"\\]\\s*\\{[^}]*--bg:[^}]*--raise:[^}]*--title:[^}]*--muted:[^}]*--icon:`,
+      "s",
+    );
+    assert.match(css, block);
   }
   assert.match(css, /\.title\s*\{[^}]*color:\s*var\(--title\)/);
+  assert.match(css, /\.tile\s*\{[^}]*background:\s*var\(--raise\)/);
   assert.match(css, /\.tile:hover\s*\{[^}]*background:\s*var\(--hover\)/);
+  assert.match(css, /\.meta,\s*\n\.quiet,\s*\n\.crumb,\s*\n\.sep\s*\{[^}]*color:\s*var\(--muted\)/);
+  assert.match(css, /\.settings-gear\s*\{[^}]*color:\s*var\(--icon\)/);
+  assert.match(css, /\.action-menu\s*\{[^}]*color:\s*var\(--icon\)/);
   assert.match(css, /\.mark\s*\{[^}]*color:\s*var\(--mark\)/);
 });
 

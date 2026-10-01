@@ -7,6 +7,7 @@
   --text: #f3ece4;
   --muted: #a89888;
   --title: #f3ece4;
+  --icon: #a89888;
   --ember: #d4784a;
   --ember-ink: #1a100d;
   --brass: #e0b15a;
@@ -33,6 +34,7 @@
   --text: #2c241e;
   --muted: #6f6156;
   --title: #2c241e;
+  --icon: #6f6156;
   --mark: #4a372e;
   --mark-bg: #d8ccc0;
   --folder-bg: #d6ceb8;
@@ -40,81 +42,140 @@
   --ember-ink: #fff8f2;
 }
 
-/* Accent remaps CTA, titles, monogram faces, and hover — not a full arbitrary recolor. */
+/*
+ * Accent tints the page wash, tiles, chrome text/icons, and CTA — still a small
+ * warm palette, not a full arbitrary recolor.
+ */
 :root[data-hearth-accent="ember"] {
   --ember: #d4784a;
   --focus: #e7a07a;
   --brass: #e0b15a;
-  --title: #f0d2bf;
+  --bg: #181210;
+  --raise: #2a201a;
+  --hover: #3a2c24;
+  --line: #4a3830;
+  --text: #f3ece4;
+  --title: #e8a878;
+  --muted: #c49880;
+  --icon: #d4784a;
+  --note: #d7b094;
   --mark: #f0d2bf;
   --mark-bg: #3a2c26;
   --folder-bg: #3a3324;
-  --hover: #352820;
 }
 
 :root[data-hearth-accent="brass"] {
   --ember: #c9953a;
   --focus: #e0b15a;
   --brass: #d4a84a;
-  --title: #f0e0b8;
+  --bg: #16140e;
+  --raise: #2a2618;
+  --hover: #3a3420;
+  --line: #4a4228;
+  --text: #f3eee0;
+  --title: #e0b15a;
+  --muted: #c4b080;
+  --icon: #c9953a;
+  --note: #d4c090;
   --mark: #f0e0b8;
   --mark-bg: #3a3320;
   --folder-bg: #3c3624;
-  --hover: #342e1c;
 }
 
 :root[data-hearth-accent="clay"] {
   --ember: #c45a4a;
   --focus: #d99080;
   --brass: #d4a070;
-  --title: #f0c8bc;
+  --bg: #181210;
+  --raise: #2a1e1c;
+  --hover: #3a2824;
+  --line: #4a3430;
+  --text: #f3e8e4;
+  --title: #e09080;
+  --muted: #c49088;
+  --icon: #c45a4a;
+  --note: #d4a898;
   --mark: #f0c8bc;
   --mark-bg: #3a2624;
   --folder-bg: #3a2e24;
-  --hover: #342420;
 }
 
 :root[data-hearth-accent="moss"] {
   --ember: #7f8f4e;
   --focus: #a3b06a;
   --brass: #c4b06a;
-  --title: #dce0c4;
+  --bg: #121410;
+  --raise: #1e2218;
+  --hover: #2e3224;
+  --line: #3e4230;
+  --text: #ecefe4;
+  --title: #b8c878;
+  --muted: #9aa878;
+  --icon: #8a9a5c;
+  --note: #b8c090;
   --mark: #dce0c4;
   --mark-bg: #2e3224;
   --folder-bg: #323428;
-  --hover: #2a2c20;
 }
 
 :root[data-hearth-theme="light"][data-hearth-accent="ember"] {
-  --title: #5a3a2c;
+  --bg: #ebe0d6;
+  --raise: #f7efe6;
+  --hover: #e0d0c4;
+  --line: #d0b8a8;
+  --text: #2c241e;
+  --title: #a05030;
+  --muted: #8a6048;
+  --icon: #c46838;
+  --note: #6a4a38;
   --mark: #5a3a2c;
   --mark-bg: #e4d2c4;
   --folder-bg: #e0d6c0;
-  --hover: #e0d4c6;
 }
 
 :root[data-hearth-theme="light"][data-hearth-accent="brass"] {
-  --title: #5a4824;
+  --bg: #ebe6d4;
+  --raise: #f7f2e4;
+  --hover: #e0d8bc;
+  --line: #d0c4a0;
+  --text: #2c2818;
+  --title: #8a6820;
+  --muted: #7a6840;
+  --icon: #b88628;
+  --note: #5a4a28;
   --mark: #5a4824;
   --mark-bg: #e8dcc0;
   --folder-bg: #e4dcb8;
-  --hover: #e4d8bc;
 }
 
 :root[data-hearth-theme="light"][data-hearth-accent="clay"] {
-  --title: #6a342c;
+  --bg: #ebe0dc;
+  --raise: #f7ece8;
+  --hover: #e0d0cc;
+  --line: #d0b4b0;
+  --text: #2c201e;
+  --title: #a04038;
+  --muted: #8a5048;
+  --icon: #b84840;
+  --note: #6a3c38;
   --mark: #6a342c;
   --mark-bg: #e8d0c8;
   --folder-bg: #e4d4c4;
-  --hover: #e4d0c8;
 }
 
 :root[data-hearth-theme="light"][data-hearth-accent="moss"] {
-  --title: #3e4a2c;
+  --bg: #e4e6d8;
+  --raise: #f2f4e8;
+  --hover: #d4d8c4;
+  --line: #b8c0a0;
+  --text: #24281c;
+  --title: #4a6028;
+  --muted: #5a6840;
+  --icon: #6a7a40;
+  --note: #3e4a2c;
   --mark: #3e4a2c;
   --mark-bg: #d8dcc4;
   --folder-bg: #d4d8bc;
-  --hover: #d4d8c4;
 }
 
 * {
@@ -210,6 +271,11 @@ h1 {
 .crumb,
 .sep {
   color: var(--muted);
+}
+
+.crumb:hover,
+.crumb:focus-visible {
+  color: var(--title);
 }
 
 .error {
@@ -342,14 +408,14 @@ h1 {
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: var(--muted);
+  color: var(--icon);
 }
 
 .action-menu:hover,
 .action-menu:focus-visible {
   border-color: var(--line);
   background: var(--hover);
-  color: var(--text);
+  color: var(--title);
 }
 
 .action-menu:disabled {
@@ -445,7 +511,7 @@ h1 {
   border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
-  color: var(--muted);
+  color: var(--icon);
   pointer-events: auto;
 }
 
@@ -453,12 +519,12 @@ h1 {
 .settings-gear:focus-visible {
   border-color: var(--line);
   background: var(--raise);
-  color: var(--text);
+  color: var(--title);
 }
 
 .settings-gear:active {
   background: var(--hover);
-  color: var(--text);
+  color: var(--title);
 }
 
 .settings-gear .icon {

@@ -10,6 +10,7 @@ import {
   type FolderTreeNode,
 } from "./model.ts";
 import type { SettingsApi } from "./settings.ts";
+import { applyThemeToDocument } from "./theme.ts";
 
 export type AddPorts = {
   bookmarks: BookmarksApi;
@@ -107,7 +108,21 @@ export function startAdd(host: HTMLElement, ports: AddPorts): () => void {
     }
   };
 
+  const applyTheme = async () => {
+    if (typeof document === "undefined") return;
+    try {
+      const [layout, backgroundImage] = await Promise.all([
+        ports.settings.getLayout(),
+        ports.settings.getThemeBackground(),
+      ]);
+      applyThemeToDocument(document.documentElement, layout.theme, { backgroundImage });
+    } catch {
+      // Keep the Add window usable if theme prefs fail to load.
+    }
+  };
+
   const load = async () => {
+    await applyTheme();
     if (state.status === "invalid") {
       draw();
       return;

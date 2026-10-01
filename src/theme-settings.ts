@@ -104,24 +104,25 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
   const colorField = document.createElement("div");
   colorField.className = "settings-field";
   const colorCaption = document.createElement("span");
-  colorCaption.textContent = "Background color";
+  colorCaption.textContent = "Page color override";
   const colorActions = document.createElement("div");
   colorActions.className = "settings-theme-actions";
   const color = document.createElement("input");
   color.type = "color";
   color.name = "themeBackgroundColor";
-  color.setAttribute("aria-label", "Background color");
-  color.value = options.theme.backgroundColor ?? "#161311";
+  color.setAttribute("aria-label", "Page color override");
+  color.value = options.theme.backgroundColor ?? accentDefaultBg(options.theme.accent, options.theme.mode);
   const clearColor = document.createElement("button");
   clearColor.type = "button";
   clearColor.className = "quiet";
-  clearColor.textContent = "Use theme default";
+  clearColor.textContent = "Use accent default";
   colorActions.append(color, clearColor);
   colorField.append(colorCaption, colorActions);
   root.append(colorField);
   const colorHelp = document.createElement("span");
   colorHelp.className = "settings-help";
-  colorHelp.textContent = "Optional solid page color. Cleared color restores the light/dark palette.";
+  colorHelp.textContent =
+    "Optional solid page wash override. Leave cleared so Appearance + Accent set the dial, Settings, and Add windows.";
   root.append(colorHelp);
 
   const wallpaperField = document.createElement("div");
@@ -242,7 +243,7 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
       color.dataset.custom = "1";
     } else {
       color.dataset.custom = "0";
-      color.value = "#161311";
+      color.value = accentDefaultBg(theme.accent, theme.mode);
     }
     fit.value = theme.backgroundFit;
     position.value = theme.backgroundPosition;
@@ -265,9 +266,24 @@ export function buildThemeCategory(options: ThemeCategoryOptions): ThemeCategory
   });
   clearColor.addEventListener("click", () => {
     color.dataset.custom = "0";
-    color.value = "#161311";
+    const accent =
+      (accentInputs.find((input) => input.checked)?.value as ThemeAccent | undefined) ??
+      options.theme.accent;
+    color.value = accentDefaultBg(accent, mode.value as ThemeMode);
     options.onThemeChange();
   });
+  // Keep the color swatch preview aligned with accent default while override is off.
+  const syncDefaultSwatch = () => {
+    if (color.dataset.custom === "1") return;
+    const accent =
+      (accentInputs.find((input) => input.checked)?.value as ThemeAccent | undefined) ??
+      options.theme.accent;
+    color.value = accentDefaultBg(accent, mode.value as ThemeMode);
+  };
+  mode.addEventListener("change", syncDefaultSwatch);
+  for (const input of accentInputs) {
+    input.addEventListener("change", syncDefaultSwatch);
+  }
   fit.addEventListener("change", () => options.onThemeChange());
   position.addEventListener("change", () => options.onThemeChange());
   opacity.addEventListener("change", () => options.onThemeChange());
@@ -311,4 +327,13 @@ function settingsField(labelText: string, control: HTMLElement): HTMLLabelElemen
   caption.textContent = labelText;
   label.append(caption, control);
   return label;
+}
+
+/** Representative page wash for the color swatch when no override is set. */
+function accentDefaultBg(accent: ThemeAccent, mode: ThemeMode): string {
+  const dark = mode !== "light";
+  if (accent === "brass") return dark ? "#16140e" : "#ebe6d4";
+  if (accent === "clay") return dark ? "#181210" : "#ebe0dc";
+  if (accent === "moss") return dark ? "#121410" : "#e4e6d8";
+  return dark ? "#181210" : "#ebe0d6";
 }
