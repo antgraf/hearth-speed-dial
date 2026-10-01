@@ -10,34 +10,40 @@ import { t } from "./i18n.ts";
 
 const STORAGE_KEY = "hearth.settings";
 
+/**
+ * Shared chrome.storage key for the settings blob.
+ * Portable layout/theme fields live in `storage.sync` under this key;
+ * device-local fields (folder ids, picture opt-ins) live in `storage.local`.
+ */
+export const SETTINGS_STORAGE_KEY = "settings";
+
 /** Local-only first-run welcome dismissed flag (not synced; not in backup). */
 export const WELCOME_DISMISSED_KEY = "hearth.welcome.dismissed";
 
-export type LayoutSettings = {
+/**
+ * Prefs that roam with the browser account via `storage.sync`.
+ * Kept tiny (well under sync item / total quotas). No image blobs, no
+ * profile-local bookmark ids, no per-install permission opt-ins.
+ */
+export type PortableLayoutSettings = {
   columns: number;
   tileSize: number;
-  /** When true, dial tiles show last bookmarks first (display only). */
   reverseOrder: boolean;
-  /**
-   * When true, the user opted into optional thumbnail capture.
-   * Still requires chrome.permissions (tabs + host access); if those are
-   * missing, the UI treats capture as off until permissions are granted again.
-   */
-  thumbnailsEnabled: boolean;
-  /**
-   * When true, the user opted into Image-from-URL (optional http/https host
-   * access). If those grants are missing, the UI treats the feature as off.
-   */
-  imageUrlFetchEnabled: boolean;
-  /**
-   * How long thumbnail capture waits after opening the page before taking the
-   * screenshot (seconds). Lets late paints finish; default matches the prior
-   * observed fast capture timing.
-   */
   thumbnailWaitSeconds: number;
-  /** Appearance mode, accent palette, and local background prefs. */
   theme: ThemeSettings;
 };
+
+/**
+ * Prefs that stay on the device in `storage.local`.
+ * Picture toggles mirror optional grants per install; folder ids are
+ * profile-local bookmark ids and must not roam.
+ */
+export type DeviceLayoutSettings = {
+  thumbnailsEnabled: boolean;
+  imageUrlFetchEnabled: boolean;
+};
+
+export type LayoutSettings = PortableLayoutSettings & DeviceLayoutSettings;
 
 /** Width of each dial face; height follows TILE_ASPECT (16:9). */
 export const DEFAULT_LAYOUT: LayoutSettings = {
@@ -81,15 +87,17 @@ export type SettingsApi = {
   /** Persist whether the first-run welcome has been dismissed. */
   setWelcomeDismissed(dismissed: boolean): Promise<void>;
   /**
-   * Restore layout + theme + default-folder prefs to product defaults.
-   * Preserves last-open folder (`openFolderId`). Clears the theme wallpaper.
-   * Does not touch dial images or the welcome dismissed flag.
+   * Restore portable layout/theme + device picture toggles + default-folder
+   * prefs to product defaults. Preserves last-open folder (`openFolderId`).
+   * Clears the theme wallpaper. Does not touch dial images or the welcome
+   * dismissed flag.
    */
   resetToDefaults(): Promise<LayoutSettings>;
   /**
-   * Remove the entire settings blob (layout, theme, default folder, last-open),
-   * the theme wallpaper key, and the welcome dismissed flag. Does not touch
-   * dial image keys — pair with ImagesApi.clearAll for Erase.
+   * Remove sync portable settings, the local settings blob (layout toggles,
+   * default folder, last-open), the theme wallpaper key, and the welcome
+   * dismissed flag. Does not touch dial image keys — pair with
+   * ImagesApi.clearAll for Erase.
    */
   clearAll(): Promise<void>;
 };
@@ -214,6 +222,101 @@ export function readLayout(value: unknown): LayoutSettings {
     imageUrlFetchEnabled: readImageUrlFetchEnabled(record.imageUrlFetchEnabled),
     thumbnailWaitSeconds: readThumbnailWaitSeconds(record.thumbnailWaitSeconds),
     theme: readTheme(record.theme),
+  };
+}
+
+/** Normalize portable fields from a sync (or legacy combined) blob. */
+export function readPortableLayout(value: unknown): PortableLayoutSettings {
+  const full = readLayout(value);
+  return portableFromLayout(full);
+}
+
+/** Normalize device-local picture opt-ins from a local (or legacy) blob. */
+export function readDeviceLayout(value: unknown): DeviceLayoutSettings {
+  const full = readLayout(value);
+  return deviceFromLayout(full);
+}
+
+export function portableFromLayout(layout: LayoutSettings): PortableLayoutSettings {
+  return {
+    columns: clampColumns(layout.columns),
+    tileSize: clampTileSize(layout.tileSize),
+    reverseOrder: Boolean(layout.reverseOrder),
+    thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
+    theme: normalizeTheme(layout.theme),
+  };
+}
+
+export function deviceFromLayout(layout: LayoutSettings): DeviceLayoutSettings {
+  return {
+    thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
+    imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
+  };
+}
+
+/** Merge sync portable prefs with local device prefs into the Settings UI model. */
+export function mergeLayoutParts(
+  portable: PortableLayoutSettings,
+  device: DeviceLayoutSettings,
+): LayoutSettings {
+  return {
+    ...portable,
+    theme: { ...portable.theme },
+    ...device,
+  };
+}
+
+/**
+ * True when a stored blob still holds portable layout/theme fields.
+ * Used to one-time seed `storage.sync` from pre-release `storage.local` data
+ * (no deferred migration for first-release users — they write sync from day one).
+ */
+export function hasPortableSettingsFields(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return (
+    "columns" in record ||
+    "tileSize" in record ||
+    "reverseOrder" in record ||
+    "thumbnailWaitSeconds" in record ||
+    "theme" in record
+  );
+}
+
+/**
+ * Device-local fields to keep in `storage.local` after stripping portable prefs
+ * (and dropping unknown keys that are neither portable nor device).
+ */
+export function deviceSettingsBlobFromUnknown(value: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!value || typeof value !== "object") return out;
+  const record = value as Record<string, unknown>;
+  const openFolderId = readOpenFolderId(record);
+  if (openFolderId !== null) out.openFolderId = openFolderId;
+  const defaultFolderId = readDefaultFolderId(record);
+  if (defaultFolderId !== null) out.defaultFolderId = defaultFolderId;
+  if ("thumbnailsEnabled" in record) {
+    out.thumbnailsEnabled = readThumbnailsEnabled(record.thumbnailsEnabled);
+  }
+  if ("imageUrlFetchEnabled" in record) {
+    out.imageUrlFetchEnabled = readImageUrlFetchEnabled(record.imageUrlFetchEnabled);
+  }
+  return out;
+}
+
+/** Plain object written to `storage.sync` for portable prefs. */
+export function portableSettingsBlob(layout: PortableLayoutSettings): Record<string, unknown> {
+  const portable = portableFromLayout({
+    ...layout,
+    thumbnailsEnabled: DEFAULT_LAYOUT.thumbnailsEnabled,
+    imageUrlFetchEnabled: DEFAULT_LAYOUT.imageUrlFetchEnabled,
+  });
+  return {
+    columns: portable.columns,
+    tileSize: portable.tileSize,
+    reverseOrder: portable.reverseOrder,
+    thumbnailWaitSeconds: portable.thumbnailWaitSeconds,
+    theme: portable.theme,
   };
 }
 

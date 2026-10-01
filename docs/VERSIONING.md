@@ -25,7 +25,7 @@ Think in terms of **installed users**, **store update eligibility**, and **data 
    Adding or removing always-on permissions in `manifest.json` (`bookmarks`, `storage`, `unlimitedStorage`, `favicon`, `contextMenus`, `activeTab`, or future always-on grants), or changing the generated Firefox always-on set in a way that requires reinstall. Chrome often will not silently expand the install set on update; users may need to remove and load again, and store reviewers treat permission deltas as high-signal. Promoting an optional permission to install-time is major.
 
 2. **Storage schema breaks without a migration**  
-   `storage.local` keys or value shapes for layout, theme, dial pictures, open/default folder ids, or toggles that existing profiles cannot read, or that wipe / mis-bind data on upgrade. If you ship a migration that keeps existing profiles working, that can stay minor; an intentional wipe or unreadable format is major.
+   `storage.local` / `storage.sync` keys or value shapes for layout, theme, dial pictures, open/default folder ids, or toggles that existing profiles cannot read, or that wipe / mis-bind data on upgrade. If you ship a migration (or a one-time local→sync seed) that keeps existing profiles working, that can stay minor; an intentional wipe or unreadable format is major.
 
 3. **Export / import format breaks**  
    Raising `BACKUP_VERSION` (see `src/backup.ts`) in a way that **older builds cannot read new files** is fine as minor if new builds still import old files. Dropping support for an old backup version, or changing `BACKUP_FORMAT` so existing export files fail, is major.

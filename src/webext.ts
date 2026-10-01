@@ -41,9 +41,9 @@ export function extensionApi(): ExtensionApi {
   return api;
 }
 
-/** True when bookmarks + storage.local are available (dial / settings boot). */
+/** True when storage.local + storage.sync are available (dial / settings boot). */
 export function extensionStorageReady(api: ExtensionApi | null = tryExtensionApi()): boolean {
-  return Boolean(api?.storage?.local);
+  return Boolean(api?.storage?.local && api?.storage?.sync);
 }
 
 /** True when the bookmarks API is available. */

@@ -353,7 +353,7 @@
     "message": "These actions only affect Hearth preferences and stored dial pictures — never your browser bookmarks."
   },
   "settings_intro": {
-    "message": "Layout and theme preferences stay in this browser profile. Bookmark order in the browser is unchanged — reverse only affects how the dial grid is shown."
+    "message": "Layout and theme preferences sync with your browser account when signed in. Dial pictures, wallpaper, and folder pins stay on this device. Bookmark order in the browser is unchanged — reverse only affects how the dial grid is shown."
   },
   "note_saved": {
     "message": "Saved. Open a new tab to see layout changes."
