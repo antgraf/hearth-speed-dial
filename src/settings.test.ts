@@ -9,19 +9,28 @@ import { fileURLToPath } from "node:url";
   clampThumbnailWaitSeconds,
   clampTileSize,
   DEFAULT_LAYOUT,
+  deviceFromLayout,
+  deviceSettingsBlobFromUnknown,
   eraseAllConfirm,
+  hasPortableSettingsFields,
   LAYOUT_LIMITS,
+  mergeLayoutParts,
+  portableFromLayout,
+  portableSettingsBlob,
   readColumns,
   readDefaultFolderId,
+  readDeviceLayout,
   readImageUrlFetchEnabled,
   readLayout,
   readOpenFolderId,
+  readPortableLayout,
   readReverseOrder,
   readThumbnailWaitSeconds,
   readThumbnailsEnabled,
   readTileSize,
   readWelcomeDismissed,
   resetDefaultsConfirm,
+  SETTINGS_STORAGE_KEY,
   TILE_ASPECT,
   syncRangeInputValue,
   thumbnailWaitMs,
@@ -289,4 +298,68 @@ test("bindRangeInput sets min/max/step before value", () => {
   syncRangeInputValue(input, 176);
   assert.equal(input.value, "176");
   assert.ok(order.includes("value:176"));
+});
+
+test("portable / device layout split helpers keep sync and local fields apart", () => {
+  assert.equal(SETTINGS_STORAGE_KEY, "settings");
+  const layout = {
+    ...DEFAULT_LAYOUT,
+    columns: 4,
+    tileSize: 200,
+    reverseOrder: true,
+    thumbnailWaitSeconds: 7,
+    thumbnailsEnabled: true,
+    imageUrlFetchEnabled: true,
+    theme: { ...DEFAULT_LAYOUT.theme, mode: "dark" as const, accent: "brass" as const },
+  };
+  assert.deepEqual(portableFromLayout(layout), {
+    columns: 4,
+    tileSize: 200,
+    reverseOrder: true,
+    thumbnailWaitSeconds: 7,
+    theme: layout.theme,
+  });
+  assert.deepEqual(deviceFromLayout(layout), {
+    thumbnailsEnabled: true,
+    imageUrlFetchEnabled: true,
+  });
+  assert.deepEqual(
+    mergeLayoutParts(portableFromLayout(layout), deviceFromLayout(layout)),
+    layout,
+  );
+  assert.deepEqual(readPortableLayout({ columns: 4, thumbnailsEnabled: true }), {
+    columns: 4,
+    tileSize: DEFAULT_LAYOUT.tileSize,
+    reverseOrder: false,
+    thumbnailWaitSeconds: 2,
+    theme: DEFAULT_LAYOUT.theme,
+  });
+  assert.deepEqual(readDeviceLayout({ columns: 4, thumbnailsEnabled: true }), {
+    thumbnailsEnabled: true,
+    imageUrlFetchEnabled: false,
+  });
+  assert.equal(hasPortableSettingsFields({ columns: 3 }), true);
+  assert.equal(hasPortableSettingsFields({ theme: { mode: "light" } }), true);
+  assert.equal(hasPortableSettingsFields({ openFolderId: "1", thumbnailsEnabled: true }), false);
+  assert.deepEqual(
+    deviceSettingsBlobFromUnknown({
+      columns: 3,
+      theme: { mode: "light" },
+      openFolderId: "open",
+      defaultFolderId: "def",
+      thumbnailsEnabled: true,
+      imageUrlFetchEnabled: false,
+      junk: true,
+    }),
+    {
+      openFolderId: "open",
+      defaultFolderId: "def",
+      thumbnailsEnabled: true,
+      imageUrlFetchEnabled: false,
+    },
+  );
+  const blob = portableSettingsBlob(portableFromLayout(layout));
+  assert.equal(blob.columns, 4);
+  assert.equal("thumbnailsEnabled" in blob, false);
+  assert.equal("openFolderId" in blob, false);
 });

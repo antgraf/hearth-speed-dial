@@ -16,7 +16,7 @@ type FakeRuntime = {
 type FakeApi = {
   runtime: FakeRuntime;
   bookmarks?: object;
-  storage?: { local?: object };
+  storage?: { local?: object; sync?: object };
 };
 
 function installGlobals(values: { browser?: FakeApi | null; chrome?: FakeApi | null }): void {
@@ -46,11 +46,26 @@ test("tryExtensionApi prefers browser over chrome", () => {
 test("tryExtensionApi falls back to chrome when browser is absent", () => {
   installGlobals({
     browser: null,
-    chrome: { runtime: { getManifest: () => ({}) }, storage: { local: {} } },
+    chrome: { runtime: { getManifest: () => ({}) }, storage: { local: {}, sync: {} } },
   });
   assert.ok(tryExtensionApi()?.storage?.local);
+  assert.ok(tryExtensionApi()?.storage?.sync);
   assert.equal(extensionStorageReady(), true);
   assert.equal(extensionBookmarksReady(), false);
+});
+
+test("extensionStorageReady requires both local and sync", () => {
+  installGlobals({
+    browser: null,
+    chrome: { runtime: { getManifest: () => ({}) }, storage: { local: {} } },
+  });
+  assert.equal(extensionStorageReady(), false);
+
+  installGlobals({
+    browser: null,
+    chrome: { runtime: { getManifest: () => ({}) }, storage: { sync: {} } },
+  });
+  assert.equal(extensionStorageReady(), false);
 });
 
 test("extensionApi throws when neither global is present", () => {

@@ -30,14 +30,19 @@ import {
   type PermissionsApi,
 } from "./permissions.ts";
 import {
-  clampColumns,
-  clampThumbnailWaitSeconds,
-  clampTileSize,
   DEFAULT_LAYOUT,
+  deviceFromLayout,
+  deviceSettingsBlobFromUnknown,
+  hasPortableSettingsFields,
+  mergeLayoutParts,
+  portableFromLayout,
+  portableSettingsBlob,
   readDefaultFolderId,
-  readLayout,
+  readDeviceLayout,
   readOpenFolderId,
+  readPortableLayout,
   readWelcomeDismissed,
+  SETTINGS_STORAGE_KEY,
   thumbnailWaitMs,
   WELCOME_DISMISSED_KEY,
   type LayoutSettings,
@@ -46,7 +51,6 @@ import {
 import { extensionApi } from "./webext.ts";
 import {
   DEFAULT_THEME,
-  normalizeTheme,
   readThemeBackgroundDataUrl,
   THEME_BACKGROUND_KEY,
 } from "./theme.ts";
@@ -137,33 +141,46 @@ export function chromeBookmarks(): BookmarksApi {
 export function chromeSettings(): SettingsApi {
   return {
     async getOpenFolderId() {
-      const stored = await extensionApi().storage.local.get("settings");
-      return readOpenFolderId(stored.settings);
+      await seedPortableSettingsFromLocalIfNeeded();
+      const stored = await extensionApi().storage.local.get(SETTINGS_STORAGE_KEY);
+      return readOpenFolderId(stored[SETTINGS_STORAGE_KEY]);
     },
     async setOpenFolderId(id) {
-      await patchSettings({ openFolderId: id });
+      await patchLocalSettings({ openFolderId: id });
     },
     async getDefaultFolderId() {
-      const stored = await extensionApi().storage.local.get("settings");
-      return readDefaultFolderId(stored.settings);
+      await seedPortableSettingsFromLocalIfNeeded();
+      const stored = await extensionApi().storage.local.get(SETTINGS_STORAGE_KEY);
+      return readDefaultFolderId(stored[SETTINGS_STORAGE_KEY]);
     },
     async setDefaultFolderId(id) {
-      await patchSettings({ defaultFolderId: id });
+      await patchLocalSettings({ defaultFolderId: id });
     },
     async getLayout() {
-      const stored = await extensionApi().storage.local.get("settings");
-      return readLayout(stored.settings);
+      await seedPortableSettingsFromLocalIfNeeded();
+      const api = extensionApi();
+      const [syncStored, localStored] = await Promise.all([
+        api.storage.sync.get(SETTINGS_STORAGE_KEY),
+        api.storage.local.get(SETTINGS_STORAGE_KEY),
+      ]);
+      return mergeLayoutParts(
+        readPortableLayout(syncStored[SETTINGS_STORAGE_KEY]),
+        readDeviceLayout(localStored[SETTINGS_STORAGE_KEY]),
+      );
     },
     async setLayout(layout: LayoutSettings) {
-      await patchSettings({
-        columns: clampColumns(layout.columns),
-        tileSize: clampTileSize(layout.tileSize),
-        reverseOrder: Boolean(layout.reverseOrder),
-        thumbnailsEnabled: Boolean(layout.thumbnailsEnabled),
-        imageUrlFetchEnabled: Boolean(layout.imageUrlFetchEnabled),
-        thumbnailWaitSeconds: clampThumbnailWaitSeconds(layout.thumbnailWaitSeconds),
-        theme: normalizeTheme(layout.theme),
-      });
+      await seedPortableSettingsFromLocalIfNeeded();
+      const portable = portableFromLayout(layout);
+      const device = deviceFromLayout(layout);
+      await Promise.all([
+        extensionApi().storage.sync.set({
+          [SETTINGS_STORAGE_KEY]: portableSettingsBlob(portable),
+        }),
+        patchLocalSettings({
+          thumbnailsEnabled: device.thumbnailsEnabled,
+          imageUrlFetchEnabled: device.imageUrlFetchEnabled,
+        }),
+      ]);
     },
     async getThemeBackground() {
       const stored = await extensionApi().storage.local.get(THEME_BACKGROUND_KEY);
@@ -194,36 +211,70 @@ export function chromeSettings(): SettingsApi {
       await extensionApi().storage.local.remove(WELCOME_DISMISSED_KEY);
     },
     async resetToDefaults() {
-      await patchSettings({
-        columns: DEFAULT_LAYOUT.columns,
-        tileSize: DEFAULT_LAYOUT.tileSize,
-        reverseOrder: DEFAULT_LAYOUT.reverseOrder,
-        thumbnailsEnabled: DEFAULT_LAYOUT.thumbnailsEnabled,
-        imageUrlFetchEnabled: DEFAULT_LAYOUT.imageUrlFetchEnabled,
-        thumbnailWaitSeconds: DEFAULT_LAYOUT.thumbnailWaitSeconds,
-        theme: { ...DEFAULT_THEME },
-        defaultFolderId: null,
-      });
-      await extensionApi().storage.local.remove(THEME_BACKGROUND_KEY);
+      await seedPortableSettingsFromLocalIfNeeded();
+      const portable = portableFromLayout(DEFAULT_LAYOUT);
+      const device = deviceFromLayout(DEFAULT_LAYOUT);
+      await Promise.all([
+        extensionApi().storage.sync.set({
+          [SETTINGS_STORAGE_KEY]: portableSettingsBlob(portable),
+        }),
+        patchLocalSettings({
+          thumbnailsEnabled: device.thumbnailsEnabled,
+          imageUrlFetchEnabled: device.imageUrlFetchEnabled,
+          defaultFolderId: null,
+        }),
+        extensionApi().storage.local.remove(THEME_BACKGROUND_KEY),
+      ]);
       return { ...DEFAULT_LAYOUT, theme: { ...DEFAULT_THEME } };
     },
     async clearAll() {
-      await extensionApi().storage.local.remove([
-        "settings",
-        THEME_BACKGROUND_KEY,
-        WELCOME_DISMISSED_KEY,
+      await Promise.all([
+        extensionApi().storage.sync.remove(SETTINGS_STORAGE_KEY),
+        extensionApi().storage.local.remove([
+          SETTINGS_STORAGE_KEY,
+          THEME_BACKGROUND_KEY,
+          WELCOME_DISMISSED_KEY,
+        ]),
       ]);
     },
   };
 }
 
-async function patchSettings(patch: Record<string, unknown>): Promise<void> {
-  const stored = await extensionApi().storage.local.get("settings");
+/**
+ * One-time bootstrap for pre-release / unpacked profiles that wrote portable
+ * prefs into `storage.local` before sync landed. First-store users write sync
+ * from day one — this is not a deferred shipped-user migration.
+ */
+async function seedPortableSettingsFromLocalIfNeeded(): Promise<void> {
+  const api = extensionApi();
+  const [syncStored, localStored] = await Promise.all([
+    api.storage.sync.get(SETTINGS_STORAGE_KEY),
+    api.storage.local.get(SETTINGS_STORAGE_KEY),
+  ]);
+  const syncBlob = syncStored[SETTINGS_STORAGE_KEY];
+  const localBlob = localStored[SETTINGS_STORAGE_KEY];
+  if (hasPortableSettingsFields(syncBlob)) return;
+  if (!hasPortableSettingsFields(localBlob)) return;
+
+  const portable = portableSettingsBlob(readPortableLayout(localBlob));
+  const deviceOnly = deviceSettingsBlobFromUnknown(localBlob);
+  await api.storage.sync.set({ [SETTINGS_STORAGE_KEY]: portable });
+  await api.storage.local.set({ [SETTINGS_STORAGE_KEY]: deviceOnly });
+}
+
+async function patchLocalSettings(patch: Record<string, unknown>): Promise<void> {
+  await seedPortableSettingsFromLocalIfNeeded();
+  const stored = await extensionApi().storage.local.get(SETTINGS_STORAGE_KEY);
   const previous =
-    stored.settings && typeof stored.settings === "object"
-      ? (stored.settings as Record<string, unknown>)
+    stored[SETTINGS_STORAGE_KEY] && typeof stored[SETTINGS_STORAGE_KEY] === "object"
+      ? (stored[SETTINGS_STORAGE_KEY] as Record<string, unknown>)
       : {};
-  await extensionApi().storage.local.set({ settings: { ...previous, ...patch } });
+  // Never re-introduce portable fields into local after the sync split.
+  const base = deviceSettingsBlobFromUnknown(previous);
+  const next = { ...base, ...patch };
+  // Explicit null clears defaultFolderId (Reset / Erase paths).
+  if (patch.defaultFolderId === null) delete next.defaultFolderId;
+  await extensionApi().storage.local.set({ [SETTINGS_STORAGE_KEY]: next });
 }
 
 export function chromeImages(): ImagesApi {
