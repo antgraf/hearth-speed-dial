@@ -17,8 +17,9 @@ test("English catalog covers store name and description", () => {
   assert.equal(englishMessage("ext_name"), "Hearth Speed Dial");
   assert.equal(
     englishMessage("ext_description"),
-    "New tab speed dial for one folder of your bookmarks.",
+    "New-tab speed dial of your bookmark tree — nested folders, local pictures, browser sync. No account.",
   );
+  assert.ok(englishMessage("ext_description").length <= 132);
   assert.ok(englishMessageNames().includes("ext_name"));
   assert.ok(englishMessageNames().length >= 200);
 });

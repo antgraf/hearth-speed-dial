@@ -163,6 +163,6 @@ test("settings Backup category sits before Danger Zone with export/import", asyn
   assert.ok(backupIdx < dangerIdx, "Backup must come before Danger Zone");
   assert.ok(host.querySelector("button.settings-backup-export"));
   assert.ok(host.querySelector("button.settings-backup-import"));
-  assert.match(host.textContent ?? "", /Chrome bookmarks are not included/i);
+  assert.match(host.textContent ?? "", /Browser bookmarks are not included/i);
   assert.match(host.textContent ?? "", /overwrite/i);
 });

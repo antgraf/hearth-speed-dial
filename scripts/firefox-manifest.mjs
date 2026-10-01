@@ -10,6 +10,15 @@ export const FIREFOX_EXTENSION_ID = "hearth-speed-dial@antgraf";
 export const FIREFOX_STRICT_MIN_VERSION = "121.0";
 
 /**
+ * AMO requires this for new extensions (2025-11-03+). Hearth collects nothing
+ * outside the local browser, so the only valid required value is "none".
+ * @see https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/
+ */
+export const FIREFOX_DATA_COLLECTION_PERMISSIONS = Object.freeze({
+  required: Object.freeze(["none"]),
+});
+
+/**
  * @typedef {object} ChromeManifest
  * @property {number} manifest_version
  * @property {string} name
@@ -51,6 +60,9 @@ export function chromeManifestToFirefox(chromeManifest) {
     gecko: {
       id: FIREFOX_EXTENSION_ID,
       strict_min_version: FIREFOX_STRICT_MIN_VERSION,
+      data_collection_permissions: {
+        required: [...FIREFOX_DATA_COLLECTION_PERMISSIONS.required],
+      },
     },
   };
 
@@ -85,6 +97,16 @@ export function assertFirefoxManifest(firefoxManifest) {
   const gecko = firefoxManifest.browser_specific_settings?.gecko;
   if (!gecko?.id || !gecko?.strict_min_version) {
     throw new Error("Firefox manifest missing browser_specific_settings.gecko id/min version");
+  }
+  const requiredCollection = gecko.data_collection_permissions?.required;
+  if (
+    !Array.isArray(requiredCollection) ||
+    requiredCollection.length !== 1 ||
+    requiredCollection[0] !== "none"
+  ) {
+    throw new Error(
+      'Firefox manifest must set gecko.data_collection_permissions.required to ["none"]',
+    );
   }
   if (firefoxManifest.chrome_url_overrides?.newtab !== "index.html") {
     throw new Error("Firefox manifest missing chrome_url_overrides.newtab");

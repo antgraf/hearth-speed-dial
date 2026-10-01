@@ -4,8 +4,8 @@
     "description": "Extension name for store and browser UI"
   },
   "ext_description": {
-    "message": "New tab speed dial for one folder of your bookmarks.",
-    "description": "Extension description for store listing"
+    "message": "New-tab speed dial of your bookmark tree — nested folders, local pictures, browser sync. No account.",
+    "description": "Extension description for store listing (CWS summary ≤132 characters)"
   },
   "page_title_new_tab": {
     "message": "New tab"
@@ -26,7 +26,7 @@
     "message": "Bookmarks"
   },
   "unavailable_default": {
-    "message": "Hearth could not read Chrome bookmarks."
+    "message": "Hearth could not read browser bookmarks."
   },
   "empty_folder": {
     "message": "This folder has no bookmarks yet."
@@ -329,13 +329,13 @@
     "message": "Generate dial thumbnails"
   },
   "switch_thumbnails_help": {
-    "message": "Off by default. The first time you turn this on, Chrome asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded."
+    "message": "Off by default. The first time you turn this on, the browser asks for optional access so Hearth can open a page briefly and capture a screenshot. Later turns may restore that access without asking. Images stay local — nothing is uploaded."
   },
   "switch_image_url_title": {
     "message": "Assign pictures from URLs"
   },
   "switch_image_url_help": {
-    "message": "Off by default. The first time you turn this on, Chrome asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking."
+    "message": "Off by default. The first time you turn this on, the browser asks for optional site access so Hearth can download an image once from a link and store it locally. Turning it off drops active access; later turns may restore it without asking."
   },
   "label_thumbnail_wait": {
     "message": "Thumbnail wait (seconds)"
@@ -350,10 +350,10 @@
     "message": "Storage usage is unavailable right now."
   },
   "danger_help": {
-    "message": "These actions only affect Hearth preferences and stored dial pictures — never your Chrome bookmarks."
+    "message": "These actions only affect Hearth preferences and stored dial pictures — never your browser bookmarks."
   },
   "settings_intro": {
-    "message": "Layout and theme preferences stay in this browser profile. Bookmark order in Chrome is unchanged — reverse only affects how the dial grid is shown."
+    "message": "Layout and theme preferences stay in this browser profile. Bookmark order in the browser is unchanged — reverse only affects how the dial grid is shown."
   },
   "note_saved": {
     "message": "Saved. Open a new tab to see layout changes."
@@ -368,7 +368,7 @@
     "message": "Background image updated."
   },
   "note_backup_downloaded": {
-    "message": "Backup downloaded. Chrome bookmarks are not included."
+    "message": "Backup downloaded. Browser bookmarks are not included."
   },
   "note_import_overwrite": {
     "message": "Backup imported (overwrite). Open a new tab to see the dial."
@@ -404,7 +404,7 @@
     "message": "Preview mode — settings save in this browser’s localStorage."
   },
   "preview_dial_banner": {
-    "message": "Preview with sample bookmarks. After you load the extension, a new tab uses your Chrome folders."
+    "message": "Preview with sample bookmarks. After you load the extension, a new tab uses your bookmark folders."
   },
   "dial_storage_label": {
     "message": "Dial picture storage"
@@ -465,7 +465,7 @@
     "message": "Delete bookmark"
   },
   "delete_link_confirm": {
-    "message": "Delete “$1”? This removes the bookmark from Chrome.",
+    "message": "Delete “$1”? This removes the bookmark from the browser.",
     "placeholders": {
       "title": {
         "content": "$1",
@@ -529,7 +529,7 @@
     "message": "Erase all data?"
   },
   "erase_all_message": {
-    "message": "Permanently clear all Hearth settings, theme wallpaper, and stored dial pictures in this browser profile. Your Chrome bookmarks are not deleted."
+    "message": "Permanently clear all Hearth settings, theme wallpaper, and stored dial pictures in this browser profile. Your browser bookmarks are not deleted."
   },
   "erase_all_confirm": {
     "message": "Erase all data"
@@ -716,7 +716,7 @@
     "message": "Import pictures & settings"
   },
   "export_help": {
-    "message": "Download a JSON file of dial pictures, theme wallpaper, and layout preferences. Chrome bookmarks are not included — the browser already syncs those."
+    "message": "Download a JSON file of dial pictures, theme wallpaper, and layout preferences. Browser bookmarks are not included — the browser already syncs those."
   },
   "import_help": {
     "message": "Restore from a Hearth backup file. Choose overwrite (replace local Hearth data) or merge (keep pictures not in the file). Bookmarks are never changed."
@@ -725,7 +725,7 @@
     "message": "How should import apply?"
   },
   "import_mode_message": {
-    "message": "Overwrite replaces Hearth settings, theme wallpaper, and all dial pictures with the file. Merge updates settings and adds or replaces pictures from the file, keeping local pictures that are not in the backup. Chrome bookmarks are never changed."
+    "message": "Overwrite replaces Hearth settings, theme wallpaper, and all dial pictures with the file. Merge updates settings and adds or replaces pictures from the file, keeping local pictures that are not in the backup. Browser bookmarks are never changed."
   },
   "import_overwrite": {
     "message": "Overwrite"

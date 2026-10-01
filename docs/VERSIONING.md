@@ -64,8 +64,9 @@ Workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml) (`
 3. `npm ci`, typecheck, lint, test, `npm run build` (Chrome + Firefox under `dist/`).
 4. `npm run pack:chrome` → `artifacts/hearth-speed-dial-chrome-vX.Y.Z.zip`.
 5. `npm run pack:firefox` → `artifacts/hearth-speed-dial-firefox-vX.Y.Z.zip`.
-6. Commit the version files to `main` (`Release vX.Y.Z`), create annotated tag `vX.Y.Z`, push commit + tag to `origin`.
-7. `gh release create` on **`antgraf/hearth-speed-dial`** with **both** zips attached. The release body is **auto-generated** from merged PRs (and commits) since the previous `v*` tag via `gh release create --generate-notes` (and `--notes-start-tag` when a prior tag exists). Do not maintain a hand-written `CHANGELOG.md` for this. On the first release (no prior `v*` tag), notes are still generated without a start tag.
+6. For AMO: `npm run pack:source` → `artifacts/hearth-speed-dial-source-vX.Y.Z.zip` (see [AMO.md](./AMO.md)).
+7. Commit the version files to `main` (`Release vX.Y.Z`), create annotated tag `vX.Y.Z`, push commit + tag to `origin`.
+8. `gh release create` on **`antgraf/hearth-speed-dial`** with **both** extension zips attached (Chrome + Firefox). Attach the source zip when preparing the AMO upload if it is not already on the Release. The release body is **auto-generated** from merged PRs (and commits) since the previous `v*` tag via `gh release create --generate-notes` (and `--notes-start-tag` when a prior tag exists). Do not maintain a hand-written `CHANGELOG.md` for this. On the first release (no prior `v*` tag), notes are still generated without a start tag.
 
 **Policy: commit + tag (not tag-only).** The shipped version always exists on `main` so local clones, CI, and the next bump share one source of truth. Tags alone would drift from `package.json` / `manifest.json` and make the next auto-increment wrong. Annotated `vX.Y.Z` tags are always created and pushed as part of the Action.
 
@@ -76,7 +77,7 @@ Before or right after running the Action for a store upload:
 1. Confirm bump level (major checkbox if any item in “MUST trigger a major bump” applies).
 2. Run [docs/smoke-checklist.md](./smoke-checklist.md) on **Chrome** against `dist/chrome` (or the Chrome release zip unpacked) and on **Firefox 121+** against `dist/firefox` (temporary add-on).
 3. Upload the **Chrome** zip from the GitHub Release to CWS (or sideload for verification).
-4. Upload the **Firefox** zip to AMO when the AMO listing package is ready (or sideload / temporary add-on for verification).
+4. Upload the **Firefox** zip to AMO when the AMO listing package is ready (or sideload / temporary add-on for verification). Attach the matching **source** zip (`npm run pack:source`) and paste rebuild steps from [AMO.md](./AMO.md).
 5. Confirm the GitHub Release body (auto-generated from merged PRs since the previous tag); edit on GitHub only if you need a short store-facing blurb prepended. Keep CWS/AMO listing copy elsewhere until those listing packages ship.
 
 Ordinary PR CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) does **not** bump versions or publish releases; it does build and pack both Chrome and Firefox zips to catch packaging regressions.
