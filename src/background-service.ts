@@ -125,7 +125,7 @@ export async function resolvePageTitle(
   if (fromEvent) return fromEvent;
   if (tab?.id == null) return undefined;
   try {
-    // `activeTab` (context-menu gesture) or optional `tabs` can unlock title.
+    // `activeTab` from the context-menu gesture unlocks the title.
     const full = await api.tabs.get(tab.id);
     const title = full.title?.trim();
     return title || undefined;

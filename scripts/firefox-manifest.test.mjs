@@ -40,7 +40,7 @@ test("chromeManifestToFirefox drops favicon and folds optional hosts", () => {
     chrome.permissions.filter((p) => p !== "favicon"),
   );
   assert.equal(firefox.optional_host_permissions, undefined);
-  assert.ok(firefox.optional_permissions.includes("tabs"));
+  assert.ok(!firefox.optional_permissions.includes("tabs"));
   assert.ok(firefox.optional_permissions.includes("<all_urls>"));
   assert.ok(firefox.optional_permissions.includes("http://*/*"));
   assert.ok(firefox.optional_permissions.includes("https://*/*"));
@@ -66,7 +66,7 @@ test("assertFirefoxManifest rejects Chrome favicon leftover", () => {
       assertFirefoxManifest({
         manifest_version: 3,
         permissions: ["bookmarks", "favicon"],
-        optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
+        optional_permissions: ["<all_urls>", "http://*/*", "https://*/*"],
         chrome_url_overrides: { newtab: "index.html" },
         background: { scripts: ["background.js"], type: "module" },
         browser_specific_settings: {
@@ -83,7 +83,7 @@ test("assertFirefoxManifest rejects missing data_collection_permissions", () => 
       assertFirefoxManifest({
         manifest_version: 3,
         permissions: ["bookmarks", "storage"],
-        optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
+        optional_permissions: ["<all_urls>", "http://*/*", "https://*/*"],
         chrome_url_overrides: { newtab: "index.html" },
         background: { scripts: ["background.js"], type: "module" },
         browser_specific_settings: {
@@ -103,7 +103,7 @@ test("assertFirefoxManifest rejects leftover service_worker", () => {
       assertFirefoxManifest({
         manifest_version: 3,
         permissions: ["bookmarks"],
-        optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
+        optional_permissions: ["<all_urls>", "http://*/*", "https://*/*"],
         chrome_url_overrides: { newtab: "index.html" },
         background: { service_worker: "background.js", type: "module" },
         browser_specific_settings: {
@@ -111,5 +111,22 @@ test("assertFirefoxManifest rejects leftover service_worker", () => {
         },
       }),
     /background\.scripts/,
+  );
+});
+
+test("assertFirefoxManifest rejects unused optional tabs", () => {
+  assert.throws(
+    () =>
+      assertFirefoxManifest({
+        manifest_version: 3,
+        permissions: ["bookmarks"],
+        optional_permissions: ["tabs", "<all_urls>", "http://*/*", "https://*/*"],
+        chrome_url_overrides: { newtab: "index.html" },
+        background: { scripts: ["background.js"], type: "module" },
+        browser_specific_settings: {
+          gecko: validGecko(),
+        },
+      }),
+    /unused tabs/,
   );
 });

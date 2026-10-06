@@ -24,7 +24,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function readManifest(): {
   manifest_version: number;
-  optional_permissions: string[];
+  optional_permissions?: string[];
   optional_host_permissions: string[];
   permissions: string[];
   chrome_url_overrides?: { newtab?: string };
@@ -33,7 +33,7 @@ function readManifest(): {
 } {
   return JSON.parse(readFileSync(join(repoRoot, "manifest.json"), "utf8")) as {
     manifest_version: number;
-    optional_permissions: string[];
+    optional_permissions?: string[];
     optional_host_permissions: string[];
     permissions: string[];
     chrome_url_overrides?: { newtab?: string };
@@ -42,9 +42,8 @@ function readManifest(): {
   };
 }
 
-test("thumbnailPermissionRequest asks for tabs and all_urls optionally", () => {
+test("thumbnailPermissionRequest asks for all_urls only (no tabs)", () => {
   assert.deepEqual(thumbnailPermissionRequest(), {
-    permissions: ["tabs"],
     origins: ["<all_urls>"],
   });
 });
@@ -57,7 +56,6 @@ test("imageUrlFetchPermissionRequest asks for http and https scheme wildcards", 
 
 test("thumbnailAndImageUrlPermissionRequest covers both Settings toggles in one payload", () => {
   assert.deepEqual(thumbnailAndImageUrlPermissionRequest(), {
-    permissions: ["tabs"],
     origins: ["<all_urls>", "http://*/*", "https://*/*"],
   });
   assert.equal(
@@ -86,7 +84,7 @@ test("fetchPermissionRequest asks only for the image origin", () => {
 
 test("manifest optional lists match helpers and stay out of always-on permissions", () => {
   const manifest = readManifest();
-  assert.deepEqual(manifest.optional_permissions, [...MANIFEST_OPTIONAL_PERMISSIONS]);
+  assert.deepEqual(manifest.optional_permissions ?? [], [...MANIFEST_OPTIONAL_PERMISSIONS]);
   assert.deepEqual(manifest.optional_host_permissions, [...MANIFEST_OPTIONAL_HOST_PERMISSIONS]);
   assert.deepEqual(manifest.permissions, [
     "bookmarks",
@@ -98,8 +96,9 @@ test("manifest optional lists match helpers and stay out of always-on permission
   ]);
   assert.ok(manifest.permissions.includes("unlimitedStorage"));
   assert.ok(manifest.permissions.includes("favicon"));
+  assert.ok(!(manifest.optional_permissions ?? []).includes("tabs"));
   // Host patterns must live in optional_host_permissions, not optional_permissions.
-  const optionalApi = new Set<string>(manifest.optional_permissions);
+  const optionalApi = new Set<string>(manifest.optional_permissions ?? []);
   for (const host of MANIFEST_OPTIONAL_HOST_PERMISSIONS) {
     assert.equal(optionalApi.has(host), false);
   }
@@ -119,7 +118,7 @@ test("toggle and fetch request payloads are covered by optional manifest declara
   assert.equal(
     isRequestCoveredByOptionalManifest(
       thumbnailPermissionRequest(),
-      manifest.optional_permissions,
+      manifest.optional_permissions ?? [],
       manifest.optional_host_permissions,
     ),
     true,
@@ -127,7 +126,7 @@ test("toggle and fetch request payloads are covered by optional manifest declara
   assert.equal(
     isRequestCoveredByOptionalManifest(
       imageUrlFetchPermissionRequest(),
-      manifest.optional_permissions,
+      manifest.optional_permissions ?? [],
       manifest.optional_host_permissions,
     ),
     true,
@@ -135,7 +134,7 @@ test("toggle and fetch request payloads are covered by optional manifest declara
   assert.equal(
     isRequestCoveredByOptionalManifest(
       fetchPermissionRequest("https://cdn.example.com/a.png")!,
-      manifest.optional_permissions,
+      manifest.optional_permissions ?? [],
       manifest.optional_host_permissions,
     ),
     true,
@@ -163,7 +162,7 @@ test("isRequestCoveredByOptionalManifest rejects undeclared API and host pattern
   assert.equal(
     isRequestCoveredByOptionalManifest(
       { origins: ["https://cdn.example.com/*"] },
-      ["tabs"],
+      [],
       ["<all_urls>"],
     ),
     false,
@@ -171,8 +170,17 @@ test("isRequestCoveredByOptionalManifest rejects undeclared API and host pattern
   assert.equal(
     isRequestCoveredByOptionalManifest(
       { origins: ["http://*/*", "https://*/*"] },
-      ["tabs"],
+      [],
       ["<all_urls>"],
+    ),
+    false,
+  );
+  // The tabs API permission is no longer optional — requesting it must fail coverage.
+  assert.equal(
+    isRequestCoveredByOptionalManifest(
+      { permissions: ["tabs"], origins: ["<all_urls>"] },
+      MANIFEST_OPTIONAL_PERMISSIONS,
+      MANIFEST_OPTIONAL_HOST_PERMISSIONS,
     ),
     false,
   );
@@ -180,7 +188,6 @@ test("isRequestCoveredByOptionalManifest rejects undeclared API and host pattern
 
 test("permissionRemovePieces splits toggle revokes into one grant per call", () => {
   assert.deepEqual(permissionRemovePieces(thumbnailPermissionRemove()), [
-    { permissions: ["tabs"] },
     { origins: ["<all_urls>"] },
   ]);
   assert.deepEqual(permissionRemovePieces(imageUrlFetchPermissionRemove()), [
@@ -198,16 +205,16 @@ test("intersectGrantedPermissions keeps only overlapping optional grants", () =>
   assert.deepEqual(
     intersectGrantedPermissions(
       {
-        permissions: ["tabs", "storage"],
+        permissions: ["storage"],
         origins: ["<all_urls>", "http://*/*", "https://example.com/*"],
       },
       thumbnailPermissionRemove(),
     ),
-    { permissions: ["tabs"], origins: ["<all_urls>"] },
+    { permissions: [], origins: ["<all_urls>"] },
   );
   assert.deepEqual(
     intersectGrantedPermissions(
-      { permissions: ["tabs"], origins: ["http://*/*", "https://*/*", "<all_urls>"] },
+      { permissions: [], origins: ["http://*/*", "https://*/*", "<all_urls>"] },
       imageUrlFetchPermissionRemove(),
     ),
     { permissions: [], origins: ["http://*/*", "https://*/*"] },
@@ -215,7 +222,7 @@ test("intersectGrantedPermissions keeps only overlapping optional grants", () =>
   // URL-fetch revoke must not pull in thumbnail <all_urls>.
   assert.deepEqual(
     intersectGrantedPermissions(
-      { permissions: ["tabs"], origins: ["<all_urls>"] },
+      { origins: ["<all_urls>"] },
       imageUrlFetchPermissionRemove(),
     ),
     { permissions: [], origins: [] },

@@ -39,8 +39,10 @@ function assertDistManifestOptionalPermissions(distManifestPath: string): void {
       throw new Error(`dist/chrome/manifest.json optional_host_permissions missing ${required}`);
     }
   }
-  if (!(dist.optional_permissions ?? []).includes("tabs")) {
-    throw new Error("dist/chrome/manifest.json optional_permissions missing tabs");
+  // Capture uses windows.create + captureVisibleTab + windows.remove, gated by
+  // optional host access — not the `tabs` API permission.
+  if ((dist.optional_permissions ?? []).includes("tabs")) {
+    throw new Error("dist/chrome/manifest.json must not declare unused optional tabs");
   }
 }
 

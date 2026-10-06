@@ -7,9 +7,11 @@
  * without host access) — title icons stay hidden; monogram / folder remain
  * dial-face fallbacks. unlimitedStorage lifts the shared local quota for dial
  * art only — no network, no sync of blobs.
- * Thumbnails request tabs + <all_urls> when the user enables the setting.
- * Image-from-URL requests http/https scheme wildcards when that Settings
- * toggle is enabled (origin-scoped fetch stays available as a fallback).
+ * Thumbnails request optional host `<all_urls>` when the user enables the
+ * setting (`captureVisibleTab` is gated by host access / `activeTab`, not the
+ * `tabs` permission). Image-from-URL requests http/https scheme wildcards when
+ * that Settings toggle is enabled (origin-scoped fetch stays available as a
+ * fallback).
  *
  * Chrome only allows permissions.request for API names listed in
  * optional_permissions and host patterns listed in optional_host_permissions.
@@ -33,8 +35,6 @@
 
 import { t } from "./i18n.ts";
 
-export const OPTIONAL_TABS_PERMISSION = "tabs" as const;
-
 /** Host pattern required for captureVisibleTab on arbitrary dial URLs. */
 export const THUMBNAIL_HOST_PERMISSION = "<all_urls>" as const;
 
@@ -45,8 +45,12 @@ export const THUMBNAIL_HOST_PERMISSION = "<all_urls>" as const;
  */
 export const OPTIONAL_FETCH_HOST_PERMISSIONS = ["http://*/*", "https://*/*"] as const;
 
-/** API permissions declared optional in the root manifest. */
-export const MANIFEST_OPTIONAL_PERMISSIONS = [OPTIONAL_TABS_PERMISSION] as const;
+/**
+ * Optional API permissions declared in the root manifest.
+ * Empty: thumbnail capture needs host `<all_urls>` only (not the `tabs` API
+ * permission). Keep the constant so coverage checks stay explicit.
+ */
+export const MANIFEST_OPTIONAL_PERMISSIONS = [] as const;
 
 /** Host patterns declared in manifest optional_host_permissions. */
 export const MANIFEST_OPTIONAL_HOST_PERMISSIONS = [
@@ -60,13 +64,11 @@ export type PermissionRequestPayload = {
 };
 
 export type ThumbnailPermissionRequest = {
-  permissions: typeof OPTIONAL_TABS_PERMISSION[];
   origins: typeof THUMBNAIL_HOST_PERMISSION[];
 };
 
 export function thumbnailPermissionRequest(): ThumbnailPermissionRequest {
   return {
-    permissions: [OPTIONAL_TABS_PERMISSION],
     origins: [THUMBNAIL_HOST_PERMISSION],
   };
 }
@@ -98,13 +100,11 @@ export function imageUrlFetchPermissionRemove(): ImageUrlFetchPermissionRequest 
  * after any prior await — including the first permission prompt resolving.
  */
 export type ThumbnailAndImageUrlPermissionRequest = {
-  permissions: typeof OPTIONAL_TABS_PERMISSION[];
   origins: Array<typeof THUMBNAIL_HOST_PERMISSION | (typeof OPTIONAL_FETCH_HOST_PERMISSIONS)[number]>;
 };
 
 export function thumbnailAndImageUrlPermissionRequest(): ThumbnailAndImageUrlPermissionRequest {
   return {
-    permissions: [OPTIONAL_TABS_PERMISSION],
     origins: [THUMBNAIL_HOST_PERMISSION, ...OPTIONAL_FETCH_HOST_PERMISSIONS],
   };
 }
@@ -195,12 +195,12 @@ function originCoveredByOptionalHosts(origin: string, optionalHosts: readonly st
 }
 
 export type PermissionsApi = {
-  /** True when tabs + <all_urls> are both granted (thumbnail capture ready). */
+  /** True when `<all_urls>` is granted (thumbnail capture ready). */
   hasThumbnailAccess(): Promise<boolean>;
-  /** Prompt for tabs + <all_urls>. Returns false if the user denies or Chrome rejects. */
+  /** Prompt for `<all_urls>`. Returns false if the user denies or Chrome rejects. */
   requestThumbnailAccess(): Promise<boolean>;
   /**
-   * Drop active tabs + <all_urls> for thumbnails. Does not remove http/https
+   * Drop active `<all_urls>` for thumbnails. Does not remove http/https
    * scheme wildcards used by Image-from-URL. The next enable still calls
    * request(); Chrome usually restores without a dialog after the first Allow.
    */
@@ -222,7 +222,7 @@ export type PermissionsApi = {
    */
   requestImageUrlFetchAccess(): Promise<boolean>;
   /**
-   * Single request for tabs + `<all_urls>` + http/https wildcards when both
+   * Single request for `<all_urls>` + http/https wildcards when both
    * Settings toggles enable in one gesture. Prefer this over sequential
    * requestThumbnailAccess + requestImageUrlFetchAccess (Firefox loses the
    * user gesture after the first prompt).
@@ -230,7 +230,7 @@ export type PermissionsApi = {
   requestThumbnailAndImageUrlFetchAccess(): Promise<boolean>;
   /**
    * Drop active http/https scheme wildcards for Image-from-URL. Does not
-   * remove tabs or `<all_urls>` used by thumbnails. The next enable still calls
+   * remove `<all_urls>` used by thumbnails. The next enable still calls
    * request(); Chrome usually restores without a dialog after the first Allow.
    */
   removeImageUrlFetchAccess(): Promise<void>;

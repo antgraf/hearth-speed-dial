@@ -4,7 +4,7 @@ Manual pass after a production build. Agents do not run browser automation — A
 
 **Chrome:** `npm run build` (or `.\build.ps1`; Chrome-only: `-Target Chrome`) → **Load unpacked** → select `dist/chrome/`. Expect always-on: **bookmarks**, **storage**, **unlimitedStorage**, **favicon**, **contextMenus**, **activeTab**.
 
-**Firefox (121+):** `.\build.ps1` / `npm run build` (or `-Target Firefox`) → temporary add-on from `dist/firefox/manifest.json`. Expect always-on: **bookmarks**, **storage**, **unlimitedStorage**, **contextMenus**, **activeTab** (no **favicon**). Optional **tabs** / site access appear only after you enable thumbnails or **Assign pictures from URLs** in Settings.
+**Firefox (121+):** `.\build.ps1` / `npm run build` (or `-Target Firefox`) → temporary add-on from `dist/firefox/manifest.json`. Expect always-on: **bookmarks**, **storage**, **unlimitedStorage**, **contextMenus**, **activeTab** (no **favicon**). Optional site access appears only after you enable thumbnails or **Assign pictures from URLs** in Settings.
 
 ## New tab grid
 
@@ -57,7 +57,7 @@ Manual pass after a production build. Agents do not run browser automation — A
 - [ ] If the browser rejects a picture write (full disk / remaining storage limits), the dial shows a clear error — not a silent miss.
 - [ ] **Assign pictures from URLs** off by default; **Image from URL…** disabled until enabled. First turn on → browser prompts for optional http/https site access. Deny → setting stays off. Grant → menu unlocks; enter an https image URL → dial shows the picture; storage holds a data URL. MediaWiki media-viewer links such as `…/wiki/…#/media/File:Name.png` resolve via `Special:FilePath` (not the HTML viewer page).
 - [ ] Turn **Assign pictures from URLs** off → active access is dropped; menu locks again. Turn on again → `permissions.request` runs; Chrome usually restores without a dialog after the first Allow (expected); Firefox may re-prompt. To force a new prompt on Chrome, revoke under `chrome://extensions` → Hearth → site access, then enable again.
-- [ ] **Generate dial thumbnails** off by default; first enable prompts for optional tabs + site access. Deny → setting stays off; grant → **Capture thumbnail** works (temp window opens, then closes; dial face updates). Off → on after Allow may be silent on Chrome; revoke in extension details to force a new prompt.
+- [ ] **Generate dial thumbnails** off by default; first enable prompts for optional all-site access. Deny → setting stays off; grant → **Capture thumbnail** works (temp window opens, then closes; dial face updates). Off → on after Allow may be silent on Chrome; revoke in extension details to force a new prompt.
 - [ ] After grant: revoke optional site access in the browser’s extension details → reopen new tab → thumbnail / URL-fetch settings degrade (off / menu locked), no crash.
 
 ## Add to Hearth (context menu)
