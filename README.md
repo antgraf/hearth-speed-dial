@@ -8,6 +8,8 @@ The extension has no account and no service of its own. The product scope is [do
 
 The store-facing privacy policy is [docs/PRIVACY.md](docs/PRIVACY.md). The notes below cover the same ground for developers.
 
+Store submit kits (paste-ready copy, form answers, and promo PNGs per browser): [promo/](promo/).
+
 Hearth asks for these permissions at install:
 
 - **Bookmarks**, so it can show your bookmark folders and, when you ask, add, rename, delete, or move a folder or bookmark. The dial list stays in browser bookmarks.

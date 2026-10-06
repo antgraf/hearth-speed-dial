@@ -2,7 +2,7 @@
 
 Hearth ships a Vite-bundled, minified Firefox tree under `dist/firefox/`. AMO reviewers need matching **source** plus rebuild steps so they can diff the built output against the uploaded extension zip.
 
-Listing screenshots, store copy, and the privacy-policy URL remain separate Pre-publish lanes. This doc covers the engineering package only.
+Listing paste-ready copy, form answers, and screenshots for AMO live in [promo/firefox/](../promo/firefox/). This doc covers the engineering package only.
 
 ## Artifacts
 
@@ -48,7 +48,7 @@ PowerShell equivalent from a Windows clone: `.\build.ps1` then `npm run pack:fir
 
 These are website / creative steps, not covered by this package:
 
-1. Create the AMO listing (summary, description, category, screenshots, privacy policy URL) once creative lanes land.
+1. Create the AMO listing from [promo/firefox/](../promo/firefox/) (summary, description, categories, screenshots, privacy policy URL).
 2. Upload the **Firefox** zip for the release version.
 3. Attach the matching **source** zip and paste the rebuild commands above into the reviewer notes field.
 4. Confirm the data-collection disclosure shows **None** (from the manifest key).
