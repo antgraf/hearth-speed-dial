@@ -96,10 +96,13 @@ export function assertFirefoxManifest(firefoxManifest) {
     throw new Error("Firefox manifest should fold hosts into optional_permissions");
   }
   const optional = new Set(firefoxManifest.optional_permissions ?? []);
-  for (const required of ["tabs", "<all_urls>", "http://*/*", "https://*/*"]) {
+  for (const required of ["<all_urls>", "http://*/*", "https://*/*"]) {
     if (!optional.has(required)) {
       throw new Error(`Firefox optional_permissions missing ${required}`);
     }
+  }
+  if (optional.has("tabs")) {
+    throw new Error("Firefox optional_permissions must not declare unused tabs");
   }
   const gecko = firefoxManifest.browser_specific_settings?.gecko;
   if (!gecko?.id || !gecko?.strict_min_version) {

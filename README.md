@@ -19,7 +19,7 @@ Hearth asks for these permissions at install:
 
 Optional permissions (not requested at install or on first new-tab open):
 
-- **Tabs** and **site access (`<all_urls>`)** — only when you turn on **Generate dial thumbnails** in Settings. That lets Hearth open a page briefly, capture a screenshot, store it locally as a dial picture, and close the temporary window.
+- **Site access (`<all_urls>`)** — only when you turn on **Generate dial thumbnails** in Settings. That lets Hearth open a page briefly, capture a screenshot (`captureVisibleTab`), store it locally as a dial picture, and close the temporary window. The `tabs` API permission is not requested; capture is gated by this host access.
 - **Host access (`http://*/*`, `https://*/*`)** — only when you turn on **Assign pictures from URLs** in Settings. That lets Hearth download an image once from a link and store it as a local data URL. Turning the toggle off drops those grants. If thumbnails already granted `<all_urls>`, URL fetch can use that access while its own toggle is on.
 
 Dial pictures are JPEG, PNG, GIF, or WebP. Large or high-resolution files are resized and compressed on ingest (tiles up to 1280×720, wallpapers up to 2560×1440) and stored as data URLs under about 1.5 MB each in extension `storage.local`, with install-time `unlimitedStorage` so picture count is not artificially capped by the default shared quota. Capture and URL assign use the same local image store as file attach. Decode or store failures show an error instead of failing silently.
@@ -68,7 +68,7 @@ Manual checks: [docs/smoke-checklist.md](docs/smoke-checklist.md).
 
 | Path | Role |
 | --- | --- |
-| `dist/chrome/manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `unlimitedStorage`, `favicon`, `contextMenus`, `activeTab`; optional: `tabs`, `<all_urls>`, `http://*/*`, `https://*/*`) |
+| `dist/chrome/manifest.json` | Copied from the repo root (always-on: `bookmarks`, `storage`, `unlimitedStorage`, `favicon`, `contextMenus`, `activeTab`; optional hosts: `<all_urls>`, `http://*/*`, `https://*/*`) |
 | `dist/chrome/icons/` | Extension icons (16 / 32 / 48 / 128) |
 | `dist/chrome/index.html` | New-tab page (`chrome_url_overrides.newtab`) |
 | `dist/chrome/settings.html` | Extension options / settings page (`manifest.json` `options_page`) |

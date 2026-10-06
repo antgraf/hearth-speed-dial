@@ -1,6 +1,6 @@
 # Privacy policy — Hearth Speed Dial
 
-_Last updated: October 1, 2026_
+_Last updated: October 6, 2026_
 
 Hearth Speed Dial ("Hearth") is a browser extension for Google Chrome, Mozilla Firefox, and Microsoft Edge. It replaces the new tab page with a speed dial of your own bookmarks. This policy explains what information Hearth uses, where it is kept, and what leaves your device.
 
@@ -69,7 +69,7 @@ In both cases the only request goes to the website you chose. Hearth sends nothi
 | Context menus | Install | Add **Add to Hearth…** to the right-click menu, plus Hearth's own actions on the Hearth page |
 | Active tab | Install | Read the title of the page you right-click, only when you choose **Add to Hearth…** |
 | Favicon (Chrome and Edge only) | Install | Show site icons from the browser's local icon cache |
-| Tabs and access to all sites | Optional — only if you turn on **Generate dial thumbnails** | Open a page briefly and capture its thumbnail |
+| Access to all sites | Optional — only if you turn on **Generate dial thumbnails** | Open a page briefly and capture its thumbnail |
 | Access to http and https sites | Optional — only if you turn on **Assign pictures from URLs** | Download an image you chose |
 
 ## Your choices

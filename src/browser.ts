@@ -373,7 +373,7 @@ async function removePermissionPiece(piece: PermissionRequestPayload): Promise<v
 /**
  * Revoke optional grants for one Settings toggle.
  * Uses getAll ∩ target, then also tries each target piece directly, so a
- * mismatched getAll listing still clears http(s) / tabs / <all_urls>.
+ * mismatched getAll listing still clears http(s) / <all_urls>.
  */
 async function revokeOptionalGrants(target: PermissionRequestPayload): Promise<void> {
   const granted = await readGrantedPermissions();
@@ -392,7 +392,6 @@ export function chromePermissions(): PermissionsApi {
       const request = thumbnailPermissionRequest();
       try {
         return await extensionApi().permissions.contains({
-          permissions: [...request.permissions],
           origins: [...request.origins],
         });
       } catch {
@@ -408,7 +407,6 @@ export function chromePermissions(): PermissionsApi {
       if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
         return await extensionApi().permissions.request({
-          permissions: [...request.permissions],
           origins: [...request.origins],
         });
       } catch {
@@ -451,7 +449,6 @@ export function chromePermissions(): PermissionsApi {
       if (!isRequestCoveredByOptionalManifest(request)) return false;
       try {
         return await extensionApi().permissions.request({
-          permissions: [...request.permissions],
           origins: [...request.origins],
         });
       } catch {
