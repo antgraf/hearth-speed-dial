@@ -92,21 +92,44 @@ try {
   Write-Host "  Bookmark each URL, then capture dial thumbnails. Press Ctrl+C to stop." -ForegroundColor Yellow
   Write-Host ""
 
+  # NOTE: HttpListener.Pending() exists on .NET Framework only — PowerShell 7
+  # (.NET Core) has no such method. Wait on GetContextAsync() tasks instead.
+  $hobbyTask = $hobbyListener.GetContextAsync()
+  $businessTask = $businessListener.GetContextAsync()
+  $tasks = @($hobbyTask, $businessTask)
+
   while ($hobbyListener.IsListening -or $businessListener.IsListening) {
-    $context = $null
-    $rootDir = $null
-    while ($true) {
-      if ($hobbyListener.IsListening -and $hobbyListener.Pending()) {
-        $context = $hobbyListener.GetContext()
+    try {
+      $ready = [System.Threading.Tasks.Task]::WaitAny($tasks, 250)
+    } catch [System.ObjectDisposedException] {
+      break
+    }
+    if ($ready -eq -1) { continue }  # timeout tick: re-check listeners, stay Ctrl+C-responsive
+
+    $task = $tasks[$ready]
+    try {
+      $context = $task.GetAwaiter().GetResult()
+    } catch {
+      # Listener stopped/closed while waiting — exit if so, else re-arm and carry on.
+      if (-not $hobbyListener.IsListening -and -not $businessListener.IsListening) { break }
+      try {
+        if ($ready -eq 0) { $tasks[0] = $hobbyListener.GetContextAsync() }
+        else { $tasks[1] = $businessListener.GetContextAsync() }
+      } catch { break }
+      continue
+    }
+
+    try {
+      if ($ready -eq 0) {
         $rootDir = $HobbyRoot
-        break
-      }
-      if ($businessListener.IsListening -and $businessListener.Pending()) {
-        $context = $businessListener.GetContext()
+        $tasks[0] = $hobbyListener.GetContextAsync()
+      } else {
         $rootDir = $BusinessRoot
-        break
+        $tasks[1] = $businessListener.GetContextAsync()
       }
-      Start-Sleep -Milliseconds 50
+    } catch {
+      Send-FileResponse $context $rootDir
+      break
     }
     Send-FileResponse $context $rootDir
   }
