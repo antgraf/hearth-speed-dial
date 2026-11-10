@@ -61,7 +61,7 @@ function tempMenuLog(message: string, detail?: unknown): void {
   if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
   // Extension error UI stringifies poorly ([object Object]); keep one line of JSON.
   if (detail !== undefined) {
-    let serialized = "";
+    let serialized: string;
     try {
       serialized = JSON.stringify(detail);
     } catch {
