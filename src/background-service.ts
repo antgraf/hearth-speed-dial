@@ -44,9 +44,11 @@ export type BackgroundChrome = {
 };
 
 export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
-  // New-tab override is index.html; query strings still match this path pattern.
+  // New-tab override is index.html. Match patterns compare path + query string
+  // (hash is ignored), so an exact `index.html` misses `?folder=…` deep links.
   // getURL yields chrome-extension://… or moz-extension://… per browser.
-  return [getURL("index.html")];
+  const dial = getURL("index.html");
+  return [dial, `${dial}?*`];
 }
 
 /**
