@@ -16,15 +16,26 @@ export const ADD_WINDOW = { width: 420, height: 520 } as const;
 /** http(s) pages only — hide Add to Hearth on chrome-extension:// / moz-extension:// dial pages. */
 export const WEB_DOCUMENT_PATTERNS = ["http://*/*", "https://*/*"] as const;
 
+/**
+ * TEMP diagnostics for Anton (service worker DevTools).
+ * Set to false / remove once Refresh All + deep-link matching is confirmed.
+ */
+export const TEMP_CONTEXT_MENU_DIAGNOSTICS = true;
+
 export type BackgroundChrome = {
   runtime: {
     getURL: (path: string) => string;
     onInstalled: { addListener: (listener: () => void) => void };
     onStartup: { addListener: (listener: () => void) => void };
+    /** Present on real chrome.runtime; used to surface create failures. */
+    lastError?: { message?: string } | null;
   };
   contextMenus: {
     removeAll: (callback?: () => void) => void | Promise<void>;
-    create: (createProperties: chrome.contextMenus.CreateProperties) => string | number | Promise<string | number>;
+    create: (
+      createProperties: chrome.contextMenus.CreateProperties,
+      callback?: () => void,
+    ) => string | number | Promise<string | number>;
     onClicked: {
       addListener: (
         listener: (
@@ -43,19 +54,64 @@ export type BackgroundChrome = {
   };
 };
 
+function tempMenuLog(message: string, detail?: unknown): void {
+  if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
+  if (detail !== undefined) console.warn(`[hearth:TEMP menu] ${message}`, detail);
+  else console.warn(`[hearth:TEMP menu] ${message}`);
+}
+
+function readLastError(api: BackgroundChrome): string | null {
+  const message = api.runtime.lastError?.message?.trim();
+  return message ? message : null;
+}
+
+/**
+ * Create a context menu item and surface chrome.runtime.lastError.
+ * Chrome uses an optional callback; Firefox `browser.*` may return a Promise.
+ */
+export function createContextMenu(
+  api: BackgroundChrome,
+  props: chrome.contextMenus.CreateProperties,
+): Promise<{ ok: boolean; error: string | null }> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (error: string | null) => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok: !error, error });
+    };
+    try {
+      const result = api.contextMenus.create(props, () => {
+        finish(readLastError(api));
+      });
+      if (result != null && typeof (result as PromiseLike<unknown>).then === "function") {
+        void Promise.resolve(result).then(
+          () => finish(readLastError(api)),
+          (error) => finish(error instanceof Error ? error.message : String(error)),
+        );
+      }
+    } catch (error) {
+      finish(error instanceof Error ? error.message : String(error));
+    }
+  });
+}
+
 export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
   // New-tab override is index.html. Chromium matchers compare path + query
   // (GURL::PathForRequest); the fragment is ignored. An exact `index.html`
   // therefore misses `?folder=…` deep links.
   //
-  // Use a trailing `*` (Chrome match-pattern docs / historical guidance for
-  // query strings: prefer `path*` over a literal `?`). A previous attempt with
-  // `[exact, exact + "?*"]` made Refresh All vanish on *every* dial page
-  // (bare NTP included): `contextMenus.create` runs after `removeAll`, and a
-  // rejected/failed create with `?*` left the item unregistered entirely.
-  // `index.html*` matches bare `index.html` (`*` = empty) and any query.
-  // getURL yields chrome-extension://… or moz-extension://… per browser.
-  return [`${getURL("index.html")}*`];
+  // Avoid literal `?` / `index.html*` in patterns — both left Refresh All
+  // missing on every dial page in Anton's Chrome (likely create lastError
+  // after removeAll, with no callback check). Use the documented
+  // chrome-extension://<id>/* form plus the exact dial URL (proven on bare NTP).
+  const dial = getURL("index.html");
+  const patterns = [dial];
+  // Do not use URL.origin — Node (and opaque-origin rules) can yield "null"
+  // for chrome-extension: / moz-extension:. Slice the extension origin by hand.
+  const origin = /^(?:chrome-extension|moz-extension):\/\/[^/]+/i.exec(dial)?.[0];
+  if (origin) patterns.push(`${origin}/*`);
+  return patterns;
 }
 
 /**
@@ -65,18 +121,48 @@ export function dialDocumentPatterns(getURL: (path: string) => string): string[]
  */
 export async function ensureMenu(api: BackgroundChrome): Promise<void> {
   await clearContextMenus(api);
-  api.contextMenus.create({
+  tempMenuLog("ensureMenu: cleared; creating Add + Refresh All");
+
+  const addResult = await createContextMenu(api, {
     id: ADD_MENU_ID,
     title: t("context_add_to_hearth"),
     contexts: ["page", "link"],
     documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
   });
-  api.contextMenus.create({
+  tempMenuLog("ensureMenu: Add create", {
+    ok: addResult.ok,
+    error: addResult.error,
+    patterns: [...WEB_DOCUMENT_PATTERNS],
+  });
+
+  const patterns = dialDocumentPatterns(api.runtime.getURL);
+  let refreshResult = await createContextMenu(api, {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: dialDocumentPatterns(api.runtime.getURL),
+    documentUrlPatterns: patterns,
   });
+  tempMenuLog("ensureMenu: Refresh All create", {
+    ok: refreshResult.ok,
+    error: refreshResult.error,
+    patterns,
+  });
+
+  // If the multi-pattern create failed, fall back to exact dial (pre-deep-link).
+  if (!refreshResult.ok) {
+    const dialOnly = [api.runtime.getURL("index.html")];
+    refreshResult = await createContextMenu(api, {
+      id: REFRESH_ALL_MENU_ID,
+      title: t("context_refresh_all_thumbnails"),
+      contexts: ["page"],
+      documentUrlPatterns: dialOnly,
+    });
+    tempMenuLog("ensureMenu: Refresh All FALLBACK exact-only create", {
+      ok: refreshResult.ok,
+      error: refreshResult.error,
+      patterns: dialOnly,
+    });
+  }
 }
 
 export function clearContextMenus(api: BackgroundChrome): Promise<void> {

@@ -52,9 +52,10 @@ function fakeChrome(): FakeChrome {
         menus.length = 0;
         callback?.();
       },
-      create(createProperties) {
+      create(createProperties, callback) {
         calls.push(`contextMenus.create:${String(createProperties.id)}`);
         menus.push(createProperties);
+        callback?.();
         return createProperties.id ?? "menu";
       },
       onClicked: {
@@ -95,16 +96,19 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
-test("dialDocumentPatterns uses trailing * for bare dial and ?folder= deep links", () => {
+test("dialDocumentPatterns keeps exact dial URL plus extension origin /*", () => {
   const chromePatterns = dialDocumentPatterns((path) => `chrome-extension://id/${path}`);
-  assert.deepEqual(chromePatterns, ["chrome-extension://id/index.html*"]);
+  assert.deepEqual(chromePatterns, [
+    "chrome-extension://id/index.html",
+    "chrome-extension://id/*",
+  ]);
   const firefoxPatterns = dialDocumentPatterns((path) => `moz-extension://ff/${path}`);
-  assert.deepEqual(firefoxPatterns, ["moz-extension://ff/index.html*"]);
-  // Regression: literal `?*` made Chrome lose Refresh All on every dial page
-  // after removeAll + failed create. Prefer trailing `*` (no `?` in pattern).
+  assert.deepEqual(firefoxPatterns, ["moz-extension://ff/index.html", "moz-extension://ff/*"]);
+  // Regression: literal `?*` / `index.html*` left Refresh All missing on every
+  // dial page in Chrome after removeAll + create. Prefer exact + origin/*.
   for (const pattern of [...chromePatterns, ...firefoxPatterns]) {
     assert.equal(pattern.includes("?*"), false);
-    assert.ok(pattern.endsWith("index.html*"));
+    assert.equal(pattern.endsWith("index.html*"), false);
   }
 });
 
@@ -123,8 +127,39 @@ test("ensureMenu registers Add and Refresh All with the expected patterns", asyn
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: ["chrome-extension://hearth-test/index.html*"],
+    documentUrlPatterns: [
+      "chrome-extension://hearth-test/index.html",
+      "chrome-extension://hearth-test/*",
+    ],
   });
+});
+
+test("ensureMenu falls back to exact dial when multi-pattern create fails", async () => {
+  const api = fakeChrome();
+  let refreshCreates = 0;
+  api.contextMenus.create = (createProperties, callback) => {
+    api.calls.push(`contextMenus.create:${String(createProperties.id)}`);
+    api.menus.push(createProperties);
+    if (createProperties.id === REFRESH_ALL_MENU_ID) {
+      refreshCreates += 1;
+      const patterns = createProperties.documentUrlPatterns ?? [];
+      if (refreshCreates === 1 && patterns.length > 1) {
+        api.runtime.lastError = { message: "Invalid url pattern '*'" };
+        callback?.();
+        api.runtime.lastError = null;
+        return createProperties.id ?? "menu";
+      }
+    }
+    callback?.();
+    return createProperties.id ?? "menu";
+  };
+  await ensureMenu(api);
+  const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
+  assert.equal(refreshCreates, 2);
+  assert.equal(refreshMenus.length, 2);
+  assert.deepEqual(refreshMenus[1]?.documentUrlPatterns, [
+    "chrome-extension://hearth-test/index.html",
+  ]);
 });
 
 test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", async () => {
