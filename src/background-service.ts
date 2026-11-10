@@ -54,6 +54,9 @@ export type BackgroundChrome = {
   };
 };
 
+/** Serialize overlapping ensureMenu calls (onInstalled + onStartup + boot). */
+let ensureMenuTail: Promise<void> = Promise.resolve();
+
 function tempMenuLog(message: string, detail?: unknown): void {
   if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
   if (detail !== undefined) console.warn(`[hearth:TEMP menu] ${message}`, detail);
@@ -98,28 +101,37 @@ export function createContextMenu(
 
 export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
   // New-tab override is index.html. Chromium matchers compare path + query
-  // (GURL::PathForRequest); the fragment is ignored. An exact `index.html`
-  // therefore misses `?folder=…` deep links.
+  // (GURL::PathForRequest); exact `index.html` misses `?folder=…`.
   //
-  // Avoid literal `?` / `index.html*` in patterns — both left Refresh All
-  // missing on every dial page in Anton's Chrome (likely create lastError
-  // after removeAll, with no callback check). Use the documented
-  // chrome-extension://<id>/* form plus the exact dial URL (proven on bare NTP).
+  // Single pattern: chrome-extension://<id>/* (documented form). Covers bare
+  // NTP and deep links. Avoid `?*` / `index.html*` (create issues) and avoid
+  // an exact-only fallback after a duplicate-id race (that demoted matching
+  // back to bare index.html only — Anton's TEMP logs).
+  //
+  // Do not use URL.origin — Node can yield "null" for chrome-extension:.
   const dial = getURL("index.html");
-  const patterns = [dial];
-  // Do not use URL.origin — Node (and opaque-origin rules) can yield "null"
-  // for chrome-extension: / moz-extension:. Slice the extension origin by hand.
   const origin = /^(?:chrome-extension|moz-extension):\/\/[^/]+/i.exec(dial)?.[0];
-  if (origin) patterns.push(`${origin}/*`);
-  return patterns;
+  return origin ? [`${origin}/*`] : [dial];
 }
 
 /**
  * Clear and recreate context menus.
  * Chrome’s removeAll may invoke a callback and/or return a Promise; Firefox’s
  * `browser.contextMenus.removeAll` is promise-only. Settle once, then create.
+ *
+ * Overlapping callers (boot + onInstalled + onStartup) share one chain so
+ * removeAll/create cannot interleave and hit "duplicate id".
  */
-export async function ensureMenu(api: BackgroundChrome): Promise<void> {
+export function ensureMenu(api: BackgroundChrome): Promise<void> {
+  const run = ensureMenuTail.then(() => ensureMenuUnlocked(api));
+  ensureMenuTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
   await clearContextMenus(api);
   tempMenuLog("ensureMenu: cleared; creating Add + Refresh All");
 
@@ -136,7 +148,7 @@ export async function ensureMenu(api: BackgroundChrome): Promise<void> {
   });
 
   const patterns = dialDocumentPatterns(api.runtime.getURL);
-  let refreshResult = await createContextMenu(api, {
+  const refreshResult = await createContextMenu(api, {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
@@ -147,22 +159,8 @@ export async function ensureMenu(api: BackgroundChrome): Promise<void> {
     error: refreshResult.error,
     patterns,
   });
-
-  // If the multi-pattern create failed, fall back to exact dial (pre-deep-link).
-  if (!refreshResult.ok) {
-    const dialOnly = [api.runtime.getURL("index.html")];
-    refreshResult = await createContextMenu(api, {
-      id: REFRESH_ALL_MENU_ID,
-      title: t("context_refresh_all_thumbnails"),
-      contexts: ["page"],
-      documentUrlPatterns: dialOnly,
-    });
-    tempMenuLog("ensureMenu: Refresh All FALLBACK exact-only create", {
-      ok: refreshResult.ok,
-      error: refreshResult.error,
-      patterns: dialOnly,
-    });
-  }
+  // Do not fall back to exact-only on failure: duplicate-id errors are a race
+  // symptom (fixed by serialization above). Demoting patterns broke ?folder=.
 }
 
 export function clearContextMenus(api: BackgroundChrome): Promise<void> {

@@ -96,19 +96,18 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
-test("dialDocumentPatterns keeps exact dial URL plus extension origin /*", () => {
-  const chromePatterns = dialDocumentPatterns((path) => `chrome-extension://id/${path}`);
-  assert.deepEqual(chromePatterns, [
-    "chrome-extension://id/index.html",
+test("dialDocumentPatterns uses a single extension-origin /* pattern", () => {
+  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
     "chrome-extension://id/*",
   ]);
-  const firefoxPatterns = dialDocumentPatterns((path) => `moz-extension://ff/${path}`);
-  assert.deepEqual(firefoxPatterns, ["moz-extension://ff/index.html", "moz-extension://ff/*"]);
-  // Regression: literal `?*` / `index.html*` left Refresh All missing on every
-  // dial page in Chrome after removeAll + create. Prefer exact + origin/*.
-  for (const pattern of [...chromePatterns, ...firefoxPatterns]) {
+  assert.deepEqual(dialDocumentPatterns((path) => `moz-extension://ff/${path}`), [
+    "moz-extension://ff/*",
+  ]);
+  // Covers bare index.html and ?folder= without literal ? / index.html*.
+  for (const pattern of dialDocumentPatterns((path) => `chrome-extension://id/${path}`)) {
     assert.equal(pattern.includes("?*"), false);
     assert.equal(pattern.endsWith("index.html*"), false);
+    assert.ok(pattern.endsWith("/*"));
   }
 });
 
@@ -127,39 +126,54 @@ test("ensureMenu registers Add and Refresh All with the expected patterns", asyn
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: [
-      "chrome-extension://hearth-test/index.html",
-      "chrome-extension://hearth-test/*",
-    ],
+    documentUrlPatterns: ["chrome-extension://hearth-test/*"],
   });
 });
 
-test("ensureMenu falls back to exact dial when multi-pattern create fails", async () => {
+test("ensureMenu serializes overlapping calls and never demotes patterns", async () => {
   const api = fakeChrome();
-  let refreshCreates = 0;
+  let removeAllInFlight = 0;
+  let maxConcurrentRemoveAll = 0;
+  const liveIds = new Set<string>();
+
+  api.contextMenus.removeAll = (callback) => {
+    removeAllInFlight += 1;
+    maxConcurrentRemoveAll = Math.max(maxConcurrentRemoveAll, removeAllInFlight);
+    api.calls.push("contextMenus.removeAll");
+    // Defer clear so overlapping callers would race without the mutex.
+    queueMicrotask(() => {
+      api.menus.length = 0;
+      liveIds.clear();
+      removeAllInFlight -= 1;
+      callback?.();
+    });
+  };
+
   api.contextMenus.create = (createProperties, callback) => {
     api.calls.push(`contextMenus.create:${String(createProperties.id)}`);
-    api.menus.push(createProperties);
-    if (createProperties.id === REFRESH_ALL_MENU_ID) {
-      refreshCreates += 1;
-      const patterns = createProperties.documentUrlPatterns ?? [];
-      if (refreshCreates === 1 && patterns.length > 1) {
-        api.runtime.lastError = { message: "Invalid url pattern '*'" };
-        callback?.();
-        api.runtime.lastError = null;
-        return createProperties.id ?? "menu";
-      }
+    const id = String(createProperties.id ?? "menu");
+    if (liveIds.has(id)) {
+      api.runtime.lastError = { message: `Cannot create item with duplicate id ${id}` };
+      callback?.();
+      api.runtime.lastError = null;
+      return id;
     }
+    liveIds.add(id);
+    api.menus.push(createProperties);
     callback?.();
-    return createProperties.id ?? "menu";
+    return id;
   };
-  await ensureMenu(api);
+
+  await Promise.all([ensureMenu(api), ensureMenu(api), ensureMenu(api)]);
+
+  assert.equal(maxConcurrentRemoveAll, 1);
   const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
-  assert.equal(refreshCreates, 2);
-  assert.equal(refreshMenus.length, 2);
-  assert.deepEqual(refreshMenus[1]?.documentUrlPatterns, [
-    "chrome-extension://hearth-test/index.html",
-  ]);
+  assert.equal(refreshMenus.length, 1);
+  assert.deepEqual(refreshMenus[0]?.documentUrlPatterns, ["chrome-extension://hearth-test/*"]);
+  assert.equal(
+    api.calls.some((call) => call.includes("FALLBACK")),
+    false,
+  );
 });
 
 test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", async () => {
@@ -176,27 +190,29 @@ test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", asyn
 
 test("registerBackgroundMenus re-registers on onStartup after the initial ensure", async () => {
   const api = fakeChrome();
-  registerBackgroundMenus(api);
-  await Promise.resolve();
-  await Promise.resolve();
+  const ensureCalls = () => api.calls.filter((c) => c === "contextMenus.removeAll").length;
+  const waitForEnsures = async (count: number) => {
+    for (let i = 0; i < 40; i++) {
+      if (ensureCalls() >= count) return;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    throw new Error(`expected ${count} ensureMenu runs, got ${ensureCalls()}`);
+  };
 
+  registerBackgroundMenus(api);
   assert.ok(api.calls.includes("onInstalled.addListener"));
   assert.ok(api.calls.includes("onStartup.addListener"));
-  const ensureCalls = () => api.calls.filter((c) => c === "contextMenus.removeAll").length;
+  await waitForEnsures(1);
   assert.equal(ensureCalls(), 1);
 
   assert.ok(api.startup);
   api.startup();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(ensureCalls(), 2);
+  await waitForEnsures(2);
   assert.equal(api.menus.length, 2);
 
   assert.ok(api.installed);
   api.installed();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(ensureCalls(), 3);
+  await waitForEnsures(3);
 });
 
 test("startBackground opens a sized popup for Add to Hearth clicks", async () => {
