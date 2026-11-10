@@ -54,6 +54,7 @@ import {
   type CaptureApi,
   type PermissionsApi,
 } from "./permissions.ts";
+import { parseFolderDeepLink } from "./folder-deeplink.ts";
 import { tryExtensionApi } from "./webext.ts";
 import {
   DEFAULT_LAYOUT,
@@ -94,6 +95,11 @@ export type AppPorts = {
    * Production callers omit this.
    */
   confirm?: (options: ConfirmDialogOptions) => Promise<boolean>;
+  /**
+   * Location search seam for folder deep links (`?folder=`).
+   * Defaults to `location.search` in the dial page; tests inject a string.
+   */
+  search?: string;
 };
 
 export function start(host: HTMLElement, ports: AppPorts): () => void {
@@ -120,6 +126,8 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   let request = 0;
   /** Last-open folder from storage; used once if the default folder is missing. */
   let bootOpenFolderId: string | null = null;
+  /** Deep-link folder from `?folder=`; validated once on first reload. */
+  let bootDeepLinkFolderId: string | null = null;
   let colorSchemeMedia: MediaQueryList | null = null;
   let onColorSchemeChange: (() => void) | null = null;
 
@@ -791,10 +799,16 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       state.status = "ready";
       state.error = null;
       state.saving = false;
+      const deepLinkId = bootDeepLinkFolderId;
       const opened = resolveFolder(state, bootOpenFolderId);
       bootOpenFolderId = null;
+      bootDeepLinkFolderId = null;
       state.currentId = opened;
-      if (opened && opened !== previousId) void ports.settings.setOpenFolderId(opened);
+      // Valid deep link always updates last-open (even when currentId was pre-set).
+      // Otherwise only persist when resolveFolder changed the folder.
+      if (opened && (opened === deepLinkId || opened !== previousId)) {
+        void ports.settings.setOpenFolderId(opened);
+      }
       try {
         const images = await ports.images.getAll();
         if (ticket !== request) return;
@@ -843,9 +857,19 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       const defaultFolderId = await ports.settings.getDefaultFolderId();
       const openFolderId = await ports.settings.getOpenFolderId();
       state.defaultFolderId = defaultFolderId;
-      bootOpenFolderId = openFolderId;
-      // Set default folder wins for new window / initial new-tab open; otherwise last open.
-      state.currentId = defaultFolderId ?? openFolderId;
+      const search =
+        ports.search ?? (typeof location !== "undefined" ? location.search : "");
+      bootDeepLinkFolderId = parseFolderDeepLink(search);
+      // Boot precedence: valid ?folder= → defaultFolderId → openFolderId → root.
+      // resolveFolder validates the preferred id; deep-link failure falls through.
+      if (bootDeepLinkFolderId) {
+        state.currentId = bootDeepLinkFolderId;
+        bootOpenFolderId = defaultFolderId ?? openFolderId;
+      } else {
+        bootOpenFolderId = openFolderId;
+        // Set default folder wins for new window / initial new-tab open; otherwise last open.
+        state.currentId = defaultFolderId ?? openFolderId;
+      }
       const layout = await ports.settings.getLayout();
       state.layout = layout;
       state.themeBackground = await ports.settings.getThemeBackground();
