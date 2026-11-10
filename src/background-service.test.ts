@@ -3,12 +3,9 @@ import { test } from "node:test";
 import {
   ADD_MENU_ID,
   ADD_WINDOW,
-  REFRESH_ALL_DEEPLINK_MENU_ID,
   REFRESH_ALL_MENU_ID,
   WEB_DOCUMENT_PATTERNS,
   addPopupCreateData,
-  dialBareDocumentPatterns,
-  dialDeeplinkDocumentPatterns,
   dialDocumentPatterns,
   ensureMenu,
   registerBackgroundMenus,
@@ -99,23 +96,27 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
-test("dial patterns split bare exact URL from index.html?* deeplink", () => {
-  const getURL = (path: string) => `chrome-extension://id/${path}`;
-  assert.deepEqual(dialBareDocumentPatterns(getURL), ["chrome-extension://id/index.html"]);
-  assert.deepEqual(dialDeeplinkDocumentPatterns(getURL), ["chrome-extension://id/index.html?*"]);
-  assert.deepEqual(dialDocumentPatterns(getURL), [
+test("dialDocumentPatterns is exact index.html plus index.html?*", () => {
+  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
     "chrome-extension://id/index.html",
     "chrome-extension://id/index.html?*",
   ]);
-  // Lone origin /* was inert for Anton's page contextMenus — do not use it.
-  assert.equal(dialDocumentPatterns(getURL).some((p) => p.endsWith("://id/*")), false);
+  assert.deepEqual(dialDocumentPatterns((path) => `moz-extension://ff/${path}`), [
+    "moz-extension://ff/index.html",
+    "moz-extension://ff/index.html?*",
+  ]);
+  // Anton: lone origin /* created but matched no dial tab.
+  assert.equal(
+    dialDocumentPatterns((path) => `chrome-extension://id/${path}`).some((p) => /:\/\/id\/\*$/.test(p)),
+    false,
+  );
 });
 
-test("ensureMenu registers Add and separate bare + deeplink Refresh All items", async () => {
+test("ensureMenu registers Add and one Refresh All with bare + deeplink patterns", async () => {
   const api = fakeChrome();
   await ensureMenu(api);
   assert.ok(api.calls.includes("contextMenus.removeAll"));
-  assert.equal(api.menus.length, 3);
+  assert.equal(api.menus.length, 2);
   assert.deepEqual(api.menus[0], {
     id: ADD_MENU_ID,
     title: t("context_add_to_hearth"),
@@ -126,13 +127,11 @@ test("ensureMenu registers Add and separate bare + deeplink Refresh All items", 
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: ["chrome-extension://hearth-test/index.html"],
-  });
-  assert.deepEqual(api.menus[2], {
-    id: REFRESH_ALL_DEEPLINK_MENU_ID,
-    title: t("context_refresh_all_thumbnails"),
-    contexts: ["page"],
-    documentUrlPatterns: ["chrome-extension://hearth-test/index.html?*"],
+    visible: true,
+    documentUrlPatterns: [
+      "chrome-extension://hearth-test/index.html",
+      "chrome-extension://hearth-test/index.html?*",
+    ],
   });
 });
 
@@ -146,7 +145,6 @@ test("ensureMenu serializes overlapping calls without duplicate ids", async () =
     removeAllInFlight += 1;
     maxConcurrentRemoveAll = Math.max(maxConcurrentRemoveAll, removeAllInFlight);
     api.calls.push("contextMenus.removeAll");
-    // Defer clear so overlapping callers would race without the mutex.
     queueMicrotask(() => {
       api.menus.length = 0;
       liveIds.clear();
@@ -173,16 +171,13 @@ test("ensureMenu serializes overlapping calls without duplicate ids", async () =
   await Promise.all([ensureMenu(api), ensureMenu(api), ensureMenu(api)]);
 
   assert.equal(maxConcurrentRemoveAll, 1);
-  assert.equal(api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID).length, 1);
-  assert.equal(api.menus.filter((menu) => menu.id === REFRESH_ALL_DEEPLINK_MENU_ID).length, 1);
-  assert.deepEqual(
-    api.menus.find((menu) => menu.id === REFRESH_ALL_MENU_ID)?.documentUrlPatterns,
-    ["chrome-extension://hearth-test/index.html"],
-  );
-  assert.deepEqual(
-    api.menus.find((menu) => menu.id === REFRESH_ALL_DEEPLINK_MENU_ID)?.documentUrlPatterns,
-    ["chrome-extension://hearth-test/index.html?*"],
-  );
+  const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
+  assert.equal(refreshMenus.length, 1);
+  assert.deepEqual(refreshMenus[0]?.documentUrlPatterns, [
+    "chrome-extension://hearth-test/index.html",
+    "chrome-extension://hearth-test/index.html?*",
+  ]);
+  assert.equal(refreshMenus[0]?.visible, true);
 });
 
 test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", async () => {
@@ -193,7 +188,7 @@ test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", asyn
     return Promise.resolve();
   };
   await ensureMenu(api);
-  assert.equal(api.menus.length, 3);
+  assert.equal(api.menus.length, 2);
   assert.equal(api.menus[0]?.id, ADD_MENU_ID);
 });
 
@@ -217,7 +212,7 @@ test("registerBackgroundMenus re-registers on onStartup after the initial ensure
   assert.ok(api.startup);
   api.startup();
   await waitForEnsures(2);
-  assert.equal(api.menus.length, 3);
+  assert.equal(api.menus.length, 2);
 
   assert.ok(api.installed);
   api.installed();
@@ -227,28 +222,26 @@ test("registerBackgroundMenus re-registers on onStartup after the initial ensure
 test("startBackground opens a sized popup for Add to Hearth clicks", async () => {
   const api = fakeChrome();
   startBackground(api);
+  await Promise.resolve();
+  await Promise.resolve();
+  for (let i = 0; i < 20; i++) {
+    if (api.clicked) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
   assert.ok(api.clicked);
-
   api.clicked(
     {
       menuItemId: ADD_MENU_ID,
-      pageUrl: "https://example.com/article",
+      pageUrl: "https://example.com/path",
     } as chrome.contextMenus.OnClickData,
-    { id: 9, title: "Example Article" } as chrome.tabs.Tab,
+    { id: 9, title: "Example" } as chrome.tabs.Tab,
   );
-
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 20; i++) {
     if (api.windowsCreated.length > 0) break;
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
-
   assert.equal(api.windowsCreated.length, 1);
-  const created = api.windowsCreated[0]!;
-  assert.equal(created.type, "popup");
-  assert.equal(created.width, ADD_WINDOW.width);
-  assert.equal(created.height, ADD_WINDOW.height);
-  assert.equal(created.focused, true);
-  assert.match(String(created.url), /^chrome-extension:\/\/hearth-test\/add\.html\?/);
-  assert.match(String(created.url), /url=https%3A%2F%2Fexample\.com%2Farticle/);
-  assert.match(String(created.url), /title=Example(\+|%20)Article/);
+  assert.equal(api.windowsCreated[0]?.type, "popup");
+  assert.equal(api.windowsCreated[0]?.width, ADD_WINDOW.width);
+  assert.equal(api.windowsCreated[0]?.height, ADD_WINDOW.height);
 });

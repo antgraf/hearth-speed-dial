@@ -41,10 +41,7 @@ import {
   thumbnailRefreshFailureSummary,
 } from "./thumbnail-refresh.ts";
 import type { BookmarksApi } from "./browser.ts";
-import {
-  REFRESH_ALL_MENU_IDS,
-  TEMP_CONTEXT_MENU_DIAGNOSTICS,
-} from "./background-service.ts";
+import { REFRESH_ALL_MENU_ID, TEMP_CONTEXT_MENU_DIAGNOSTICS } from "./background-service.ts";
 import { confirmDialog, type ConfirmDialogOptions } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
 import { t } from "./i18n.ts";
@@ -229,30 +226,54 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
         void dismissWelcome();
       },
     });
-    // Hide the dial-page context-menu item when Refresh All has nothing to do
-    // (bookmark root / folders with no direct http(s) children).
-    syncRefreshAllContextMenu(view.name === "grid" && view.canRefreshAll);
+    // Only sync once we have a grid: loading used to force visible:false and
+    // could race ensureMenu recreate, leaving Refresh All stuck hidden.
+    // Hidden when the open folder has no direct http(s) dials (canRefreshAll).
+    if (view.name === "grid") {
+      syncRefreshAllContextMenu(view.canRefreshAll, {
+        canRefreshAll: view.canRefreshAll,
+        viewName: view.name,
+        currentFolderId: view.currentFolder.id,
+      });
+    }
   };
 
-  const syncRefreshAllContextMenu = (visible: boolean): void => {
+  const syncRefreshAllContextMenu = (
+    visible: boolean,
+    meta: { canRefreshAll: boolean; viewName: string; currentFolderId: string },
+  ): void => {
     const api = tryExtensionApi();
+    const href = typeof location !== "undefined" ? location.href : null;
     try {
-      // Visibility is global to each menu item (not per-tab). Hidden when the
-      // open folder has no direct http(s) dials (canRefreshAll). Not gated on
-      // the thumbnails capture toggle — that only changes the ⋮ label.
-      // Bare + deeplink are separate contextMenus ids (different URL patterns).
-      for (const menuId of REFRESH_ALL_MENU_IDS) {
-        api?.contextMenus?.update?.(menuId, { visible }, () => {
-          if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
-          const err = api.runtime?.lastError?.message;
-          console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu", {
-            menuId,
-            visible,
-            lastError: err ?? null,
-            href: typeof location !== "undefined" ? location.href : null,
-          });
+      // Visibility is global (not per-tab). Same single id as main.
+      api?.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible }, () => {
+        if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
+        const err = api.runtime?.lastError?.message ?? null;
+        console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu", {
+          menuId: REFRESH_ALL_MENU_ID,
+          visible,
+          canRefreshAll: meta.canRefreshAll,
+          viewName: meta.viewName,
+          currentFolderId: meta.currentFolderId,
+          lastError: err,
+          href,
         });
-      }
+        // Menus may not exist yet (SW still ensureMenu). Retry once when we
+        // need the item shown.
+        if (visible && err) {
+          setTimeout(() => {
+            api.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible: true }, () => {
+              if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
+              console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu RETRY", {
+                menuId: REFRESH_ALL_MENU_ID,
+                visible: true,
+                lastError: api.runtime?.lastError?.message ?? null,
+                href,
+              });
+            });
+          }, 250);
+        }
+      });
     } catch (error) {
       if (TEMP_CONTEXT_MENU_DIAGNOSTICS) {
         console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu threw", error);
