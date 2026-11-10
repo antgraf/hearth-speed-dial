@@ -95,15 +95,17 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
-test("dialDocumentPatterns targets the new-tab override with and without query", () => {
-  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
-    "chrome-extension://id/index.html",
-    "chrome-extension://id/index.html?*",
-  ]);
-  assert.deepEqual(dialDocumentPatterns((path) => `moz-extension://ff/${path}`), [
-    "moz-extension://ff/index.html",
-    "moz-extension://ff/index.html?*",
-  ]);
+test("dialDocumentPatterns uses trailing * for bare dial and ?folder= deep links", () => {
+  const chromePatterns = dialDocumentPatterns((path) => `chrome-extension://id/${path}`);
+  assert.deepEqual(chromePatterns, ["chrome-extension://id/index.html*"]);
+  const firefoxPatterns = dialDocumentPatterns((path) => `moz-extension://ff/${path}`);
+  assert.deepEqual(firefoxPatterns, ["moz-extension://ff/index.html*"]);
+  // Regression: literal `?*` made Chrome lose Refresh All on every dial page
+  // after removeAll + failed create. Prefer trailing `*` (no `?` in pattern).
+  for (const pattern of [...chromePatterns, ...firefoxPatterns]) {
+    assert.equal(pattern.includes("?*"), false);
+    assert.ok(pattern.endsWith("index.html*"));
+  }
 });
 
 test("ensureMenu registers Add and Refresh All with the expected patterns", async () => {
@@ -121,10 +123,7 @@ test("ensureMenu registers Add and Refresh All with the expected patterns", asyn
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: [
-      "chrome-extension://hearth-test/index.html",
-      "chrome-extension://hearth-test/index.html?*",
-    ],
+    documentUrlPatterns: ["chrome-extension://hearth-test/index.html*"],
   });
 });
 

@@ -44,11 +44,18 @@ export type BackgroundChrome = {
 };
 
 export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
-  // New-tab override is index.html. Match patterns compare path + query string
-  // (hash is ignored), so an exact `index.html` misses `?folder=…` deep links.
+  // New-tab override is index.html. Chromium matchers compare path + query
+  // (GURL::PathForRequest); the fragment is ignored. An exact `index.html`
+  // therefore misses `?folder=…` deep links.
+  //
+  // Use a trailing `*` (Chrome match-pattern docs / historical guidance for
+  // query strings: prefer `path*` over a literal `?`). A previous attempt with
+  // `[exact, exact + "?*"]` made Refresh All vanish on *every* dial page
+  // (bare NTP included): `contextMenus.create` runs after `removeAll`, and a
+  // rejected/failed create with `?*` left the item unregistered entirely.
+  // `index.html*` matches bare `index.html` (`*` = empty) and any query.
   // getURL yields chrome-extension://… or moz-extension://… per browser.
-  const dial = getURL("index.html");
-  return [dial, `${dial}?*`];
+  return [`${getURL("index.html")}*`];
 }
 
 /**
