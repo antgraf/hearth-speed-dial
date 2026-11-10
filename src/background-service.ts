@@ -16,18 +16,11 @@ export const ADD_WINDOW = { width: 420, height: 520 } as const;
 /** http(s) pages only — hide Add to Hearth on chrome-extension:// / moz-extension:// dial pages. */
 export const WEB_DOCUMENT_PATTERNS = ["http://*/*", "https://*/*"] as const;
 
-/**
- * TEMP diagnostics for Anton (service worker DevTools).
- * Set to false / remove once Refresh All + deep-link matching is confirmed.
- */
-export const TEMP_CONTEXT_MENU_DIAGNOSTICS = true;
-
 export type BackgroundChrome = {
   runtime: {
     getURL: (path: string) => string;
     onInstalled: { addListener: (listener: () => void) => void };
     onStartup: { addListener: (listener: () => void) => void };
-    /** Present on real chrome.runtime; used to surface create failures. */
     lastError?: { message?: string } | null;
   };
   contextMenus: {
@@ -57,54 +50,28 @@ export type BackgroundChrome = {
 /** Serialize overlapping ensureMenu calls (onInstalled + onStartup + boot). */
 let ensureMenuTail: Promise<void> = Promise.resolve();
 
-function tempMenuLog(message: string, detail?: unknown): void {
-  if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
-  // Extension error UI stringifies poorly ([object Object]); keep one line of JSON.
-  if (detail !== undefined) {
-    let serialized: string;
-    try {
-      serialized = JSON.stringify(detail);
-    } catch {
-      serialized = String(detail);
-    }
-    console.warn(`[hearth:TEMP menu] ${message} ${serialized}`);
-    return;
-  }
-  console.warn(`[hearth:TEMP menu] ${message}`);
-}
-
-function readLastError(api: BackgroundChrome): string | null {
-  const message = api.runtime.lastError?.message?.trim();
-  return message ? message : null;
-}
-
 /**
- * Create a context menu item and surface chrome.runtime.lastError.
+ * Create a context menu item.
  * Chrome uses an optional callback; Firefox `browser.*` may return a Promise.
  */
-export function createContextMenu(
+function createContextMenu(
   api: BackgroundChrome,
   props: chrome.contextMenus.CreateProperties,
-): Promise<{ ok: boolean; error: string | null }> {
+): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (error: string | null) => {
+    const finish = () => {
       if (settled) return;
       settled = true;
-      resolve({ ok: !error, error });
+      resolve();
     };
     try {
-      const result = api.contextMenus.create(props, () => {
-        finish(readLastError(api));
-      });
+      const result = api.contextMenus.create(props, finish);
       if (result != null && typeof (result as PromiseLike<unknown>).then === "function") {
-        void Promise.resolve(result).then(
-          () => finish(readLastError(api)),
-          (error) => finish(error instanceof Error ? error.message : String(error)),
-        );
+        void Promise.resolve(result).then(finish, finish);
       }
-    } catch (error) {
-      finish(error instanceof Error ? error.message : String(error));
+    } catch {
+      finish();
     }
   });
 }
@@ -161,38 +128,22 @@ export function ensureMenu(api: BackgroundChrome): Promise<void> {
 
 async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
   await clearContextMenus(api);
-  tempMenuLog("ensureMenu: cleared; creating Add + Refresh All");
 
-  const addResult = await createContextMenu(api, {
+  await createContextMenu(api, {
     id: ADD_MENU_ID,
     title: t("context_add_to_hearth"),
     contexts: ["page", "link"],
     documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
   });
-  tempMenuLog("ensureMenu: Add create", {
-    ok: addResult.ok,
-    error: addResult.error,
-    patterns: [...WEB_DOCUMENT_PATTERNS],
-    note: "Add should NOT appear on dial (http/https only)",
-  });
 
-  const ntpKind = detectDialNtpKind();
-  const patterns = dialDocumentPatterns(api.runtime.getURL, ntpKind);
-  const refreshResult = await createContextMenu(api, {
+  await createContextMenu(api, {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
     // Explicit true so a prior update({visible:false}) during dial loading
     // cannot leave a newly recreated item stuck hidden after removeAll.
     visible: true,
-    documentUrlPatterns: patterns,
-  });
-  tempMenuLog("ensureMenu: Refresh All create", {
-    ok: refreshResult.ok,
-    error: refreshResult.error,
-    patterns,
-    ntpKind,
-    visible: true,
+    documentUrlPatterns: dialDocumentPatterns(api.runtime.getURL),
   });
 }
 
@@ -295,11 +246,6 @@ export function registerContextMenuClicks(api: BackgroundChrome): void {
       return;
     }
     if (info.menuItemId === REFRESH_ALL_MENU_ID) {
-      tempMenuLog("onClicked Refresh All", {
-        menuItemId: info.menuItemId,
-        pageUrl: info.pageUrl ?? null,
-        tabUrl: tab?.url ?? null,
-      });
       void requestRefreshAllThumbnails(api, tab);
     }
   });

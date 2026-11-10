@@ -41,7 +41,7 @@ import {
   thumbnailRefreshFailureSummary,
 } from "./thumbnail-refresh.ts";
 import type { BookmarksApi } from "./browser.ts";
-import { REFRESH_ALL_MENU_ID, TEMP_CONTEXT_MENU_DIAGNOSTICS } from "./background-service.ts";
+import { REFRESH_ALL_MENU_ID } from "./background-service.ts";
 import { confirmDialog, type ConfirmDialogOptions } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
 import { t } from "./i18n.ts";
@@ -230,60 +230,15 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
     // could race ensureMenu recreate, leaving Refresh All stuck hidden.
     // Hidden when the open folder has no direct http(s) dials (canRefreshAll).
     if (view.name === "grid") {
-      syncRefreshAllContextMenu(view.canRefreshAll, {
-        canRefreshAll: view.canRefreshAll,
-        viewName: view.name,
-        currentFolderId: view.currentFolder.id,
-      });
+      syncRefreshAllContextMenu(view.canRefreshAll);
     }
   };
 
-  const syncRefreshAllContextMenu = (
-    visible: boolean,
-    meta: { canRefreshAll: boolean; viewName: string; currentFolderId: string },
-  ): void => {
-    const api = tryExtensionApi();
-    const href = typeof location !== "undefined" ? location.href : null;
+  const syncRefreshAllContextMenu = (visible: boolean): void => {
     try {
-      // Visibility is global (not per-tab). Same single id as main.
-      api?.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible }, () => {
-        if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
-        const err = api.runtime?.lastError?.message ?? null;
-        console.warn(
-          `[hearth:TEMP menu] dial syncRefreshAllContextMenu ${JSON.stringify({
-            menuId: REFRESH_ALL_MENU_ID,
-            visible,
-            canRefreshAll: meta.canRefreshAll,
-            viewName: meta.viewName,
-            currentFolderId: meta.currentFolderId,
-            lastError: err,
-            href,
-          })}`,
-        );
-        // Menus may not exist yet (SW still ensureMenu). Retry once when we
-        // need the item shown.
-        if (visible && err) {
-          setTimeout(() => {
-            api.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible: true }, () => {
-              if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
-              console.warn(
-                `[hearth:TEMP menu] dial syncRefreshAllContextMenu RETRY ${JSON.stringify({
-                  menuId: REFRESH_ALL_MENU_ID,
-                  visible: true,
-                  lastError: api.runtime?.lastError?.message ?? null,
-                  href,
-                })}`,
-              );
-            });
-          }, 250);
-        }
-      });
-    } catch (error) {
-      if (TEMP_CONTEXT_MENU_DIAGNOSTICS) {
-        console.warn(
-          `[hearth:TEMP menu] dial syncRefreshAllContextMenu threw ${String(error)}`,
-        );
-      }
+      // Visibility is global (not per-tab). Same single id as background.
+      tryExtensionApi()?.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible });
+    } catch {
       // Menu may not be registered yet; ignore.
     }
   };
@@ -902,15 +857,6 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
 
   void (async () => {
     try {
-      if (TEMP_CONTEXT_MENU_DIAGNOSTICS && typeof location !== "undefined") {
-        console.warn(
-          `[hearth:TEMP menu] dial boot location ${JSON.stringify({
-            href: location.href,
-            search: location.search,
-            hash: location.hash,
-          })}`,
-        );
-      }
       const defaultFolderId = await ports.settings.getDefaultFolderId();
       const openFolderId = await ports.settings.getOpenFolderId();
       state.defaultFolderId = defaultFolderId;
