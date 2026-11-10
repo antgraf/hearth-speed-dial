@@ -249,34 +249,40 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
       api?.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible }, () => {
         if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
         const err = api.runtime?.lastError?.message ?? null;
-        console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu", {
-          menuId: REFRESH_ALL_MENU_ID,
-          visible,
-          canRefreshAll: meta.canRefreshAll,
-          viewName: meta.viewName,
-          currentFolderId: meta.currentFolderId,
-          lastError: err,
-          href,
-        });
+        console.warn(
+          `[hearth:TEMP menu] dial syncRefreshAllContextMenu ${JSON.stringify({
+            menuId: REFRESH_ALL_MENU_ID,
+            visible,
+            canRefreshAll: meta.canRefreshAll,
+            viewName: meta.viewName,
+            currentFolderId: meta.currentFolderId,
+            lastError: err,
+            href,
+          })}`,
+        );
         // Menus may not exist yet (SW still ensureMenu). Retry once when we
         // need the item shown.
         if (visible && err) {
           setTimeout(() => {
             api.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible: true }, () => {
               if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
-              console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu RETRY", {
-                menuId: REFRESH_ALL_MENU_ID,
-                visible: true,
-                lastError: api.runtime?.lastError?.message ?? null,
-                href,
-              });
+              console.warn(
+                `[hearth:TEMP menu] dial syncRefreshAllContextMenu RETRY ${JSON.stringify({
+                  menuId: REFRESH_ALL_MENU_ID,
+                  visible: true,
+                  lastError: api.runtime?.lastError?.message ?? null,
+                  href,
+                })}`,
+              );
             });
           }, 250);
         }
       });
     } catch (error) {
       if (TEMP_CONTEXT_MENU_DIAGNOSTICS) {
-        console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu threw", error);
+        console.warn(
+          `[hearth:TEMP menu] dial syncRefreshAllContextMenu threw ${String(error)}`,
+        );
       }
       // Menu may not be registered yet; ignore.
     }
@@ -897,11 +903,13 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   void (async () => {
     try {
       if (TEMP_CONTEXT_MENU_DIAGNOSTICS && typeof location !== "undefined") {
-        console.warn("[hearth:TEMP menu] dial boot location", {
-          href: location.href,
-          search: location.search,
-          hash: location.hash,
-        });
+        console.warn(
+          `[hearth:TEMP menu] dial boot location ${JSON.stringify({
+            href: location.href,
+            search: location.search,
+            hash: location.hash,
+          })}`,
+        );
       }
       const defaultFolderId = await ports.settings.getDefaultFolderId();
       const openFolderId = await ports.settings.getOpenFolderId();

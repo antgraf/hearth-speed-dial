@@ -96,23 +96,20 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
-test("dialDocumentPatterns is exact index.html plus index.html?*", () => {
+test("dialDocumentPatterns covers chrome://newtab plus extension dial URLs", () => {
   assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
+    "chrome://newtab/",
+    "chrome://newtab/*",
+    "edge://newtab/",
+    "edge://newtab/*",
     "chrome-extension://id/index.html",
     "chrome-extension://id/index.html?*",
   ]);
-  assert.deepEqual(dialDocumentPatterns((path) => `moz-extension://ff/${path}`), [
-    "moz-extension://ff/index.html",
-    "moz-extension://ff/index.html?*",
-  ]);
-  // Anton: lone origin /* created but matched no dial tab.
-  assert.equal(
-    dialDocumentPatterns((path) => `chrome-extension://id/${path}`).some((p) => /:\/\/id\/\*$/.test(p)),
-    false,
-  );
+  // Bare NTP uses chrome://newtab/ for contextMenus — extension path alone is not enough.
+  assert.ok(dialDocumentPatterns((path) => `chrome-extension://id/${path}`).includes("chrome://newtab/"));
 });
 
-test("ensureMenu registers Add and one Refresh All with bare + deeplink patterns", async () => {
+test("ensureMenu registers Add http(s)-only and Refresh All with NTP + dial patterns", async () => {
   const api = fakeChrome();
   await ensureMenu(api);
   assert.ok(api.calls.includes("contextMenus.removeAll"));
@@ -129,6 +126,10 @@ test("ensureMenu registers Add and one Refresh All with bare + deeplink patterns
     contexts: ["page"],
     visible: true,
     documentUrlPatterns: [
+      "chrome://newtab/",
+      "chrome://newtab/*",
+      "edge://newtab/",
+      "edge://newtab/*",
       "chrome-extension://hearth-test/index.html",
       "chrome-extension://hearth-test/index.html?*",
     ],
@@ -174,10 +175,44 @@ test("ensureMenu serializes overlapping calls without duplicate ids", async () =
   const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
   assert.equal(refreshMenus.length, 1);
   assert.deepEqual(refreshMenus[0]?.documentUrlPatterns, [
+    "chrome://newtab/",
+    "chrome://newtab/*",
+    "edge://newtab/",
+    "edge://newtab/*",
     "chrome-extension://hearth-test/index.html",
     "chrome-extension://hearth-test/index.html?*",
   ]);
   assert.equal(refreshMenus[0]?.visible, true);
+});
+
+test("ensureMenu retries Refresh All without edge:// when create rejects them", async () => {
+  const api = fakeChrome();
+  let refreshCreates = 0;
+  api.contextMenus.create = (createProperties, callback) => {
+    api.calls.push(`contextMenus.create:${String(createProperties.id)}`);
+    api.menus.push(createProperties);
+    if (createProperties.id === REFRESH_ALL_MENU_ID) {
+      refreshCreates += 1;
+      const patterns = createProperties.documentUrlPatterns ?? [];
+      if (refreshCreates === 1 && patterns.some((p) => p.startsWith("edge:"))) {
+        api.runtime.lastError = { message: "Invalid url pattern 'edge://newtab/'" };
+        callback?.();
+        api.runtime.lastError = null;
+        return createProperties.id ?? "menu";
+      }
+    }
+    callback?.();
+    return createProperties.id ?? "menu";
+  };
+  await ensureMenu(api);
+  assert.equal(refreshCreates, 2);
+  const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
+  assert.deepEqual(refreshMenus[1]?.documentUrlPatterns, [
+    "chrome://newtab/",
+    "chrome://newtab/*",
+    "chrome-extension://hearth-test/index.html",
+    "chrome-extension://hearth-test/index.html?*",
+  ]);
 });
 
 test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", async () => {

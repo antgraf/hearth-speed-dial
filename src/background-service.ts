@@ -59,8 +59,18 @@ let ensureMenuTail: Promise<void> = Promise.resolve();
 
 function tempMenuLog(message: string, detail?: unknown): void {
   if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
-  if (detail !== undefined) console.warn(`[hearth:TEMP menu] ${message}`, detail);
-  else console.warn(`[hearth:TEMP menu] ${message}`);
+  // Extension error UI stringifies poorly ([object Object]); keep one line of JSON.
+  if (detail !== undefined) {
+    let serialized = "";
+    try {
+      serialized = JSON.stringify(detail);
+    } catch {
+      serialized = String(detail);
+    }
+    console.warn(`[hearth:TEMP menu] ${message} ${serialized}`);
+    return;
+  }
+  console.warn(`[hearth:TEMP menu] ${message}`);
 }
 
 function readLastError(api: BackgroundChrome): string | null {
@@ -100,13 +110,32 @@ export function createContextMenu(
 }
 
 /**
- * Dial documentUrlPatterns: exact NTP path + query deep links.
- * Anton confirmed both patterns create ok as separate items; `origin/*` matched
- * nothing. One menu id with both patterns (like main) keeps visibility simple.
+ * Browser NTP override document URLs (contextMenus match these, not the
+ * bundled extension path). Anton logged bare dial as `chrome://newtab/`.
+ */
+export const DIAL_NTP_DOCUMENT_PATTERNS = [
+  "chrome://newtab/",
+  "chrome://newtab/*",
+  "edge://newtab/",
+  "edge://newtab/*",
+] as const;
+
+/**
+ * Refresh All documentUrlPatterns:
+ * - chrome://newtab/ (+ /*) / edge://newtab/ — Ctrl+T NTP override tabs
+ * - getURL("index.html") — direct extension open
+ * - getURL("index.html") + "?*" — middle-click / ?folder= deep links
+ *
+ * Extension-only patterns never match bare NTP (document URL stays chrome://newtab/).
  */
 export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
   const dial = getURL("index.html");
-  return [dial, `${dial}?*`];
+  return [...DIAL_NTP_DOCUMENT_PATTERNS, dial, `${dial}?*`];
+}
+
+/** Patterns without edge:// (Chrome may reject edge: as invalid in match patterns). */
+export function dialDocumentPatternsChromiumOnly(getURL: (path: string) => string): string[] {
+  return dialDocumentPatterns(getURL).filter((pattern) => !pattern.startsWith("edge:"));
 }
 
 /**
@@ -139,8 +168,9 @@ async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
     note: "Add should NOT appear on dial (http/https only)",
   });
 
-  const patterns = dialDocumentPatterns(api.runtime.getURL);
-  const refreshResult = await createContextMenu(api, {
+  const fullPatterns = dialDocumentPatterns(api.runtime.getURL);
+  let patterns = fullPatterns;
+  let refreshResult = await createContextMenu(api, {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
@@ -155,6 +185,25 @@ async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
     patterns,
     visible: true,
   });
+
+  // Chrome may reject edge:// in match patterns; retry without Edge NTP entries.
+  if (!refreshResult.ok) {
+    patterns = dialDocumentPatternsChromiumOnly(api.runtime.getURL);
+    refreshResult = await createContextMenu(api, {
+      id: REFRESH_ALL_MENU_ID,
+      title: t("context_refresh_all_thumbnails"),
+      contexts: ["page"],
+      visible: true,
+      documentUrlPatterns: patterns,
+    });
+    tempMenuLog("ensureMenu: Refresh All create RETRY without edge://", {
+      ok: refreshResult.ok,
+      error: refreshResult.error,
+      patterns,
+      visible: true,
+      priorError: fullPatterns === patterns ? null : "edge patterns dropped",
+    });
+  }
 }
 
 export function clearContextMenus(api: BackgroundChrome): Promise<void> {
