@@ -21,10 +21,14 @@ export type BackgroundChrome = {
     getURL: (path: string) => string;
     onInstalled: { addListener: (listener: () => void) => void };
     onStartup: { addListener: (listener: () => void) => void };
+    lastError?: { message?: string } | null;
   };
   contextMenus: {
     removeAll: (callback?: () => void) => void | Promise<void>;
-    create: (createProperties: chrome.contextMenus.CreateProperties) => string | number | Promise<string | number>;
+    create: (
+      createProperties: chrome.contextMenus.CreateProperties,
+      callback?: () => void,
+    ) => string | number | Promise<string | number>;
     onClicked: {
       addListener: (
         listener: (
@@ -43,29 +47,102 @@ export type BackgroundChrome = {
   };
 };
 
-export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
-  // New-tab override is index.html; query strings still match this path pattern.
-  // getURL yields chrome-extension://… or moz-extension://… per browser.
-  return [getURL("index.html")];
+/** Serialize overlapping ensureMenu calls (onInstalled + onStartup + boot). */
+let ensureMenuTail: Promise<void> = Promise.resolve();
+
+/**
+ * Create a context menu item.
+ * Chrome uses an optional callback; Firefox `browser.*` may return a Promise.
+ */
+function createContextMenu(
+  api: BackgroundChrome,
+  props: chrome.contextMenus.CreateProperties,
+): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    try {
+      const result = api.contextMenus.create(props, finish);
+      if (result != null && typeof (result as PromiseLike<unknown>).then === "function") {
+        void Promise.resolve(result).then(finish, finish);
+      }
+    } catch {
+      finish();
+    }
+  });
+}
+
+/** NTP scheme for contextMenus documentUrlPatterns (Chrome rejects edge://). */
+export type DialNtpKind = "chrome" | "edge";
+
+export const CHROME_NTP_DOCUMENT_PATTERNS = ["chrome://newtab/", "chrome://newtab/*"] as const;
+export const EDGE_NTP_DOCUMENT_PATTERNS = ["edge://newtab/", "edge://newtab/*"] as const;
+
+/**
+ * Edge Chromium UA includes `Edg/` (not legacy `Edge/`). Service workers expose
+ * `navigator.userAgent`; Node tests pass an explicit string.
+ */
+export function detectDialNtpKind(
+  userAgent: string = typeof navigator !== "undefined" ? navigator.userAgent ?? "" : "",
+): DialNtpKind {
+  return /\bEdg\//.test(userAgent) ? "edge" : "chrome";
+}
+
+export function dialNtpDocumentPatterns(kind: DialNtpKind): readonly string[] {
+  return kind === "edge" ? EDGE_NTP_DOCUMENT_PATTERNS : CHROME_NTP_DOCUMENT_PATTERNS;
+}
+
+/**
+ * Refresh All documentUrlPatterns:
+ * - chrome://newtab/ (+ /*) on Chrome — Ctrl+T NTP override (Anton: bare dial)
+ * - edge://newtab/ (+ /*) only when Edge UA — Chrome rejects edge:// as invalid
+ * - getURL("index.html") — direct extension open
+ * - getURL("index.html") + "?*" — middle-click / ?folder= deep links
+ *
+ * Extension-only patterns never match bare NTP (document URL stays chrome://newtab/).
+ */
+export function dialDocumentPatterns(
+  getURL: (path: string) => string,
+  kind: DialNtpKind = detectDialNtpKind(),
+): string[] {
+  const dial = getURL("index.html");
+  return [...dialNtpDocumentPatterns(kind), dial, `${dial}?*`];
 }
 
 /**
  * Clear and recreate context menus.
- * Chrome’s removeAll may invoke a callback and/or return a Promise; Firefox’s
- * `browser.contextMenus.removeAll` is promise-only. Settle once, then create.
+ * Overlapping callers share one chain so removeAll/create cannot interleave.
  */
-export async function ensureMenu(api: BackgroundChrome): Promise<void> {
+export function ensureMenu(api: BackgroundChrome): Promise<void> {
+  const run = ensureMenuTail.then(() => ensureMenuUnlocked(api));
+  ensureMenuTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
   await clearContextMenus(api);
-  api.contextMenus.create({
+
+  await createContextMenu(api, {
     id: ADD_MENU_ID,
     title: t("context_add_to_hearth"),
     contexts: ["page", "link"],
     documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
   });
-  api.contextMenus.create({
+
+  await createContextMenu(api, {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
+    // Explicit true so a prior update({visible:false}) during dial loading
+    // cannot leave a newly recreated item stuck hidden after removeAll.
+    visible: true,
     documentUrlPatterns: dialDocumentPatterns(api.runtime.getURL),
   });
 }

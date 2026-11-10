@@ -13,6 +13,7 @@ import {
   type ImageStorageUsage,
 } from "./images.ts";
 import { chromeFaviconSrc } from "./favicon.ts";
+import { folderDeepLinkHref } from "./folder-deeplink.ts";
 import {
   chromeBeforeIdFromDisplayDrop,
   folderDropZone,
@@ -275,19 +276,30 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
       });
       main = link;
     } else if (item.kind === "folder") {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "tile-main";
-      button.addEventListener("click", (event) => {
+      // Deep link so middle-click / Ctrl-click open this folder in a new tab.
+      // Primary click stays in-page (preventDefault + openFolder).
+      const link = document.createElement("a");
+      link.href = folderDeepLinkHref(item.id);
+      link.className = "tile-main";
+      link.addEventListener("click", (event) => {
         if (suppressClick) {
           event.preventDefault();
           event.stopPropagation();
           suppressClick = false;
           return;
         }
-        actions.openFolder(item.id);
+        if (
+          event.button === 0 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          !event.altKey
+        ) {
+          event.preventDefault();
+          actions.openFolder(item.id);
+        }
       });
-      main = button;
+      main = link;
     } else {
       main = document.createElement("div");
       main.className = "tile-main";

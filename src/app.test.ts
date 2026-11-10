@@ -302,6 +302,7 @@ async function boot(ports: {
   permissions?: ReturnType<typeof fakePermissions>;
   capture?: CaptureApi;
   confirm?: (options: ConfirmDialogOptions) => Promise<boolean>;
+  search?: string;
 } = {}): Promise<Harness> {
   const bookmarks = ports.bookmarks ?? fakeBookmarks();
   const settings = ports.settings ?? fakeSettings();
@@ -317,6 +318,7 @@ async function boot(ports: {
     images,
     permissions,
     capture,
+    search: ports.search,
     render(_host, view, nextActions) {
       views.push(view);
       actions = nextActions;
@@ -812,6 +814,58 @@ test("P0-4 bookmark-id stored as folder falls back to root", async () => {
   const harness = await boot({ settings });
   const grid = lastGrid(harness.views);
   assert.equal(grid.currentFolder.id, "0");
+  harness.stop();
+});
+
+test("folder deep link opens the folder and updates last-open", async () => {
+  const settings = fakeSettings({
+    defaultFolderId: "10",
+    openFolderId: "20",
+  });
+  const harness = await boot({ settings, search: "?folder=12" });
+  const grid = lastGrid(harness.views);
+  assert.equal(grid.currentFolder.id, "12");
+  assert.ok(settings.calls.includes("setOpenFolderId:12"));
+  harness.stop();
+});
+
+test("folder deep link beats default folder and last-open", async () => {
+  const settings = fakeSettings({
+    defaultFolderId: "10",
+    openFolderId: "20",
+  });
+  const harness = await boot({ settings, search: "folder=1" });
+  assert.equal(lastGrid(harness.views).currentFolder.id, "1");
+  harness.stop();
+});
+
+test("invalid folder deep link falls back to defaultFolderId", async () => {
+  const settings = fakeSettings({
+    defaultFolderId: "10",
+    openFolderId: "20",
+  });
+  const harness = await boot({ settings, search: "?folder=missing-folder" });
+  assert.equal(lastGrid(harness.views).currentFolder.id, "10");
+  harness.stop();
+});
+
+test("invalid folder deep link falls back to last-open when default unset", async () => {
+  const settings = fakeSettings({
+    defaultFolderId: null,
+    openFolderId: "20",
+  });
+  const harness = await boot({ settings, search: "?folder=11" }); // bookmark id, not a folder
+  assert.equal(lastGrid(harness.views).currentFolder.id, "20");
+  harness.stop();
+});
+
+test("empty folder deep link is ignored", async () => {
+  const settings = fakeSettings({
+    defaultFolderId: null,
+    openFolderId: "20",
+  });
+  const harness = await boot({ settings, search: "?folder=" });
+  assert.equal(lastGrid(harness.views).currentFolder.id, "20");
   harness.stop();
 });
 

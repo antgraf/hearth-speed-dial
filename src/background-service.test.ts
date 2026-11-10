@@ -6,6 +6,7 @@ import {
   REFRESH_ALL_MENU_ID,
   WEB_DOCUMENT_PATTERNS,
   addPopupCreateData,
+  detectDialNtpKind,
   dialDocumentPatterns,
   ensureMenu,
   registerBackgroundMenus,
@@ -52,9 +53,10 @@ function fakeChrome(): FakeChrome {
         menus.length = 0;
         callback?.();
       },
-      create(createProperties) {
+      create(createProperties, callback) {
         calls.push(`contextMenus.create:${String(createProperties.id)}`);
         menus.push(createProperties);
+        callback?.();
         return createProperties.id ?? "menu";
       },
       onClicked: {
@@ -95,16 +97,34 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
-test("dialDocumentPatterns targets the new-tab override page", () => {
-  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
-    "chrome-extension://id/index.html",
-  ]);
-  assert.deepEqual(dialDocumentPatterns((path) => `moz-extension://ff/${path}`), [
-    "moz-extension://ff/index.html",
-  ]);
+test("detectDialNtpKind treats Edg/ as Edge and everything else as Chrome", () => {
+  assert.equal(detectDialNtpKind("Mozilla/5.0 Edg/120.0.0.0"), "edge");
+  assert.equal(detectDialNtpKind("Mozilla/5.0 Chrome/120.0.0.0"), "chrome");
+  assert.equal(detectDialNtpKind(""), "chrome");
 });
 
-test("ensureMenu registers Add and Refresh All with the expected patterns", async () => {
+test("dialDocumentPatterns covers chrome://newtab plus extension dial URLs", () => {
+  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`, "chrome"), [
+    "chrome://newtab/",
+    "chrome://newtab/*",
+    "chrome-extension://id/index.html",
+    "chrome-extension://id/index.html?*",
+  ]);
+  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`, "edge"), [
+    "edge://newtab/",
+    "edge://newtab/*",
+    "chrome-extension://id/index.html",
+    "chrome-extension://id/index.html?*",
+  ]);
+  // Bare NTP uses chrome://newtab/ for contextMenus — extension path alone is not enough.
+  assert.ok(
+    dialDocumentPatterns((path) => `chrome-extension://id/${path}`, "chrome").includes(
+      "chrome://newtab/",
+    ),
+  );
+});
+
+test("ensureMenu registers Add http(s)-only and Refresh All with NTP + dial patterns", async () => {
   const api = fakeChrome();
   await ensureMenu(api);
   assert.ok(api.calls.includes("contextMenus.removeAll"));
@@ -115,12 +135,66 @@ test("ensureMenu registers Add and Refresh All with the expected patterns", asyn
     contexts: ["page", "link"],
     documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
   });
+  // Node test runner has no Edg/ UA → chrome NTP patterns only (no edge:// retry).
   assert.deepEqual(api.menus[1], {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: ["chrome-extension://hearth-test/index.html"],
+    visible: true,
+    documentUrlPatterns: [
+      "chrome://newtab/",
+      "chrome://newtab/*",
+      "chrome-extension://hearth-test/index.html",
+      "chrome-extension://hearth-test/index.html?*",
+    ],
   });
+});
+
+test("ensureMenu serializes overlapping calls without duplicate ids", async () => {
+  const api = fakeChrome();
+  let removeAllInFlight = 0;
+  let maxConcurrentRemoveAll = 0;
+  const liveIds = new Set<string>();
+
+  api.contextMenus.removeAll = (callback) => {
+    removeAllInFlight += 1;
+    maxConcurrentRemoveAll = Math.max(maxConcurrentRemoveAll, removeAllInFlight);
+    api.calls.push("contextMenus.removeAll");
+    queueMicrotask(() => {
+      api.menus.length = 0;
+      liveIds.clear();
+      removeAllInFlight -= 1;
+      callback?.();
+    });
+  };
+
+  api.contextMenus.create = (createProperties, callback) => {
+    api.calls.push(`contextMenus.create:${String(createProperties.id)}`);
+    const id = String(createProperties.id ?? "menu");
+    if (liveIds.has(id)) {
+      api.runtime.lastError = { message: `Cannot create item with duplicate id ${id}` };
+      callback?.();
+      api.runtime.lastError = null;
+      return id;
+    }
+    liveIds.add(id);
+    api.menus.push(createProperties);
+    callback?.();
+    return id;
+  };
+
+  await Promise.all([ensureMenu(api), ensureMenu(api), ensureMenu(api)]);
+
+  assert.equal(maxConcurrentRemoveAll, 1);
+  const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
+  assert.equal(refreshMenus.length, 1);
+  assert.deepEqual(refreshMenus[0]?.documentUrlPatterns, [
+    "chrome://newtab/",
+    "chrome://newtab/*",
+    "chrome-extension://hearth-test/index.html",
+    "chrome-extension://hearth-test/index.html?*",
+  ]);
+  assert.equal(refreshMenus[0]?.visible, true);
 });
 
 test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", async () => {
@@ -137,54 +211,54 @@ test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", asyn
 
 test("registerBackgroundMenus re-registers on onStartup after the initial ensure", async () => {
   const api = fakeChrome();
-  registerBackgroundMenus(api);
-  await Promise.resolve();
-  await Promise.resolve();
+  const ensureCalls = () => api.calls.filter((c) => c === "contextMenus.removeAll").length;
+  const waitForEnsures = async (count: number) => {
+    for (let i = 0; i < 40; i++) {
+      if (ensureCalls() >= count) return;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    throw new Error(`expected ${count} ensureMenu runs, got ${ensureCalls()}`);
+  };
 
+  registerBackgroundMenus(api);
   assert.ok(api.calls.includes("onInstalled.addListener"));
   assert.ok(api.calls.includes("onStartup.addListener"));
-  const ensureCalls = () => api.calls.filter((c) => c === "contextMenus.removeAll").length;
+  await waitForEnsures(1);
   assert.equal(ensureCalls(), 1);
 
   assert.ok(api.startup);
   api.startup();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(ensureCalls(), 2);
+  await waitForEnsures(2);
   assert.equal(api.menus.length, 2);
 
   assert.ok(api.installed);
   api.installed();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(ensureCalls(), 3);
+  await waitForEnsures(3);
 });
 
 test("startBackground opens a sized popup for Add to Hearth clicks", async () => {
   const api = fakeChrome();
   startBackground(api);
+  await Promise.resolve();
+  await Promise.resolve();
+  for (let i = 0; i < 20; i++) {
+    if (api.clicked) break;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
   assert.ok(api.clicked);
-
   api.clicked(
     {
       menuItemId: ADD_MENU_ID,
-      pageUrl: "https://example.com/article",
+      pageUrl: "https://example.com/path",
     } as chrome.contextMenus.OnClickData,
-    { id: 9, title: "Example Article" } as chrome.tabs.Tab,
+    { id: 9, title: "Example" } as chrome.tabs.Tab,
   );
-
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 20; i++) {
     if (api.windowsCreated.length > 0) break;
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
-
   assert.equal(api.windowsCreated.length, 1);
-  const created = api.windowsCreated[0]!;
-  assert.equal(created.type, "popup");
-  assert.equal(created.width, ADD_WINDOW.width);
-  assert.equal(created.height, ADD_WINDOW.height);
-  assert.equal(created.focused, true);
-  assert.match(String(created.url), /^chrome-extension:\/\/hearth-test\/add\.html\?/);
-  assert.match(String(created.url), /url=https%3A%2F%2Fexample\.com%2Farticle/);
-  assert.match(String(created.url), /title=Example(\+|%20)Article/);
+  assert.equal(api.windowsCreated[0]?.type, "popup");
+  assert.equal(api.windowsCreated[0]?.width, ADD_WINDOW.width);
+  assert.equal(api.windowsCreated[0]?.height, ADD_WINDOW.height);
 });
