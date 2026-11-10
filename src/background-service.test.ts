@@ -3,9 +3,12 @@ import { test } from "node:test";
 import {
   ADD_MENU_ID,
   ADD_WINDOW,
+  REFRESH_ALL_DEEPLINK_MENU_ID,
   REFRESH_ALL_MENU_ID,
   WEB_DOCUMENT_PATTERNS,
   addPopupCreateData,
+  dialBareDocumentPatterns,
+  dialDeeplinkDocumentPatterns,
   dialDocumentPatterns,
   ensureMenu,
   registerBackgroundMenus,
@@ -96,26 +99,23 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
-test("dialDocumentPatterns uses a single extension-origin /* pattern", () => {
-  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
-    "chrome-extension://id/*",
+test("dial patterns split bare exact URL from index.html?* deeplink", () => {
+  const getURL = (path: string) => `chrome-extension://id/${path}`;
+  assert.deepEqual(dialBareDocumentPatterns(getURL), ["chrome-extension://id/index.html"]);
+  assert.deepEqual(dialDeeplinkDocumentPatterns(getURL), ["chrome-extension://id/index.html?*"]);
+  assert.deepEqual(dialDocumentPatterns(getURL), [
+    "chrome-extension://id/index.html",
+    "chrome-extension://id/index.html?*",
   ]);
-  assert.deepEqual(dialDocumentPatterns((path) => `moz-extension://ff/${path}`), [
-    "moz-extension://ff/*",
-  ]);
-  // Covers bare index.html and ?folder= without literal ? / index.html*.
-  for (const pattern of dialDocumentPatterns((path) => `chrome-extension://id/${path}`)) {
-    assert.equal(pattern.includes("?*"), false);
-    assert.equal(pattern.endsWith("index.html*"), false);
-    assert.ok(pattern.endsWith("/*"));
-  }
+  // Lone origin /* was inert for Anton's page contextMenus — do not use it.
+  assert.equal(dialDocumentPatterns(getURL).some((p) => p.endsWith("://id/*")), false);
 });
 
-test("ensureMenu registers Add and Refresh All with the expected patterns", async () => {
+test("ensureMenu registers Add and separate bare + deeplink Refresh All items", async () => {
   const api = fakeChrome();
   await ensureMenu(api);
   assert.ok(api.calls.includes("contextMenus.removeAll"));
-  assert.equal(api.menus.length, 2);
+  assert.equal(api.menus.length, 3);
   assert.deepEqual(api.menus[0], {
     id: ADD_MENU_ID,
     title: t("context_add_to_hearth"),
@@ -126,11 +126,17 @@ test("ensureMenu registers Add and Refresh All with the expected patterns", asyn
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: ["chrome-extension://hearth-test/*"],
+    documentUrlPatterns: ["chrome-extension://hearth-test/index.html"],
+  });
+  assert.deepEqual(api.menus[2], {
+    id: REFRESH_ALL_DEEPLINK_MENU_ID,
+    title: t("context_refresh_all_thumbnails"),
+    contexts: ["page"],
+    documentUrlPatterns: ["chrome-extension://hearth-test/index.html?*"],
   });
 });
 
-test("ensureMenu serializes overlapping calls and never demotes patterns", async () => {
+test("ensureMenu serializes overlapping calls without duplicate ids", async () => {
   const api = fakeChrome();
   let removeAllInFlight = 0;
   let maxConcurrentRemoveAll = 0;
@@ -167,12 +173,15 @@ test("ensureMenu serializes overlapping calls and never demotes patterns", async
   await Promise.all([ensureMenu(api), ensureMenu(api), ensureMenu(api)]);
 
   assert.equal(maxConcurrentRemoveAll, 1);
-  const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
-  assert.equal(refreshMenus.length, 1);
-  assert.deepEqual(refreshMenus[0]?.documentUrlPatterns, ["chrome-extension://hearth-test/*"]);
-  assert.equal(
-    api.calls.some((call) => call.includes("FALLBACK")),
-    false,
+  assert.equal(api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID).length, 1);
+  assert.equal(api.menus.filter((menu) => menu.id === REFRESH_ALL_DEEPLINK_MENU_ID).length, 1);
+  assert.deepEqual(
+    api.menus.find((menu) => menu.id === REFRESH_ALL_MENU_ID)?.documentUrlPatterns,
+    ["chrome-extension://hearth-test/index.html"],
+  );
+  assert.deepEqual(
+    api.menus.find((menu) => menu.id === REFRESH_ALL_DEEPLINK_MENU_ID)?.documentUrlPatterns,
+    ["chrome-extension://hearth-test/index.html?*"],
   );
 });
 
@@ -184,7 +193,7 @@ test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", asyn
     return Promise.resolve();
   };
   await ensureMenu(api);
-  assert.equal(api.menus.length, 2);
+  assert.equal(api.menus.length, 3);
   assert.equal(api.menus[0]?.id, ADD_MENU_ID);
 });
 
@@ -208,7 +217,7 @@ test("registerBackgroundMenus re-registers on onStartup after the initial ensure
   assert.ok(api.startup);
   api.startup();
   await waitForEnsures(2);
-  assert.equal(api.menus.length, 2);
+  assert.equal(api.menus.length, 3);
 
   assert.ok(api.installed);
   api.installed();

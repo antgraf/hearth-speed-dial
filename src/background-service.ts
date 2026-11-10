@@ -8,7 +8,15 @@ import { refreshAllThumbnailsMessage } from "./messages.ts";
 import { t } from "./i18n.ts";
 
 export const ADD_MENU_ID = "add-to-hearth";
+/** Refresh All on bare `index.html` (no query). Proven to match NTP override. */
 export const REFRESH_ALL_MENU_ID = "refresh-all-thumbnails";
+/**
+ * Refresh All on `index.html?…` deep links. Separate id so a bad query pattern
+ * cannot fail the bare-NTP create (one documentUrlPatterns array is all-or-nothing).
+ */
+export const REFRESH_ALL_DEEPLINK_MENU_ID = "refresh-all-thumbnails-deeplink";
+
+export const REFRESH_ALL_MENU_IDS = [REFRESH_ALL_MENU_ID, REFRESH_ALL_DEEPLINK_MENU_ID] as const;
 
 /** Popup size tuned to the Add form; CSS fills larger windows without a tiny floating card. */
 export const ADD_WINDOW = { width: 420, height: 520 } as const;
@@ -99,19 +107,27 @@ export function createContextMenu(
   });
 }
 
+/**
+ * Patterns for the bare dial document (no query).
+ * Exact path historically matched Chrome NTP override pages.
+ */
+export function dialBareDocumentPatterns(getURL: (path: string) => string): string[] {
+  return [getURL("index.html")];
+}
+
+/**
+ * Patterns for dial deep links (`?folder=`).
+ * Match path includes the query string; a trailing `?*` is the MDN form.
+ * Kept on a separate menu id so create failure here cannot wipe bare NTP.
+ */
+export function dialDeeplinkDocumentPatterns(getURL: (path: string) => string): string[] {
+  return [`${getURL("index.html")}?*`];
+}
+
+/** @deprecated Use dialBareDocumentPatterns / dialDeeplinkDocumentPatterns. */
 export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
-  // New-tab override is index.html. Chromium matchers compare path + query
-  // (GURL::PathForRequest); exact `index.html` misses `?folder=…`.
-  //
-  // Single pattern: chrome-extension://<id>/* (documented form). Covers bare
-  // NTP and deep links. Avoid `?*` / `index.html*` (create issues) and avoid
-  // an exact-only fallback after a duplicate-id race (that demoted matching
-  // back to bare index.html only — Anton's TEMP logs).
-  //
-  // Do not use URL.origin — Node can yield "null" for chrome-extension:.
-  const dial = getURL("index.html");
-  const origin = /^(?:chrome-extension|moz-extension):\/\/[^/]+/i.exec(dial)?.[0];
-  return origin ? [`${origin}/*`] : [dial];
+  // Kept for older tests / call sites: bare + deeplink patterns concatenated.
+  return [...dialBareDocumentPatterns(getURL), ...dialDeeplinkDocumentPatterns(getURL)];
 }
 
 /**
@@ -121,6 +137,10 @@ export function dialDocumentPatterns(getURL: (path: string) => string): string[]
  *
  * Overlapping callers (boot + onInstalled + onStartup) share one chain so
  * removeAll/create cannot interleave and hit "duplicate id".
+ *
+ * Anton’s logs: `chrome-extension://<id>/*` create succeeded but matched no
+ * dial tab (menu missing everywhere). Exact `index.html` matched bare NTP
+ * before deep links. Use two items — bare exact + `index.html?*` — not `/*`.
  */
 export function ensureMenu(api: BackgroundChrome): Promise<void> {
   const run = ensureMenuTail.then(() => ensureMenuUnlocked(api));
@@ -133,7 +153,7 @@ export function ensureMenu(api: BackgroundChrome): Promise<void> {
 
 async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
   await clearContextMenus(api);
-  tempMenuLog("ensureMenu: cleared; creating Add + Refresh All");
+  tempMenuLog("ensureMenu: cleared; creating Add + Refresh All (bare + deeplink)");
 
   const addResult = await createContextMenu(api, {
     id: ADD_MENU_ID,
@@ -145,22 +165,34 @@ async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
     ok: addResult.ok,
     error: addResult.error,
     patterns: [...WEB_DOCUMENT_PATTERNS],
+    note: "Add should NOT appear on dial (http/https only)",
   });
 
-  const patterns = dialDocumentPatterns(api.runtime.getURL);
-  const refreshResult = await createContextMenu(api, {
+  const barePatterns = dialBareDocumentPatterns(api.runtime.getURL);
+  const bareResult = await createContextMenu(api, {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
-    documentUrlPatterns: patterns,
+    documentUrlPatterns: barePatterns,
   });
-  tempMenuLog("ensureMenu: Refresh All create", {
-    ok: refreshResult.ok,
-    error: refreshResult.error,
-    patterns,
+  tempMenuLog("ensureMenu: Refresh All BARE create", {
+    ok: bareResult.ok,
+    error: bareResult.error,
+    patterns: barePatterns,
   });
-  // Do not fall back to exact-only on failure: duplicate-id errors are a race
-  // symptom (fixed by serialization above). Demoting patterns broke ?folder=.
+
+  const deeplinkPatterns = dialDeeplinkDocumentPatterns(api.runtime.getURL);
+  const deeplinkResult = await createContextMenu(api, {
+    id: REFRESH_ALL_DEEPLINK_MENU_ID,
+    title: t("context_refresh_all_thumbnails"),
+    contexts: ["page"],
+    documentUrlPatterns: deeplinkPatterns,
+  });
+  tempMenuLog("ensureMenu: Refresh All DEEPLINK create", {
+    ok: deeplinkResult.ok,
+    error: deeplinkResult.error,
+    patterns: deeplinkPatterns,
+  });
 }
 
 export function clearContextMenus(api: BackgroundChrome): Promise<void> {
@@ -255,13 +287,22 @@ export async function requestRefreshAllThumbnails(
   }
 }
 
+export function isRefreshAllMenuId(id: string | number): boolean {
+  return id === REFRESH_ALL_MENU_ID || id === REFRESH_ALL_DEEPLINK_MENU_ID;
+}
+
 export function registerContextMenuClicks(api: BackgroundChrome): void {
   api.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === ADD_MENU_ID) {
       void openAddWindow(api, info, tab);
       return;
     }
-    if (info.menuItemId === REFRESH_ALL_MENU_ID) {
+    if (isRefreshAllMenuId(info.menuItemId)) {
+      tempMenuLog("onClicked Refresh All", {
+        menuItemId: info.menuItemId,
+        pageUrl: info.pageUrl ?? null,
+        tabUrl: tab?.url ?? null,
+      });
       void requestRefreshAllThumbnails(api, tab);
     }
   });

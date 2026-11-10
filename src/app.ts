@@ -41,7 +41,10 @@ import {
   thumbnailRefreshFailureSummary,
 } from "./thumbnail-refresh.ts";
 import type { BookmarksApi } from "./browser.ts";
-import { REFRESH_ALL_MENU_ID, TEMP_CONTEXT_MENU_DIAGNOSTICS } from "./background-service.ts";
+import {
+  REFRESH_ALL_MENU_IDS,
+  TEMP_CONTEXT_MENU_DIAGNOSTICS,
+} from "./background-service.ts";
 import { confirmDialog, type ConfirmDialogOptions } from "./dialog.ts";
 import { fetchImageAsDataUrl, fileToDataUrl, imageSourceUrl, imageUrlInvalidMessage, type ImagesApi } from "./images.ts";
 import { t } from "./i18n.ts";
@@ -234,18 +237,22 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
   const syncRefreshAllContextMenu = (visible: boolean): void => {
     const api = tryExtensionApi();
     try {
-      // Visibility is global to the menu item (not per-tab). Hidden when the
+      // Visibility is global to each menu item (not per-tab). Hidden when the
       // open folder has no direct http(s) dials (canRefreshAll). Not gated on
       // the thumbnails capture toggle — that only changes the ⋮ label.
-      api?.contextMenus?.update?.(REFRESH_ALL_MENU_ID, { visible }, () => {
-        if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
-        const err = api.runtime?.lastError?.message;
-        console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu", {
-          visible,
-          lastError: err ?? null,
-          href: typeof location !== "undefined" ? location.href : null,
+      // Bare + deeplink are separate contextMenus ids (different URL patterns).
+      for (const menuId of REFRESH_ALL_MENU_IDS) {
+        api?.contextMenus?.update?.(menuId, { visible }, () => {
+          if (!TEMP_CONTEXT_MENU_DIAGNOSTICS) return;
+          const err = api.runtime?.lastError?.message;
+          console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu", {
+            menuId,
+            visible,
+            lastError: err ?? null,
+            href: typeof location !== "undefined" ? location.href : null,
+          });
         });
-      });
+      }
     } catch (error) {
       if (TEMP_CONTEXT_MENU_DIAGNOSTICS) {
         console.warn("[hearth:TEMP menu] dial syncRefreshAllContextMenu threw", error);
@@ -868,6 +875,13 @@ export function start(host: HTMLElement, ports: AppPorts): () => void {
 
   void (async () => {
     try {
+      if (TEMP_CONTEXT_MENU_DIAGNOSTICS && typeof location !== "undefined") {
+        console.warn("[hearth:TEMP menu] dial boot location", {
+          href: location.href,
+          search: location.search,
+          hash: location.hash,
+        });
+      }
       const defaultFolderId = await ports.settings.getDefaultFolderId();
       const openFolderId = await ports.settings.getOpenFolderId();
       state.defaultFolderId = defaultFolderId;
