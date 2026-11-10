@@ -213,13 +213,12 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
         title.textContent = crumb.title;
       }
       current.append(title);
-      if (currentFolderMenuAvailable(view)) {
-        current.append(
-          menuButton(t("actions_for", crumb.title), view.saving, (button) => {
-            openCurrentFolderMenu(view, actions, button);
-          }),
-        );
-      }
+      // Always show ⋮ — Copy folder link applies to every folder, including root.
+      current.append(
+        menuButton(t("actions_for", crumb.title), view.saving, (button) => {
+          openCurrentFolderMenu(view, actions, button);
+        }),
+      );
       nav.append(current);
       return;
     }
@@ -1063,11 +1062,6 @@ function openActionMenu(
     closeOnBackdrop: true,
     closeOnEscape: true,
   });
-}
-
-/** Current-folder ⋮ is always available — Copy folder link applies to every folder. */
-function currentFolderMenuAvailable(_view: Extract<ViewModel, { name: "grid" }>): boolean {
-  return true;
 }
 
 function openCurrentFolderMenu(
