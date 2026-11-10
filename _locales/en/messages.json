@@ -106,6 +106,9 @@
   "menu_delete": {
     "message": "Delete"
   },
+  "menu_copy_folder_link": {
+    "message": "Copy folder link"
+  },
   "menu_refresh_all": {
     "message": "Refresh All Thumbnails"
   },
@@ -324,6 +327,12 @@
   },
   "help_default_folder": {
     "message": "Unset keeps recalling the last folder you had open. Set a folder and each new window / new tab starts there; navigating still updates last-open for when this is unset."
+  },
+  "help_folder_link": {
+    "message": "Middle-click a folder tile or use ⋮ → Copy folder link for a bookmarkable dial URL in this profile. Chromium store ids differ across browsers; Firefox’s moz-extension UUID is not portable across profiles or devices. Bookmark folder ids stay on this device, so Sync of that URL can fail to open the same folder elsewhere."
+  },
+  "note_folder_link_copied": {
+    "message": "Folder link copied."
   },
   "switch_thumbnails_title": {
     "message": "Generate dial thumbnails"

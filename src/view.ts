@@ -117,6 +117,8 @@ let settingsOpen = false;
 let searchCaret: { start: number; end: number } | null = null;
 /** Request focus on the search field after the next render (`/` shortcut). */
 let focusSearchAfterRender = false;
+/** Ephemeral “copied” toast on document.body (survives dial re-renders). */
+let statusToastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function requestSearchFocus(): void {
   focusSearchAfterRender = true;
@@ -211,13 +213,12 @@ function grid(view: Extract<ViewModel, { name: "grid" }>, actions: ViewActions):
         title.textContent = crumb.title;
       }
       current.append(title);
-      if (currentFolderMenuAvailable(view)) {
-        current.append(
-          menuButton(t("actions_for", crumb.title), view.saving, (button) => {
-            openCurrentFolderMenu(view, actions, button);
-          }),
-        );
-      }
+      // Always show ⋮ — Copy folder link applies to every folder, including root.
+      current.append(
+        menuButton(t("actions_for", crumb.title), view.saving, (button) => {
+          openCurrentFolderMenu(view, actions, button);
+        }),
+      );
       nav.append(current);
       return;
     }
@@ -548,6 +549,10 @@ function openSettingsDialog(
   folderHelp.textContent =
     t("help_default_folder");
   displayCategory.append(folderHelp);
+  const folderLinkHelp = document.createElement("span");
+  folderLinkHelp.className = "settings-help";
+  folderLinkHelp.textContent = t("help_folder_link");
+  displayCategory.append(folderLinkHelp);
   body.append(displayCategory);
 
   let themeBackground: string | null = null;
@@ -1043,6 +1048,11 @@ function openActionMenu(
   addItem(t("menu_picture"), iconPicture(), () =>
     openPictureMenu(item, actions, anchor, thumbnailsActive, imageUrlFetchActive),
   );
+  if (item.kind === "folder") {
+    addItem(t("menu_copy_folder_link"), iconLink(), () => {
+      void copyFolderDeepLink(item.id);
+    });
+  }
   addItem(t("menu_delete"), iconDelete(), () => actions.requestDelete(item.id), true);
 
   const handle = openDialog({
@@ -1052,11 +1062,6 @@ function openActionMenu(
     closeOnBackdrop: true,
     closeOnEscape: true,
   });
-}
-
-/** True when the current-folder ⋮ menu has at least one entry to show. */
-function currentFolderMenuAvailable(view: Extract<ViewModel, { name: "grid" }>): boolean {
-  return view.canRenameCurrent || view.canDeleteCurrent || view.canRefreshAll;
 }
 
 function openCurrentFolderMenu(
@@ -1102,6 +1107,10 @@ function openCurrentFolderMenu(
       ),
     );
   }
+
+  addItem(t("menu_copy_folder_link"), iconLink(), () => {
+    void copyFolderDeepLink(view.currentFolder.id);
+  });
 
   // Omit Refresh All when this folder has no direct http(s) bookmarks — root
   // and empty folders used to show a disabled item that still led users into
@@ -1634,6 +1643,37 @@ function alertLine(message: string): HTMLParagraphElement {
   const copy = note(message, "error");
   copy.setAttribute("role", "alert");
   return copy;
+}
+
+/**
+ * Copy `runtime.getURL("index.html?folder=…")` for a folder tile / breadcrumb.
+ * Extension pages usually need no clipboard permission for writeText.
+ */
+async function copyFolderDeepLink(id: string): Promise<void> {
+  const href = folderDeepLinkHref(id);
+  try {
+    await navigator.clipboard.writeText(href);
+    flashStatus(t("note_folder_link_copied"));
+  } catch {
+    // Clipboard may be unavailable in tests / restricted contexts — stay quiet.
+  }
+}
+
+/** Brief non-modal status toast (Settings uses `.settings-saved`; dial has no banner success path). */
+function flashStatus(message: string): void {
+  const doc = document;
+  doc.querySelector(".status-toast")?.remove();
+  if (statusToastTimer !== null) {
+    clearTimeout(statusToastTimer);
+    statusToastTimer = null;
+  }
+  const toast = note(message, "status-toast");
+  toast.setAttribute("role", "status");
+  doc.body.append(toast);
+  statusToastTimer = setTimeout(() => {
+    toast.remove();
+    statusToastTimer = null;
+  }, 2000);
 }
 
 function svgIcon(paths: string): SVGSVGElement {

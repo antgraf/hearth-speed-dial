@@ -196,6 +196,10 @@ export function startSettings(
     folderHelp.textContent =
       t("help_default_folder");
     displayCategory.append(folderHelp);
+    const folderLinkHelp = document.createElement("span");
+    folderLinkHelp.className = "settings-help";
+    folderLinkHelp.textContent = t("help_folder_link");
+    displayCategory.append(folderLinkHelp);
     form.append(displayCategory);
 
     themeControls = buildThemeCategory({

@@ -130,6 +130,23 @@ test("settings Pictures shows a labeled Dial picture storage readout", async () 
   );
 });
 
+test("settings Display explains folder deep-link Sync limits", async () => {
+  const host = kit.document.createElement("div");
+  kit.document.body.replaceChildren(host);
+  startSettings(host, fakeSettings(), null, undefined, fakeBookmarks(), fakeImages());
+  await settle();
+
+  assert.ok(
+    [...host.querySelectorAll(".settings-category-title")].some((el) => el.textContent === t("cat_display")),
+  );
+  const helps = [...host.querySelectorAll(".settings-help")].map((el) => el.textContent ?? "");
+  assert.ok(helps.includes(t("help_default_folder")));
+  assert.ok(helps.includes(t("help_folder_link")));
+  assert.match(t("help_folder_link"), /moz-extension/i);
+  assert.match(t("help_folder_link"), /Sync/i);
+  assert.match(t("help_folder_link"), /Chromium store ids/i);
+});
+
 test("settings Theme category exposes mode, accent, and local wallpaper controls", async () => {
   const host = kit.document.createElement("div");
   kit.document.body.replaceChildren(host);
