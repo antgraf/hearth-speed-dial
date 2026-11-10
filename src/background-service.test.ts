@@ -6,6 +6,7 @@ import {
   REFRESH_ALL_MENU_ID,
   WEB_DOCUMENT_PATTERNS,
   addPopupCreateData,
+  detectDialNtpKind,
   dialDocumentPatterns,
   ensureMenu,
   registerBackgroundMenus,
@@ -96,17 +97,31 @@ test("ADD_WINDOW pins the Add-to-Hearth popup size", () => {
   assert.equal(createData.url, "ext://add.html?url=https%3A%2F%2Fexample.com%2F");
 });
 
+test("detectDialNtpKind treats Edg/ as Edge and everything else as Chrome", () => {
+  assert.equal(detectDialNtpKind("Mozilla/5.0 Edg/120.0.0.0"), "edge");
+  assert.equal(detectDialNtpKind("Mozilla/5.0 Chrome/120.0.0.0"), "chrome");
+  assert.equal(detectDialNtpKind(""), "chrome");
+});
+
 test("dialDocumentPatterns covers chrome://newtab plus extension dial URLs", () => {
-  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`), [
+  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`, "chrome"), [
     "chrome://newtab/",
     "chrome://newtab/*",
+    "chrome-extension://id/index.html",
+    "chrome-extension://id/index.html?*",
+  ]);
+  assert.deepEqual(dialDocumentPatterns((path) => `chrome-extension://id/${path}`, "edge"), [
     "edge://newtab/",
     "edge://newtab/*",
     "chrome-extension://id/index.html",
     "chrome-extension://id/index.html?*",
   ]);
   // Bare NTP uses chrome://newtab/ for contextMenus — extension path alone is not enough.
-  assert.ok(dialDocumentPatterns((path) => `chrome-extension://id/${path}`).includes("chrome://newtab/"));
+  assert.ok(
+    dialDocumentPatterns((path) => `chrome-extension://id/${path}`, "chrome").includes(
+      "chrome://newtab/",
+    ),
+  );
 });
 
 test("ensureMenu registers Add http(s)-only and Refresh All with NTP + dial patterns", async () => {
@@ -120,6 +135,7 @@ test("ensureMenu registers Add http(s)-only and Refresh All with NTP + dial patt
     contexts: ["page", "link"],
     documentUrlPatterns: [...WEB_DOCUMENT_PATTERNS],
   });
+  // Node test runner has no Edg/ UA → chrome NTP patterns only (no edge:// retry).
   assert.deepEqual(api.menus[1], {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
@@ -128,8 +144,6 @@ test("ensureMenu registers Add http(s)-only and Refresh All with NTP + dial patt
     documentUrlPatterns: [
       "chrome://newtab/",
       "chrome://newtab/*",
-      "edge://newtab/",
-      "edge://newtab/*",
       "chrome-extension://hearth-test/index.html",
       "chrome-extension://hearth-test/index.html?*",
     ],
@@ -177,42 +191,10 @@ test("ensureMenu serializes overlapping calls without duplicate ids", async () =
   assert.deepEqual(refreshMenus[0]?.documentUrlPatterns, [
     "chrome://newtab/",
     "chrome://newtab/*",
-    "edge://newtab/",
-    "edge://newtab/*",
     "chrome-extension://hearth-test/index.html",
     "chrome-extension://hearth-test/index.html?*",
   ]);
   assert.equal(refreshMenus[0]?.visible, true);
-});
-
-test("ensureMenu retries Refresh All without edge:// when create rejects them", async () => {
-  const api = fakeChrome();
-  let refreshCreates = 0;
-  api.contextMenus.create = (createProperties, callback) => {
-    api.calls.push(`contextMenus.create:${String(createProperties.id)}`);
-    api.menus.push(createProperties);
-    if (createProperties.id === REFRESH_ALL_MENU_ID) {
-      refreshCreates += 1;
-      const patterns = createProperties.documentUrlPatterns ?? [];
-      if (refreshCreates === 1 && patterns.some((p) => p.startsWith("edge:"))) {
-        api.runtime.lastError = { message: "Invalid url pattern 'edge://newtab/'" };
-        callback?.();
-        api.runtime.lastError = null;
-        return createProperties.id ?? "menu";
-      }
-    }
-    callback?.();
-    return createProperties.id ?? "menu";
-  };
-  await ensureMenu(api);
-  assert.equal(refreshCreates, 2);
-  const refreshMenus = api.menus.filter((menu) => menu.id === REFRESH_ALL_MENU_ID);
-  assert.deepEqual(refreshMenus[1]?.documentUrlPatterns, [
-    "chrome://newtab/",
-    "chrome://newtab/*",
-    "chrome-extension://hearth-test/index.html",
-    "chrome-extension://hearth-test/index.html?*",
-  ]);
 });
 
 test("ensureMenu works when removeAll is promise-only (Firefox browser.*)", async () => {

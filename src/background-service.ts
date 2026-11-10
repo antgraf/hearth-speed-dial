@@ -109,33 +109,41 @@ export function createContextMenu(
   });
 }
 
+/** NTP scheme for contextMenus documentUrlPatterns (Chrome rejects edge://). */
+export type DialNtpKind = "chrome" | "edge";
+
+export const CHROME_NTP_DOCUMENT_PATTERNS = ["chrome://newtab/", "chrome://newtab/*"] as const;
+export const EDGE_NTP_DOCUMENT_PATTERNS = ["edge://newtab/", "edge://newtab/*"] as const;
+
 /**
- * Browser NTP override document URLs (contextMenus match these, not the
- * bundled extension path). Anton logged bare dial as `chrome://newtab/`.
+ * Edge Chromium UA includes `Edg/` (not legacy `Edge/`). Service workers expose
+ * `navigator.userAgent`; Node tests pass an explicit string.
  */
-export const DIAL_NTP_DOCUMENT_PATTERNS = [
-  "chrome://newtab/",
-  "chrome://newtab/*",
-  "edge://newtab/",
-  "edge://newtab/*",
-] as const;
+export function detectDialNtpKind(
+  userAgent: string = typeof navigator !== "undefined" ? navigator.userAgent ?? "" : "",
+): DialNtpKind {
+  return /\bEdg\//.test(userAgent) ? "edge" : "chrome";
+}
+
+export function dialNtpDocumentPatterns(kind: DialNtpKind): readonly string[] {
+  return kind === "edge" ? EDGE_NTP_DOCUMENT_PATTERNS : CHROME_NTP_DOCUMENT_PATTERNS;
+}
 
 /**
  * Refresh All documentUrlPatterns:
- * - chrome://newtab/ (+ /*) / edge://newtab/ — Ctrl+T NTP override tabs
+ * - chrome://newtab/ (+ /*) on Chrome — Ctrl+T NTP override (Anton: bare dial)
+ * - edge://newtab/ (+ /*) only when Edge UA — Chrome rejects edge:// as invalid
  * - getURL("index.html") — direct extension open
  * - getURL("index.html") + "?*" — middle-click / ?folder= deep links
  *
  * Extension-only patterns never match bare NTP (document URL stays chrome://newtab/).
  */
-export function dialDocumentPatterns(getURL: (path: string) => string): string[] {
+export function dialDocumentPatterns(
+  getURL: (path: string) => string,
+  kind: DialNtpKind = detectDialNtpKind(),
+): string[] {
   const dial = getURL("index.html");
-  return [...DIAL_NTP_DOCUMENT_PATTERNS, dial, `${dial}?*`];
-}
-
-/** Patterns without edge:// (Chrome may reject edge: as invalid in match patterns). */
-export function dialDocumentPatternsChromiumOnly(getURL: (path: string) => string): string[] {
-  return dialDocumentPatterns(getURL).filter((pattern) => !pattern.startsWith("edge:"));
+  return [...dialNtpDocumentPatterns(kind), dial, `${dial}?*`];
 }
 
 /**
@@ -168,9 +176,9 @@ async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
     note: "Add should NOT appear on dial (http/https only)",
   });
 
-  const fullPatterns = dialDocumentPatterns(api.runtime.getURL);
-  let patterns = fullPatterns;
-  let refreshResult = await createContextMenu(api, {
+  const ntpKind = detectDialNtpKind();
+  const patterns = dialDocumentPatterns(api.runtime.getURL, ntpKind);
+  const refreshResult = await createContextMenu(api, {
     id: REFRESH_ALL_MENU_ID,
     title: t("context_refresh_all_thumbnails"),
     contexts: ["page"],
@@ -183,27 +191,9 @@ async function ensureMenuUnlocked(api: BackgroundChrome): Promise<void> {
     ok: refreshResult.ok,
     error: refreshResult.error,
     patterns,
+    ntpKind,
     visible: true,
   });
-
-  // Chrome may reject edge:// in match patterns; retry without Edge NTP entries.
-  if (!refreshResult.ok) {
-    patterns = dialDocumentPatternsChromiumOnly(api.runtime.getURL);
-    refreshResult = await createContextMenu(api, {
-      id: REFRESH_ALL_MENU_ID,
-      title: t("context_refresh_all_thumbnails"),
-      contexts: ["page"],
-      visible: true,
-      documentUrlPatterns: patterns,
-    });
-    tempMenuLog("ensureMenu: Refresh All create RETRY without edge://", {
-      ok: refreshResult.ok,
-      error: refreshResult.error,
-      patterns,
-      visible: true,
-      priorError: fullPatterns === patterns ? null : "edge patterns dropped",
-    });
-  }
 }
 
 export function clearContextMenus(api: BackgroundChrome): Promise<void> {
