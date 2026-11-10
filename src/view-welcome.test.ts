@@ -33,6 +33,9 @@ afterEach(() => {
   for (const root of kit.document.querySelectorAll(".dialog-root")) {
     root.remove();
   }
+  for (const toast of kit.document.querySelectorAll(".status-toast")) {
+    toast.remove();
+  }
 });
 
 function gridView(overrides: Partial<Extract<ViewModel, { name: "grid" }>> = {}): Extract<
@@ -180,7 +183,7 @@ test("folder ⋮ omits Refresh All when canRefreshAll is false", () => {
   );
 });
 
-test("bookmark root without refreshable dials hides the folder ⋮ entirely", () => {
+test("bookmark root without rename/delete/refresh still shows ⋮ for Copy folder link", () => {
   render(
     kit.host,
     gridView({
@@ -194,7 +197,11 @@ test("bookmark root without refreshable dials hides the folder ⋮ entirely", ()
     }),
     actions(),
   );
-  assert.equal(kit.host.querySelector(".current .action-menu"), null);
+  const folderMenu = kit.host.querySelector<HTMLButtonElement>(".current .action-menu");
+  assert.ok(folderMenu, "expected current-folder ⋮ for Copy folder link");
+  folderMenu.click();
+  const labels = [...kit.document.querySelectorAll(".dialog-menu-item")].map((el) => el.textContent ?? "");
+  assert.deepEqual(labels, [t("menu_copy_folder_link")]);
 });
 
 test("Refresh All appears in the folder ⋮ when canRefreshAll is true", () => {

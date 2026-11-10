@@ -266,6 +266,22 @@ h1 {
   color: var(--note);
 }
 
+/* Brief dial feedback (e.g. Copy folder link) — lives on body so re-renders keep it. */
+.status-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  z-index: 1100;
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raise);
+  color: var(--note);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .welcome {
   margin: 20px 0 8px;
   padding: 18px 20px 16px;
